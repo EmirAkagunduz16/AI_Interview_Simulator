@@ -1,135 +1,253 @@
-# Turborepo starter
+# 🏋️ AI-Coach
 
-This Turborepo starter is maintained by the Turborepo core team.
+A modern full-stack application built with a monorepo architecture, combining a Next.js frontend with NestJS microservices backend.
 
-## Using this example
+## 📋 Table of Contents
 
-Run the following command:
+- [Overview](#overview)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Available Scripts](#available-scripts)
+- [Development](#development)
+- [Building for Production](#building-for-production)
+- [Architecture](#architecture)
 
-```sh
-npx create-turbo@latest
+## 🎯 Overview
+
+AI-Coach is a full-stack application built with cutting-edge technologies, leveraging Turborepo for efficient monorepo management. The project consists of a Next.js web application and a NestJS microservices backend, sharing common packages and configurations.
+
+## 🛠️ Tech Stack
+
+### Frontend
+- **[Next.js 16](https://nextjs.org/)** - React framework with App Router
+- **[React 19](https://react.dev/)** - UI library
+- **TypeScript** - Type safety
+
+### Backend
+- **[NestJS 11](https://nestjs.com/)** - Progressive Node.js framework
+- **Express** - HTTP server
+
+### Monorepo Management
+- **[Turborepo](https://turbo.build/repo)** - High-performance build system
+- **[pnpm](https://pnpm.io/)** - Fast, disk space efficient package manager
+
+### Code Quality
+- **[TypeScript](https://www.typescriptlang.org/)** - Static type checking
+- **[ESLint](https://eslint.org/)** - Code linting
+- **[Prettier](https://prettier.io)** - Code formatting
+
+## 📁 Project Structure
+
+```
+AI-Coach/
+├── apps/
+│   ├── web/                    # Next.js frontend application
+│   │   ├── app/               # Next.js App Router pages
+│   │   ├── public/            # Static assets
+│   │   └── package.json
+│   │
+│   └── microservices/         # NestJS backend services
+│       ├── src/               # Source code
+│       └── package.json
+│
+├── packages/
+│   ├── ui/                    # Shared React components library
+│   ├── eslint-config/         # Shared ESLint configurations
+│   └── typescript-config/     # Shared TypeScript configurations
+│
+├── package.json               # Root package.json
+├── turbo.json                # Turborepo configuration
+└── pnpm-workspace.yaml       # pnpm workspace configuration
 ```
 
-## What's inside?
+## 🚀 Getting Started
 
-This Turborepo includes the following packages/apps:
+### Prerequisites
 
-### Apps and Packages
+- **Node.js** >= 18
+- **pnpm** 9.0.0 (will be automatically used via packageManager field)
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+### Installation
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd AI-Coach
+```
 
-### Utilities
+2. Install dependencies:
+```bash
+pnpm install
+```
 
-This Turborepo has some additional tools already setup for you:
+## 📜 Available Scripts
 
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
+Run these commands from the root directory:
+
+### Development
+```bash
+# Start all applications in development mode
+pnpm dev
+
+# Start specific app
+pnpm --filter web dev
+pnpm --filter microservices dev
+```
 
 ### Build
+```bash
+# Build all applications
+pnpm build
 
-To build all apps and packages, run the following command:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+# Build specific app
+pnpm --filter web build
+pnpm --filter microservices build
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+### Code Quality
+```bash
+# Lint all packages
+pnpm lint
 
-```
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=docs
+# Format code with Prettier
+pnpm format
 
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-```
-
-### Develop
-
-To develop all apps and packages, run the following command:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
+# Type check all packages
+pnpm check-types
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+## 💻 Development
 
-```
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev --filter=web
+### Running the Full Stack
 
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
+Start both the web app and microservices simultaneously:
+
+```bash
+pnpm dev
 ```
 
-### Remote Caching
+This will start:
+- **Web App**: [http://localhost:3000](http://localhost:3000)
+- **Microservices**: [http://localhost:3001](http://localhost:3001) (default NestJS port)
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+### Working with Individual Apps
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo login
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
+**Web Application (Next.js)**
+```bash
+cd apps/web
+pnpm dev          # Start dev server
+pnpm build        # Create production build
+pnpm start        # Start production server
 ```
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-```
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo link
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
+**Microservices (NestJS)**
+```bash
+cd apps/microservices
+pnpm dev          # Start with watch mode
+pnpm start:debug  # Start with debugging
+pnpm start:prod   # Start production build
+pnpm test         # Run tests
 ```
 
-## Useful Links
+## 🏗️ Building for Production
 
-Learn more about the power of Turborepo:
+Build all applications:
 
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+```bash
+pnpm build
+```
+
+The build artifacts will be:
+- **Web**: `.next/` directory in `apps/web/`
+- **Microservices**: `dist/` directory in `apps/microservices/`
+
+### Production Deployment
+
+**Web Application**
+```bash
+cd apps/web
+pnpm build
+pnpm start  # Starts production server
+```
+
+**Microservices**
+```bash
+cd apps/microservices
+pnpm build
+pnpm start:prod  # Runs production build
+```
+
+## 🏛️ Architecture
+
+### Monorepo Benefits
+
+- **Code Sharing**: Share common components, utilities, and configurations across apps
+- **Atomic Changes**: Make changes across multiple packages in a single commit
+- **Unified Versioning**: Manage dependencies consistently across the workspace
+- **Faster Builds**: Turborepo caches build outputs and parallelizes tasks
+
+### Shared Packages
+
+**@repo/ui**
+- Shared React component library
+- Used by web application
+- Built with TypeScript
+
+**@repo/eslint-config**
+- Centralized ESLint configurations
+- Includes Next.js and Prettier configs
+- Ensures consistent code style
+
+**@repo/typescript-config**
+- Shared TypeScript configurations
+- Base configs for different project types
+- Maintains type safety standards
+
+### Turborepo Features
+
+This project leverages Turborepo's powerful features:
+
+- **Smart Caching**: Only rebuilds what changed
+- **Parallel Execution**: Runs tasks concurrently for speed
+- **Task Dependencies**: Automatically determines build order
+- **Remote Caching**: Share cache across team (when configured)
+
+## 📦 Adding New Packages
+
+To add a new shared package:
+
+1. Create a new directory in `packages/`
+2. Add a `package.json` with a name starting with `@repo/`
+3. Reference it in other packages using `workspace:*`
+4. Run `pnpm install` to link the workspace dependency
+
+Example:
+```bash
+mkdir packages/my-package
+cd packages/my-package
+pnpm init
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📝 License
+
+This project is licensed under the UNLICENSED license.
+
+## 🔗 Useful Links
+
+- [Turborepo Documentation](https://turbo.build/repo/docs)
+- [Next.js Documentation](https://nextjs.org/docs)
+- [NestJS Documentation](https://docs.nestjs.com)
+- [pnpm Documentation](https://pnpm.io)
+
+---
+
+Built with ❤️ using Turborepo
