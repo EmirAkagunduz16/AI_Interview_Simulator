@@ -11,10 +11,16 @@
     "check-types": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/material": "^7.3.7",
+    "@reduxjs/toolkit": "^2.11.2",
     "@repo/ui": "workspace:*",
     "next": "16.1.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "react-redux": "^9.2.0",
+    "sass": "^1.97.3"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
@@ -24,5 +30,9 @@
     "@types/react-dom": "19.2.2",
     "eslint": "^9.39.1",
     "typescript": "5.9.2"
+  },
+  "peerDependencies": {
+    "react": "^17.0.0 || ^18.0.0 || ^19.0.0",
+    "react-dom": "^17.0.0 || ^18.0.0 || ^19.0.0"
   }
 }

@@ -1,0 +1,26 @@
+.top-palette-container {
+  display: flex;
+  height: 10px;
+
+  .red {
+    flex: 1;
+    background-color: red;
+  }
+
+  .orange {
+    flex: 1;
+    background-color: orange;
+  }
+  .light-green {
+    flex: 1;
+    background-color: lightgreen;
+  }
+  .dark-green {
+    flex: 1;
+    background-color: darkgreen;
+  }
+  .blue {
+    flex: 1;
+    background-color: blue;
+  }
+}
