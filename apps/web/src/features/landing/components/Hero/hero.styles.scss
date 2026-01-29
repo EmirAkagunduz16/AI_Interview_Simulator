@@ -1,0 +1,243 @@
+.hero {
+  min-height: calc(100vh - 78px);
+  display: flex;
+  align-items: center;
+  padding: 60px 80px;
+  position: relative;
+  overflow: hidden;
+
+  &__background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 0;
+  }
+
+  &__gradient {
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 80%;
+    height: 150%;
+    background: radial-gradient(ellipse at center, rgba(0, 191, 165, 0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  &__pattern {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+      radial-gradient(rgba(0, 191, 165, 0.1) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.5;
+  }
+
+  &__content {
+    flex: 1;
+    max-width: 600px;
+    z-index: 1;
+  }
+
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, rgba(0, 191, 165, 0.15), rgba(0, 191, 165, 0.05));
+    border: 1px solid rgba(0, 191, 165, 0.3);
+    border-radius: 50px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #00bfa5;
+    margin-bottom: 24px;
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+  }
+
+  &__badge-icon {
+    font-size: 16px;
+  }
+
+  &__title {
+    font-size: 56px;
+    font-weight: 800;
+    color: #1a1a2e;
+    line-height: 1.1;
+    margin-bottom: 24px;
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+    letter-spacing: -1px;
+  }
+
+  &__title-highlight {
+    background: linear-gradient(135deg, #00bfa5, #00897b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  &__subtitle {
+    font-size: 18px;
+    color: #666;
+    line-height: 1.7;
+    margin-bottom: 40px;
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+  }
+
+  &__cta {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+
+  &__btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 32px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+
+    &--primary {
+      background: linear-gradient(135deg, #00bfa5, #00897b);
+      color: #fff;
+      border: none;
+      box-shadow: 0 4px 20px rgba(0, 191, 165, 0.3);
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 30px rgba(0, 191, 165, 0.4);
+      }
+    }
+
+    &--secondary {
+      background: transparent;
+      color: #1a1a2e;
+      border: 2px solid #e0e0e0;
+
+      &:hover {
+        border-color: #00bfa5;
+        color: #00bfa5;
+      }
+    }
+  }
+
+  &__stats {
+    display: flex;
+    gap: 48px;
+  }
+
+  &__stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__stat-number {
+    font-size: 28px;
+    font-weight: 800;
+    color: #1a1a2e;
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+  }
+
+  &__stat-label {
+    font-size: 13px;
+    color: #888;
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+  }
+
+  &__visual {
+    flex: 1;
+    position: relative;
+    height: 500px;
+    z-index: 1;
+  }
+
+  &__card {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 24px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a2e;
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+    animation: float 6s ease-in-out infinite;
+
+    &--1 {
+      top: 10%;
+      right: 20%;
+      animation-delay: 0s;
+    }
+
+    &--2 {
+      top: 35%;
+      right: 5%;
+      animation-delay: 1.5s;
+    }
+
+    &--3 {
+      top: 60%;
+      right: 25%;
+      animation-delay: 3s;
+    }
+
+    &--4 {
+      top: 45%;
+      right: 40%;
+      animation-delay: 4.5s;
+    }
+  }
+
+  &__card-icon {
+    font-size: 24px;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-15px);
+  }
+}
+
+@media (max-width: 1024px) {
+  .hero {
+    flex-direction: column;
+    padding: 40px 24px;
+    text-align: center;
+
+    &__content {
+      max-width: 100%;
+    }
+
+    &__title {
+      font-size: 40px;
+    }
+
+    &__cta {
+      justify-content: center;
+    }
+
+    &__stats {
+      justify-content: center;
+    }
+
+    &__visual {
+      display: none;
+    }
+  }
+}

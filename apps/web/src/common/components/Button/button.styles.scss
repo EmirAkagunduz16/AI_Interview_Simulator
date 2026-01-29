@@ -1,0 +1,31 @@
+.btn {
+  padding: 12px 32px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  min-width: 100px;
+
+  &--primary {
+    background: #00bfa5;
+    color: #fff;
+    border: 2px solid #00bfa5;
+
+    &:hover {
+      background: #00a896;
+      border-color: #00a896;
+    }
+  }
+
+  &--secondary {
+    background: #fff;
+    color: #00bfa5;
+    border: 2px solid #00bfa5;
+
+    &:hover {
+      background: rgba(0, 191, 165, 0.1);
+    }
+  }
+}

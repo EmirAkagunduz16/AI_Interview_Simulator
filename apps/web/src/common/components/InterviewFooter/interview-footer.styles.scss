@@ -1,0 +1,31 @@
+.interview-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20px 60px;
+  background: #fff;
+
+  &__action {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+
+  &__note {
+    text-align: center;
+    font-size: 13px;
+    color: #333;
+    font-weight: 500;
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+  }
+
+  &__media {
+    position: fixed;
+    bottom: 20px;
+    right: 60px;
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+  }
+}

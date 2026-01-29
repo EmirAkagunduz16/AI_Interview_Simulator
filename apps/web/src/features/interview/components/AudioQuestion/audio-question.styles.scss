@@ -1,0 +1,32 @@
+.audio-question {
+  padding-bottom: 180px;
+
+  &__content {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    text-align: center;
+  }
+
+  &__title {
+    font-size: 32px;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin-bottom: 24px;
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+  }
+
+  &__text {
+    font-size: 16px;
+    color: #333;
+    line-height: 1.7;
+    margin-bottom: 40px;
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+  }
+
+  &__text-link {
+    color: #00bfa5;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+}

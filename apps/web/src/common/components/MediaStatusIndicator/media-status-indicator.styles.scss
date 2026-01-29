@@ -1,0 +1,52 @@
+.media-status {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #666;
+  }
+
+  &__bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 16px;
+  }
+
+  &__bar {
+    width: 4px;
+    background: #ddd;
+    border-radius: 2px;
+    transition: background-color 0.2s ease;
+
+    &:nth-child(1) {
+      height: 6px;
+    }
+
+    &:nth-child(2) {
+      height: 10px;
+    }
+
+    &:nth-child(3) {
+      height: 14px;
+    }
+
+    &.active {
+      &:nth-child(1) {
+        background: #00bfa5;
+      }
+
+      &:nth-child(2) {
+        background: #f39c12;
+      }
+
+      &:nth-child(3) {
+        background: #e74c3c;
+      }
+    }
+  }
+}

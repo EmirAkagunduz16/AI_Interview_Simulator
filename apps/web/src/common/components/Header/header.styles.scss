@@ -1,0 +1,97 @@
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 60px;
+  background-color: #fff;
+
+  &__logo {
+    display: flex;
+    align-items: center;
+  }
+
+  &__right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  &__timer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border: 2px solid #ff4757;
+    border-radius: 50px;
+    color: #ff4757;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+
+    svg {
+      stroke: currentColor;
+    }
+  }
+
+  &__faqs-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 24px;
+    border: 2px solid #ff4757;
+    border-radius: 50px;
+    background: transparent;
+    color: #ff4757;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+
+    &:hover {
+      background: #ff4757;
+      color: #fff;
+    }
+  }
+
+  &__faqs-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: bold;
+  }
+
+  &__user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-left: 20px;
+    border-left: 1px solid #e0e0e0;
+  }
+
+  &__user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #00bfa5, #00897b);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 600;
+    font-size: 14px;
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+  }
+
+  &__user-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+  }
+}
