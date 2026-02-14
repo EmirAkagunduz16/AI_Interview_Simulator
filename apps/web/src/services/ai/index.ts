@@ -1,3 +1,2 @@
-export { useAIInterview } from './useAIInterview'
-export { AI_CONFIG } from './config'
-export type { AIConfig } from './config'
+// Old AI service files (useAIInterview, config) have been removed.
+// Voice interviews now use the VAPI hook at features/interview/hooks/useVapi.ts
