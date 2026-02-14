@@ -10,7 +10,6 @@ import {
 } from "kafkajs";
 import { KafkaTopics, IKafkaEvent } from "@ai-coach/shared-types";
 import { GeminiService } from "../ai/ai.service";
-import { SupabaseService } from "../ai/supabase.service";
 import { AiModule } from "../ai/ai.module";
 import { v4 as uuidv4 } from "uuid";
 
@@ -35,7 +34,6 @@ export class KafkaHandlersModule implements OnModuleInit {
   constructor(
     private readonly configService: ConfigService,
     private readonly geminiService: GeminiService,
-    private readonly supabaseService: SupabaseService,
   ) {}
 
   async onModuleInit() {
@@ -53,13 +51,11 @@ export class KafkaHandlersModule implements OnModuleInit {
       },
     });
 
-    // Initialize producer for sending evaluation results
     this.producer = this.kafka.producer({
       createPartitioner: Partitioners.LegacyPartitioner,
       allowAutoTopicCreation: true,
     });
 
-    // Initialize consumer for receiving answers to evaluate
     this.consumer = this.kafka.consumer({ groupId: "ai-service-evaluator" });
 
     try {
@@ -69,16 +65,11 @@ export class KafkaHandlersModule implements OnModuleInit {
       await this.consumer.connect();
       this.logger.log("Kafka consumer connected");
 
-      // Subscribe to answer submitted events
       await this.consumer.subscribe({
         topic: KafkaTopics.INTERVIEW_ANSWER_SUBMITTED,
         fromBeginning: false,
       });
-      this.logger.log(
-        `Subscribed to: ${KafkaTopics.INTERVIEW_ANSWER_SUBMITTED}`,
-      );
 
-      // Start consuming
       await this.consumer.run({
         eachMessage: async (payload) => this.handleMessage(payload),
       });
@@ -96,9 +87,7 @@ export class KafkaHandlersModule implements OnModuleInit {
 
     try {
       const event: IKafkaEvent = JSON.parse(value);
-      this.logger.log(
-        `Received event: ${topic} (${event.eventId}) from ${event.source}`,
-      );
+      this.logger.log(`Received event: ${topic} (${event.eventId})`);
 
       switch (topic) {
         case KafkaTopics.INTERVIEW_ANSWER_SUBMITTED:
@@ -124,7 +113,6 @@ export class KafkaHandlersModule implements OnModuleInit {
     );
 
     try {
-      // Use Gemini to evaluate a single answer via the full interview evaluation
       const evaluation = await this.geminiService.evaluateInterview({
         field: "general",
         techStack: [],
@@ -139,7 +127,6 @@ export class KafkaHandlersModule implements OnModuleInit {
 
       const qEval = evaluation.questionEvaluations?.[0];
 
-      // Emit evaluation completed event
       await this.emitEvaluationCompleted(
         {
           interviewId: payload.interviewId,
@@ -154,7 +141,7 @@ export class KafkaHandlersModule implements OnModuleInit {
       );
 
       this.logger.log(
-        `Evaluation completed for interview ${payload.interviewId}, question ${payload.questionId}, score: ${qEval?.score || evaluation.overallScore}`,
+        `Evaluation completed for interview ${payload.interviewId}, score: ${qEval?.score || evaluation.overallScore}`,
       );
     } catch (error) {
       this.logger.error(

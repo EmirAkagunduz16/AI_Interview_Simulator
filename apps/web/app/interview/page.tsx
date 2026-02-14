@@ -1,210 +1,362 @@
 "use client";
 
-import React, { useState, useCallback, useEffect, useRef } from "react";
-import { useVapi } from "../../src/hooks/useVapi";
-import { supabase } from "../../src/lib/supabase";
+import { useState, useRef, useEffect } from "react";
+import { useVapi } from "@/hooks/useVapi";
 import "./interview.scss";
 
-const VAPI_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY || "";
-const VAPI_ASSISTANT_ID = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID || "";
+const FIELDS = [
+  { id: "backend", label: "Backend", icon: "🖥️" },
+  { id: "frontend", label: "Frontend", icon: "🎨" },
+  { id: "fullstack", label: "Fullstack", icon: "⚡" },
+  { id: "mobile", label: "Mobile", icon: "📱" },
+  { id: "devops", label: "DevOps", icon: "🔧" },
+  { id: "data_science", label: "Data Science", icon: "📊" },
+];
 
-interface TranscriptEntry {
-  role: "assistant" | "user";
-  text: string;
-  timestamp: Date;
-}
+const TECH_OPTIONS: Record<string, string[]> = {
+  backend: [
+    "Node.js",
+    "NestJS",
+    "Express",
+    "Python",
+    "Django",
+    "FastAPI",
+    "Java",
+    "Spring Boot",
+    "Go",
+    "Rust",
+    "C#",
+    ".NET",
+  ],
+  frontend: [
+    "React",
+    "Next.js",
+    "Vue.js",
+    "Angular",
+    "Svelte",
+    "TypeScript",
+    "Tailwind CSS",
+    "Material UI",
+  ],
+  fullstack: [
+    "React",
+    "Next.js",
+    "Node.js",
+    "NestJS",
+    "TypeScript",
+    "Python",
+    "Django",
+    "Vue.js",
+    "Angular",
+  ],
+  mobile: [
+    "React Native",
+    "Flutter",
+    "Swift",
+    "Kotlin",
+    "SwiftUI",
+    "Jetpack Compose",
+    "Expo",
+  ],
+  devops: [
+    "Docker",
+    "Kubernetes",
+    "AWS",
+    "GCP",
+    "Azure",
+    "Terraform",
+    "CI/CD",
+    "Jenkins",
+    "GitHub Actions",
+  ],
+  data_science: [
+    "Python",
+    "TensorFlow",
+    "PyTorch",
+    "Pandas",
+    "NumPy",
+    "SQL",
+    "Spark",
+    "R",
+  ],
+};
+
+const DIFFICULTIES = [
+  { id: "junior", label: "Junior", desc: "0-2 yıl deneyim" },
+  { id: "intermediate", label: "Mid-Level", desc: "2-5 yıl deneyim" },
+  { id: "senior", label: "Senior", desc: "5+ yıl deneyim" },
+];
 
 export default function InterviewPage() {
-  const [interviewId, setInterviewId] = useState<string | null>(null);
-  const [currentQuestion, setCurrentQuestion] = useState<string>("");
-  const [questionNumber, setQuestionNumber] = useState(0);
-  const [totalQuestions, setTotalQuestions] = useState(0);
-  const [interviewStatus, setInterviewStatus] = useState<
-    "idle" | "connecting" | "pre-interview" | "in-progress" | "completed"
-  >("idle");
-  const [finalScore, setFinalScore] = useState<number | null>(null);
-  const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const [step, setStep] = useState<"config" | "interview" | "completed">(
+    "config",
+  );
+  const [field, setField] = useState("");
+  const [techStack, setTechStack] = useState<string[]>([]);
+  const [difficulty, setDifficulty] = useState("intermediate");
 
+  const config = step !== "config" ? { field, techStack, difficulty } : null;
   const {
-    start,
-    stop,
-    isActive,
-    isConnecting,
-    transcript,
+    isConnected,
+    isCallActive,
     isSpeaking,
+    transcript,
+    currentQuestion,
+    interviewId,
+    overallScore,
+    error,
     volumeLevel,
-  } = useVapi({
-    publicKey: VAPI_PUBLIC_KEY,
-    assistantId: VAPI_ASSISTANT_ID,
-    onCallStart: () => {
-      setInterviewStatus("pre-interview");
-    },
-    onCallEnd: () => {
-      if (interviewStatus !== "completed") {
-        setInterviewStatus("completed");
-      }
-    },
-    onFunctionCall: (name, params) => {
-      switch (name) {
-        case "save_preferences":
-          if (params.interviewId) {
-            setInterviewId(params.interviewId);
-          }
-          break;
-        case "get_next_question":
-          if (params.question) {
-            setCurrentQuestion(params.question);
-            setQuestionNumber(params.order || questionNumber + 1);
-            setTotalQuestions(params.totalQuestions || totalQuestions);
-            setInterviewStatus("in-progress");
-          }
-          if (params.finished) {
-            setInterviewStatus("completed");
-          }
-          break;
-        case "end_interview":
-          if (params.overallScore) {
-            setFinalScore(params.overallScore);
-          }
-          setInterviewStatus("completed");
-          break;
-      }
-    },
-    onError: (error) => {
-      console.error("VAPI error:", error);
-    },
-  });
+    startCall,
+    endCall,
+  } = useVapi(config);
+
+  const transcriptEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [transcript]);
 
-  const handleStart = useCallback(async () => {
-    setInterviewStatus("connecting");
-    await start();
-  }, [start]);
-
-  const handleStop = useCallback(() => {
-    stop();
-    setInterviewStatus("completed");
-  }, [stop]);
-
-  const handleViewResults = () => {
-    if (interviewId) {
-      window.location.href = `/interview/${interviewId}`;
+  useEffect(() => {
+    if (overallScore !== null) {
+      setStep("completed");
     }
+  }, [overallScore]);
+
+  const handleStartInterview = () => {
+    if (!field) return;
+    setStep("interview");
+    setTimeout(() => startCall(), 500);
   };
 
-  // Generate volume bars
-  const volumeBars = Array.from({ length: 12 }, (_, i) => {
-    const threshold = (i + 1) / 12;
-    const active = volumeLevel > threshold * 0.5;
-    return (
-      <div
-        key={i}
-        className={`volume-bar ${active ? "active" : ""} ${isSpeaking ? "speaking" : ""}`}
-        style={{
-          height: `${20 + Math.random() * 30 + (active ? volumeLevel * 40 : 0)}px`,
-          animationDelay: `${i * 0.05}s`,
-        }}
-      />
+  const toggleTech = (tech: string) => {
+    setTechStack((prev) =>
+      prev.includes(tech) ? prev.filter((t) => t !== tech) : [...prev, tech],
     );
-  });
+  };
 
-  return (
-    <div className="interview-page">
-      <div className="interview-page__header">
-        <a href="/dashboard" className="interview-page__back">
-          ← Panele Dön
-        </a>
-        <h1 className="interview-page__title">AI Mülakat</h1>
-        {interviewStatus === "in-progress" && totalQuestions > 0 && (
-          <div className="interview-page__progress">
-            Soru {questionNumber} / {totalQuestions}
+  const availableTech = TECH_OPTIONS[field] || [];
+
+  // ============ CONFIG STEP ============
+  if (step === "config") {
+    return (
+      <div className="interview-page">
+        <div className="config-container">
+          <div className="config-header">
+            <h1>🎤 AI Mülakat Simülatörü</h1>
+            <p>
+              Mülakat tercihlerinizi belirleyin ve sesli mülakatınıza başlayın
+            </p>
           </div>
-        )}
-      </div>
 
-      <div className="interview-page__content">
-        {/* Voice Visualizer */}
-        <div className={`voice-visualizer ${isActive ? "active" : ""}`}>
-          <div className="voice-visualizer__orb">
-            <div
-              className={`voice-visualizer__pulse ${isSpeaking ? "speaking" : ""}`}
-            />
-            <div className="voice-visualizer__icon">
-              {isConnecting ? (
-                <span className="voice-visualizer__spinner" />
-              ) : isActive ? (
-                <svg
-                  width="48"
-                  height="48"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
+          {/* Field Selection */}
+          <div className="config-section">
+            <h2>📋 Mülakat Alanı</h2>
+            <div className="field-grid">
+              {FIELDS.map((f) => (
+                <button
+                  key={f.id}
+                  className={`field-card ${field === f.id ? "active" : ""}`}
+                  onClick={() => {
+                    setField(f.id);
+                    setTechStack([]);
+                  }}
                 >
-                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                  <line x1="12" y1="19" x2="12" y2="23" />
-                  <line x1="8" y1="23" x2="16" y2="23" />
-                </svg>
-              ) : (
-                <svg
-                  width="48"
-                  height="48"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                  <line x1="12" y1="19" x2="12" y2="23" />
-                  <line x1="8" y1="23" x2="16" y2="23" />
-                </svg>
-              )}
+                  <span className="field-icon">{f.icon}</span>
+                  <span className="field-label">{f.label}</span>
+                </button>
+              ))}
             </div>
           </div>
 
-          {isActive && (
-            <div className="voice-visualizer__bars">{volumeBars}</div>
+          {/* Tech Stack */}
+          {field && (
+            <div className="config-section">
+              <h2>🛠️ Teknoloji Stack</h2>
+              <p className="hint">
+                Mülakatta sorulmasını istediğiniz teknolojileri seçin
+              </p>
+              <div className="tech-grid">
+                {availableTech.map((tech) => (
+                  <button
+                    key={tech}
+                    className={`tech-tag ${techStack.includes(tech) ? "active" : ""}`}
+                    onClick={() => toggleTech(tech)}
+                  >
+                    {tech}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
-          <p className="voice-visualizer__status">
-            {interviewStatus === "idle" &&
-              "Mülakata başlamak için butona tıklayın"}
-            {interviewStatus === "connecting" && "Bağlanıyor..."}
-            {interviewStatus === "pre-interview" &&
-              "AI asistanla konuşun — alanınızı ve teknolojilerinizi belirtin"}
-            {interviewStatus === "in-progress" &&
-              (isSpeaking ? "AI konuşuyor..." : "Sizi dinliyor...")}
-            {interviewStatus === "completed" && "Mülakat tamamlandı!"}
-          </p>
+          {/* Difficulty */}
+          {field && (
+            <div className="config-section">
+              <h2>📊 Zorluk Seviyesi</h2>
+              <div className="difficulty-grid">
+                {DIFFICULTIES.map((d) => (
+                  <button
+                    key={d.id}
+                    className={`difficulty-card ${difficulty === d.id ? "active" : ""}`}
+                    onClick={() => setDifficulty(d.id)}
+                  >
+                    <span className="diff-label">{d.label}</span>
+                    <span className="diff-desc">{d.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Start Button */}
+          {field && (
+            <button
+              className="start-button"
+              onClick={handleStartInterview}
+              disabled={!field}
+            >
+              <span className="start-icon">🎙️</span>
+              Mülakata Başla
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ============ COMPLETED STEP ============
+  if (step === "completed") {
+    return (
+      <div className="interview-page">
+        <div className="completed-container">
+          <div className="completed-header">
+            <div className="score-circle">
+              <svg viewBox="0 0 120 120">
+                <circle cx="60" cy="60" r="54" className="score-bg" />
+                <circle
+                  cx="60"
+                  cy="60"
+                  r="54"
+                  className="score-fill"
+                  style={{
+                    strokeDasharray: `${((overallScore || 0) / 100) * 339.3} 339.3`,
+                  }}
+                />
+              </svg>
+              <span className="score-value">{overallScore || 0}</span>
+            </div>
+            <h1>Mülakat Tamamlandı!</h1>
+            <p>Detaylı sonuçlarınız hazırlanıyor...</p>
+          </div>
+
+          <div className="completed-actions">
+            {interviewId && (
+              <a
+                href={`/interview/${interviewId}`}
+                className="view-results-btn"
+              >
+                📊 Detaylı Sonuçları Gör
+              </a>
+            )}
+            <a href="/dashboard" className="dashboard-btn">
+              📋 Dashboard&apos;a Git
+            </a>
+            <button
+              className="retry-btn"
+              onClick={() => {
+                setStep("config");
+                setField("");
+                setTechStack([]);
+              }}
+            >
+              🔄 Yeni Mülakat
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ============ INTERVIEW STEP ============
+  return (
+    <div className="interview-page">
+      <div className="interview-container">
+        {/* Header */}
+        <div className="interview-header">
+          <div className="interview-info">
+            <span className="field-badge">
+              {FIELDS.find((f) => f.id === field)?.icon}{" "}
+              {FIELDS.find((f) => f.id === field)?.label}
+            </span>
+            <span className="tech-list">
+              {techStack.join(" • ") || "General"}
+            </span>
+          </div>
+          <div className="call-status">
+            <span
+              className={`status-dot ${isConnected ? "connected" : "disconnected"}`}
+            />
+            {isConnected ? "Bağlı" : "Bağlanıyor..."}
+          </div>
+        </div>
+
+        {/* Voice Visualizer */}
+        <div className="voice-area">
+          <div
+            className={`voice-orb ${isSpeaking ? "speaking" : ""} ${isCallActive ? "active" : ""}`}
+          >
+            <div
+              className="orb-inner"
+              style={{ transform: `scale(${1 + volumeLevel * 0.3})` }}
+            >
+              <div className="orb-pulse" />
+              <div className="orb-core">
+                {isSpeaking ? "🗣️" : isCallActive ? "🎤" : "⏳"}
+              </div>
+            </div>
+          </div>
+
+          {/* Volume Bars */}
+          <div className="volume-bars">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div
+                key={i}
+                className="volume-bar"
+                style={{
+                  height: `${Math.max(4, volumeLevel * 60 * Math.sin((i / 12) * Math.PI))}px`,
+                  opacity: volumeLevel > 0.05 ? 0.8 : 0.2,
+                }}
+              />
+            ))}
+          </div>
         </div>
 
         {/* Current Question */}
-        {currentQuestion && interviewStatus === "in-progress" && (
-          <div className="current-question">
-            <div className="current-question__badge">Soru {questionNumber}</div>
-            <p className="current-question__text">{currentQuestion}</p>
+        {currentQuestion && (
+          <div className="question-display">
+            <span className="question-label">Güncel Soru</span>
+            <p className="question-text">{currentQuestion}</p>
+          </div>
+        )}
+
+        {/* Error Display */}
+        {error && (
+          <div className="error-banner">
+            <span>⚠️ {error}</span>
           </div>
         )}
 
         {/* Transcript */}
         {transcript.length > 0 && (
-          <div className="transcript">
-            <h3 className="transcript__title">Konuşma Geçmişi</h3>
-            <div className="transcript__list">
+          <div className="transcript-area">
+            <h3>Konuşma Geçmişi</h3>
+            <div className="transcript-list">
               {transcript.map((entry, i) => (
-                <div
-                  key={i}
-                  className={`transcript__entry transcript__entry--${entry.role}`}
-                >
-                  <span className="transcript__role">
-                    {entry.role === "assistant" ? "🤖 AI" : "👤 Siz"}
+                <div key={i} className={`transcript-entry ${entry.role}`}>
+                  <span className="role-icon">
+                    {entry.role === "assistant" ? "🤖" : "👤"}
                   </span>
-                  <p className="transcript__text">{entry.text}</p>
+                  <p>{entry.text}</p>
                 </div>
               ))}
               <div ref={transcriptEndRef} />
@@ -212,61 +364,16 @@ export default function InterviewPage() {
           </div>
         )}
 
-        {/* Actions */}
-        <div className="interview-page__actions">
-          {interviewStatus === "idle" && (
-            <button
-              className="btn btn--primary btn--large"
-              onClick={handleStart}
-            >
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-              </svg>
-              Mülakata Başla
+        {/* Controls */}
+        <div className="interview-controls">
+          {isCallActive ? (
+            <button className="end-call-btn" onClick={endCall}>
+              📞 Mülakatı Bitir
             </button>
-          )}
-
-          {(interviewStatus === "pre-interview" ||
-            interviewStatus === "in-progress") && (
-            <button className="btn btn--danger" onClick={handleStop}>
-              Mülakatı Bitir
+          ) : (
+            <button className="start-call-btn" onClick={startCall}>
+              🎙️ Yeniden Bağlan
             </button>
-          )}
-
-          {interviewStatus === "completed" && (
-            <div className="interview-page__completed">
-              {finalScore !== null && (
-                <div className="interview-page__score">
-                  <span className="interview-page__score-value">
-                    {finalScore}
-                  </span>
-                  <span className="interview-page__score-label">
-                    Genel Puan
-                  </span>
-                </div>
-              )}
-              <div className="interview-page__completed-actions">
-                {interviewId && (
-                  <button
-                    className="btn btn--primary"
-                    onClick={handleViewResults}
-                  >
-                    Sonuçları Gör
-                  </button>
-                )}
-                <a href="/dashboard" className="btn btn--secondary">
-                  Panele Dön
-                </a>
-              </div>
-            </div>
           )}
         </div>
       </div>

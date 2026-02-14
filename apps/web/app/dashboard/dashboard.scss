@@ -1,316 +1,64 @@
-.dashboard {
+.dashboard-page {
   min-height: 100vh;
-  background: var(--color-bg-primary);
-  color: var(--color-text-primary);
-  padding: 2rem 1.5rem;
+  background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 50%, #0a0a2a 100%);
+  color: #e0e0ff;
+  padding: 2rem 1rem;
+  font-family: "Inter", "Segoe UI", sans-serif;
+}
 
-  &__container {
-    max-width: 1100px;
-    margin: 0 auto;
-  }
+.dashboard-container {
+  max-width: 800px;
+  margin: 0 auto;
+}
 
-  &__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 2.5rem;
-    flex-wrap: wrap;
-    gap: 1rem;
-  }
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
 
-  &__title {
-    font-size: 2rem;
-    font-weight: 800;
-    background: var(--gradient-text);
+  h1 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #a78bfa, #60a5fa);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 0.25rem;
   }
 
-  &__subtitle {
-    color: var(--color-text-muted);
-    font-size: 0.95rem;
-  }
-
-  &__new-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    background: var(--gradient-accent);
-    color: white;
-    font-weight: 600;
-    font-size: 0.95rem;
-    border-radius: 0.75rem;
+  .new-interview-btn {
+    padding: 0.6rem 1.2rem;
+    background: linear-gradient(135deg, #a78bfa, #60a5fa);
+    border-radius: 10px;
+    color: #fff;
+    font-weight: 500;
+    font-size: 0.9rem;
     text-decoration: none;
-    border: none;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+    transition: all 0.2s;
 
     &:hover {
-      box-shadow: 0 6px 25px rgba(124, 58, 237, 0.5);
       transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(167, 139, 250, 0.3);
     }
   }
 }
 
-// Stats Grid
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1.25rem;
-  margin-bottom: 3rem;
-}
-
-.stat-card {
-  background: var(--color-bg-glass);
-  border: 1px solid var(--color-border);
-  border-radius: 1rem;
-  padding: 1.5rem;
-  backdrop-filter: blur(20px);
-  transition: all 0.3s ease;
-
-  &:hover {
-    border-color: rgba(124, 58, 237, 0.3);
-    transform: translateY(-2px);
-  }
-
-  &__icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 0.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 1rem;
-
-    &--purple {
-      background: rgba(124, 58, 237, 0.15);
-      color: #a78bfa;
-    }
-    &--green {
-      background: rgba(34, 197, 94, 0.15);
-      color: #4ade80;
-    }
-    &--blue {
-      background: rgba(37, 99, 235, 0.15);
-      color: #60a5fa;
-    }
-    &--gold {
-      background: rgba(234, 179, 8, 0.15);
-      color: #fbbf24;
-    }
-  }
-
-  &__value {
-    font-size: 2rem;
-    font-weight: 800;
-    color: var(--color-text-primary);
-    line-height: 1;
-    margin-bottom: 0.25rem;
-  }
-
-  &__unit {
-    font-size: 1.2rem;
-    color: var(--color-text-muted);
-    font-weight: 600;
-  }
-
-  &__label {
-    color: var(--color-text-muted);
-    font-size: 0.85rem;
-  }
-}
-
-// Interview History
-.interview-history {
-  &__title {
-    font-size: 1.3rem;
-    font-weight: 700;
-    margin-bottom: 1.5rem;
-    color: var(--color-text-primary);
-  }
-
-  &__loading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-    padding: 3rem;
-    color: var(--color-text-muted);
-  }
-
-  &__empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-    text-align: center;
-    padding: 4rem 2rem;
-    background: var(--color-bg-glass);
-    border: 1px dashed var(--color-border);
-    border-radius: 1.5rem;
-    color: var(--color-text-muted);
-
-    h3 {
-      font-size: 1.2rem;
-      color: var(--color-text-secondary);
-    }
-
-    p {
-      font-size: 0.9rem;
-      max-width: 320px;
-    }
-  }
-}
-
-// Interview List
-.interview-list {
+.loading-state {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-}
-
-.interview-card {
-  display: flex;
   align-items: center;
-  gap: 1.5rem;
-  padding: 1.25rem 1.5rem;
-  background: var(--color-bg-glass);
-  border: 1px solid var(--color-border);
-  border-radius: 1rem;
-  text-decoration: none;
-  color: inherit;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(20px);
-  cursor: pointer;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 1rem;
+  color: #888;
 
-  &:hover {
-    border-color: rgba(124, 58, 237, 0.3);
-    transform: translateX(4px);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  .loader {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(167, 139, 250, 0.2);
+    border-top-color: #a78bfa;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
   }
-
-  &__left {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  &__field-badge {
-    font-weight: 700;
-    font-size: 1.05rem;
-    color: var(--color-text-primary);
-  }
-
-  &__meta {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    font-size: 0.85rem;
-  }
-
-  &__status {
-    padding: 0.2rem 0.6rem;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-
-    &--completed {
-      background: rgba(34, 197, 94, 0.15);
-      color: #4ade80;
-    }
-    &--in_progress {
-      background: rgba(234, 179, 8, 0.15);
-      color: #fbbf24;
-    }
-    &--preparing {
-      background: rgba(37, 99, 235, 0.15);
-      color: #60a5fa;
-    }
-    &--cancelled {
-      background: rgba(239, 68, 68, 0.15);
-      color: #f87171;
-    }
-  }
-
-  &__date {
-    color: var(--color-text-muted);
-  }
-
-  &__tags {
-    display: flex;
-    gap: 0.4rem;
-    flex-wrap: wrap;
-  }
-
-  &__tag {
-    padding: 0.15rem 0.5rem;
-    border-radius: 999px;
-    font-size: 0.7rem;
-    background: rgba(124, 58, 237, 0.1);
-    color: #a78bfa;
-    border: 1px solid rgba(124, 58, 237, 0.15);
-  }
-
-  &__score {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-width: 60px;
-  }
-
-  &__score-value {
-    font-size: 1.5rem;
-    font-weight: 800;
-    line-height: 1;
-  }
-
-  &__score-label {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    color: var(--color-text-muted);
-  }
-
-  &__arrow {
-    color: var(--color-text-muted);
-    transition: transform 0.2s;
-  }
-
-  &:hover &__arrow {
-    transform: translateX(4px);
-    color: var(--color-accent);
-  }
-}
-
-.score {
-  &--excellent .interview-card__score-value {
-    color: #4ade80;
-  }
-  &--good .interview-card__score-value {
-    color: #60a5fa;
-  }
-  &--average .interview-card__score-value {
-    color: #fbbf24;
-  }
-  &--low .interview-card__score-value {
-    color: #f87171;
-  }
-}
-
-// Spinner
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--color-border);
-  border-top-color: var(--color-accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
@@ -319,23 +67,155 @@
   }
 }
 
-// Responsive
-@media (max-width: 640px) {
-  .stats-grid {
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+
+  @media (max-width: 600px) {
     grid-template-columns: repeat(2, 1fr);
-    gap: 0.75rem;
+  }
+}
+
+.stat-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+
+  .stat-icon {
+    font-size: 1.5rem;
+  }
+  .stat-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #c4b5fd;
+  }
+  .stat-label {
+    font-size: 0.75rem;
+    color: #7777aa;
+    text-align: center;
+  }
+}
+
+.history-section {
+  h2 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #c4b5fd;
+    margin-bottom: 1rem;
+  }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 14px;
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+
+  .empty-icon {
+    font-size: 2.5rem;
+    display: block;
+    margin-bottom: 0.75rem;
+  }
+  p {
+    color: #8888aa;
+    margin-bottom: 1rem;
+  }
+  .empty-cta {
+    color: #a78bfa;
+    text-decoration: none;
+    font-weight: 500;
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+.interview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.interview-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(167, 139, 250, 0.2);
+    transform: translateX(4px);
   }
 
-  .stat-card {
-    padding: 1rem;
+  .card-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
 
-    &__value {
-      font-size: 1.5rem;
+    .card-icon {
+      font-size: 1.4rem;
+    }
+
+    .card-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+
+      .card-field {
+        font-weight: 600;
+        font-size: 0.95rem;
+      }
+      .card-tech {
+        font-size: 0.8rem;
+        color: #7777aa;
+      }
+      .card-date {
+        font-size: 0.75rem;
+        color: #555577;
+      }
     }
   }
 
-  .interview-card {
-    flex-wrap: wrap;
-    gap: 1rem;
+  .card-right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+
+    .card-score {
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+    .card-status {
+      font-size: 0.8rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      &.in_progress {
+        background: rgba(251, 191, 36, 0.15);
+        color: #fbbf24;
+      }
+      &.pending {
+        background: rgba(148, 163, 184, 0.15);
+        color: #94a3b8;
+      }
+    }
+    .card-arrow {
+      font-size: 1rem;
+      color: #555;
+    }
   }
 }

@@ -10,25 +10,34 @@ import {
   Logger,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
+import { ConfigService } from "@nestjs/config";
+import axios from "axios";
 import { GeminiService } from "./ai.service";
-import { SupabaseService } from "./supabase.service";
 import {
   GenerateQuestionsDto,
   GenerateQuestionsResponseDto,
   EvaluateInterviewDto,
   InterviewReportDto,
-  VapiWebhookDto,
 } from "./dto";
 
 @ApiTags("AI")
 @Controller("ai")
 export class AiController {
   private readonly logger = new Logger(AiController.name);
+  private readonly interviewServiceUrl: string;
+  private readonly questionServiceUrl: string;
 
   constructor(
     private readonly geminiService: GeminiService,
-    private readonly supabaseService: SupabaseService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.interviewServiceUrl =
+      this.configService.get<string>("INTERVIEW_SERVICE_URL") ||
+      "http://localhost:3005/api/v1";
+    this.questionServiceUrl =
+      this.configService.get<string>("QUESTION_SERVICE_URL") ||
+      "http://localhost:3004/api/v1";
+  }
 
   @Post("generate-questions")
   @HttpCode(HttpStatus.OK)
@@ -44,17 +53,6 @@ export class AiController {
       count: dto.count,
     });
 
-    // If interviewId provided, save to Supabase
-    if (dto.interviewId) {
-      await this.supabaseService.saveQuestions(
-        dto.interviewId,
-        questions.map((q) => ({
-          question_text: q.question,
-          order: q.order,
-        })),
-      );
-    }
-
     return { questions };
   }
 
@@ -69,41 +67,6 @@ export class AiController {
       field: dto.field,
       techStack: dto.techStack,
       answers: dto.answers,
-    });
-
-    // Save report to Supabase
-    await this.supabaseService.saveReport(dto.interviewId, {
-      technical_score: evaluation.technicalScore,
-      communication_score: evaluation.communicationScore,
-      diction_score: evaluation.dictionScore,
-      confidence_score: evaluation.confidenceScore,
-      overall_score: evaluation.overallScore,
-      summary: evaluation.summary,
-      recommendations: evaluation.recommendations,
-    });
-
-    // Update per-question evaluations
-    const questions = await this.supabaseService.getQuestions(dto.interviewId);
-    for (const qEval of evaluation.questionEvaluations) {
-      const matchedQ = questions.find(
-        (q: any) => q.question_text === qEval.question,
-      );
-      if (matchedQ) {
-        await this.supabaseService.updateQuestionEvaluation(matchedQ.id, {
-          score: qEval.score,
-          feedback: qEval.feedback,
-          strengths: qEval.strengths,
-          improvements: qEval.improvements,
-        });
-      }
-    }
-
-    // Mark interview as completed
-    await this.supabaseService.updateInterview(dto.interviewId, {
-      status: "completed",
-      total_score: evaluation.overallScore,
-      overall_feedback: evaluation.summary,
-      completed_at: new Date().toISOString(),
     });
 
     return evaluation;
@@ -156,62 +119,82 @@ export class AiController {
         const { field, techStack, difficulty, userId } =
           functionCall.parameters;
 
-        // Create interview in Supabase
-        const interview = await this.supabaseService.createInterview({
-          user_id: userId || "anonymous",
-          field: field || "fullstack",
-          tech_stack: techStack || [],
-          difficulty: difficulty || "intermediate",
-          vapi_call_id: message.call?.id,
-        });
+        try {
+          // 1. Create interview via interview-service
+          const interviewRes = await axios.post(
+            `${this.interviewServiceUrl}/interviews`,
+            {
+              field: field || "fullstack",
+              techStack: techStack || [],
+              difficulty: difficulty || "intermediate",
+              vapiCallId: message.call?.id,
+            },
+            {
+              headers: { "x-user-id": userId || "anonymous" },
+            },
+          );
 
-        // Generate questions with Gemini
-        const questions = await this.geminiService.generateInterviewQuestions({
-          field,
-          techStack,
-          difficulty,
-        });
+          const interview = interviewRes.data;
 
-        // Save questions to Supabase
-        await this.supabaseService.saveQuestions(
-          interview.id,
-          questions.map((q) => ({
-            question_text: q.question,
-            order: q.order,
-          })),
-        );
+          // 2. Generate questions with Gemini
+          const questions = await this.geminiService.generateInterviewQuestions(
+            {
+              field: field || "fullstack",
+              techStack: techStack || [],
+              difficulty: difficulty || "intermediate",
+            },
+          );
 
-        // Update interview status
-        await this.supabaseService.updateInterview(interview.id, {
-          status: "in_progress",
-        });
+          // 3. Start the interview
+          await axios.post(
+            `${this.interviewServiceUrl}/interviews/${interview.id}/start`,
+            null,
+            { headers: { "x-user-id": userId || "anonymous" } },
+          );
 
-        return {
-          result: {
-            interviewId: interview.id,
-            firstQuestion: questions[0]?.question,
-            totalQuestions: questions.length,
-            message: `${questions.length} soru hazırlandı. İlk soru ile başlıyoruz.`,
-          },
-        };
+          return {
+            result: {
+              interviewId: interview.id,
+              firstQuestion: questions[0]?.question,
+              totalQuestions: questions.length,
+              questions: questions.map((q) => ({
+                id: `q_${q.order}`,
+                question: q.question,
+                order: q.order,
+              })),
+              message: `${questions.length} soru hazırlandı. İlk soru ile başlıyoruz.`,
+            },
+          };
+        } catch (error) {
+          this.logger.error("Failed to save preferences", error);
+          return {
+            result: {
+              error: "Mülakat oluşturulamadı, lütfen tekrar deneyin.",
+            },
+          };
+        }
       }
 
       case "get_next_question": {
-        const { interviewId, currentOrder } = functionCall.parameters;
-        const questions = await this.supabaseService.getQuestions(interviewId);
-        const nextQ = questions.find(
-          (q: any) => q.order_num === (currentOrder || 0) + 1,
-        );
+        const { interviewId, currentOrder, questions } =
+          functionCall.parameters;
 
-        if (nextQ) {
-          return {
-            result: {
-              question: nextQ.question_text,
-              order: nextQ.order_num,
-              totalQuestions: questions.length,
-              remaining: questions.length - nextQ.order_num,
-            },
-          };
+        // If questions were passed from the initial save_preferences, use them
+        if (questions && Array.isArray(questions)) {
+          const nextQ = questions.find(
+            (q: any) => q.order === (currentOrder || 0) + 1,
+          );
+
+          if (nextQ) {
+            return {
+              result: {
+                question: nextQ.question,
+                order: nextQ.order,
+                totalQuestions: questions.length,
+                remaining: questions.length - nextQ.order,
+              },
+            };
+          }
         }
 
         return {
@@ -223,85 +206,106 @@ export class AiController {
       }
 
       case "save_answer": {
-        const { interviewId, questionOrder, answer } = functionCall.parameters;
-        const questions = await this.supabaseService.getQuestions(interviewId);
-        const question = questions.find(
-          (q: any) => q.order_num === questionOrder,
-        );
+        const { interviewId, questionOrder, questionText, answer } =
+          functionCall.parameters;
 
-        if (question) {
-          await this.supabaseService.saveAnswer(question.id, answer);
+        try {
+          // Save answer via interview-service
+          await axios.post(
+            `${this.interviewServiceUrl}/interviews/${interviewId}/submit`,
+            {
+              questionId: `q_${questionOrder}`,
+              questionTitle: questionText || `Soru ${questionOrder}`,
+              answer: answer,
+            },
+            {
+              headers: { "x-user-id": "anonymous" },
+            },
+          );
+        } catch (error) {
+          this.logger.warn(
+            "Failed to save answer via interview-service",
+            error,
+          );
         }
 
         return { result: { saved: true } };
       }
 
       case "end_interview": {
-        const { interviewId } = functionCall.parameters;
+        const { interviewId, answers } = functionCall.parameters;
 
-        // Get all questions with answers
-        const questions = await this.supabaseService.getQuestions(interviewId);
-        const interview = await this.supabaseService.getInterview(interviewId);
-
-        const answers = questions
-          .filter((q: any) => q.answer_transcript)
-          .map((q: any) => ({
-            question: q.question_text,
-            answer: q.answer_transcript,
-            order: q.order_num,
-          }));
-
-        // Evaluate with Gemini
-        if (answers.length > 0) {
-          const evaluation = await this.geminiService.evaluateInterview({
-            field: interview.field,
-            techStack: interview.tech_stack,
-            answers,
-          });
-
-          // Save report
-          await this.supabaseService.saveReport(interviewId, {
-            technical_score: evaluation.technicalScore,
-            communication_score: evaluation.communicationScore,
-            diction_score: evaluation.dictionScore,
-            confidence_score: evaluation.confidenceScore,
-            overall_score: evaluation.overallScore,
-            summary: evaluation.summary,
-            recommendations: evaluation.recommendations,
-          });
-
-          // Update question evaluations
-          for (const qEval of evaluation.questionEvaluations) {
-            const matchedQ = questions.find(
-              (q: any) => q.question_text === qEval.question,
+        try {
+          // Get interview data
+          let interviewData: any;
+          try {
+            const res = await axios.get(
+              `${this.interviewServiceUrl}/interviews/${interviewId}`,
+              { headers: { "x-user-id": "anonymous" } },
             );
-            if (matchedQ) {
-              await this.supabaseService.updateQuestionEvaluation(matchedQ.id, {
-                score: qEval.score,
-                feedback: qEval.feedback,
-                strengths: qEval.strengths,
-                improvements: qEval.improvements,
-              });
-            }
+            interviewData = res.data;
+          } catch {
+            interviewData = { field: "fullstack", techStack: [] };
           }
 
-          await this.supabaseService.updateInterview(interviewId, {
-            status: "completed",
-            total_score: evaluation.overallScore,
-            overall_feedback: evaluation.summary,
-            completed_at: new Date().toISOString(),
-          });
+          // Build answers array from function call params or interview data
+          const answersForEval =
+            answers ||
+            interviewData?.answers?.map((a: any) => ({
+              question: a.questionTitle,
+              answer: a.answer,
+              order: 1,
+            })) ||
+            [];
+
+          if (answersForEval.length > 0) {
+            // Evaluate with Gemini
+            const evaluation = await this.geminiService.evaluateInterview({
+              field: interviewData.field || "fullstack",
+              techStack: interviewData.techStack || [],
+              answers: answersForEval,
+            });
+
+            // Complete interview with report via interview-service
+            try {
+              await axios.post(
+                `${this.interviewServiceUrl}/interviews/${interviewId}/complete-with-report`,
+                {
+                  report: {
+                    technicalScore: evaluation.technicalScore,
+                    communicationScore: evaluation.communicationScore,
+                    dictionScore: evaluation.dictionScore,
+                    confidenceScore: evaluation.confidenceScore,
+                    overallScore: evaluation.overallScore,
+                    summary: evaluation.summary,
+                    recommendations: evaluation.recommendations,
+                  },
+                  overallFeedback: evaluation.summary,
+                },
+                { headers: { "x-user-id": "anonymous" } },
+              );
+            } catch (e) {
+              this.logger.warn("Failed to complete interview", e);
+            }
+
+            return {
+              result: {
+                completed: true,
+                overallScore: evaluation.overallScore,
+                summary: evaluation.summary,
+              },
+            };
+          }
 
           return {
-            result: {
-              completed: true,
-              overallScore: evaluation.overallScore,
-              summary: evaluation.summary,
-            },
+            result: { completed: true, message: "Mülakat tamamlandı." },
+          };
+        } catch (error) {
+          this.logger.error("Failed to end interview", error);
+          return {
+            result: { completed: true, message: "Mülakat tamamlandı." },
           };
         }
-
-        return { result: { completed: true, message: "Mülakat tamamlandı." } };
       }
 
       default:
@@ -313,22 +317,6 @@ export class AiController {
   private async handleEndOfCall(message: any): Promise<void> {
     const callId = message.call?.id;
     if (!callId) return;
-
     this.logger.log(`End of call: ${callId}`);
-    // The end_interview function call should have already handled evaluation
-  }
-
-  // ========== Supabase Data Endpoints ==========
-
-  @Get("interviews")
-  @ApiOperation({ summary: "Get user interviews" })
-  async getUserInterviews(@Query("userId") userId: string) {
-    return this.supabaseService.getUserInterviews(userId);
-  }
-
-  @Get("interviews/:id")
-  @ApiOperation({ summary: "Get interview details" })
-  async getInterview(@Param("id") id: string) {
-    return this.supabaseService.getInterview(id);
   }
 }

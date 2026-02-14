@@ -10,11 +10,6 @@ export const geminiConfig = registerAs("gemini", () => ({
   model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
 }));
 
-export const supabaseConfig = registerAs("supabase", () => ({
-  url: process.env.SUPABASE_URL || "",
-  serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-}));
-
 export const vapiConfig = registerAs("vapi", () => ({
   privateKey: process.env.VAPI_PRIVATE_KEY || "",
 }));
@@ -22,6 +17,5 @@ export const vapiConfig = registerAs("vapi", () => ({
 export default () => ({
   service: serviceConfig(),
   gemini: geminiConfig(),
-  supabase: supabaseConfig(),
   vapi: vapiConfig(),
 });

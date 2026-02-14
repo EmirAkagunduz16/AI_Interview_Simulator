@@ -1,16 +1,20 @@
-import { IsString, IsNotEmpty, MinLength, MaxLength } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNotEmpty, IsOptional, MaxLength } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class SubmitAnswerDto {
-  @ApiProperty({ description: 'Question ID being answered' })
+  @ApiProperty({ description: "Question ID being answered" })
   @IsString()
   @IsNotEmpty()
   questionId: string;
 
-  @ApiProperty({ description: 'User answer text' })
+  @ApiProperty({ description: "Question title/text" })
   @IsString()
   @IsNotEmpty()
-  @MinLength(10, { message: 'Answer must be at least 10 characters' })
-  @MaxLength(10000, { message: 'Answer must not exceed 10000 characters' })
+  questionTitle: string;
+
+  @ApiProperty({ description: "User answer text (voice transcript or typed)" })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(10000, { message: "Answer must not exceed 10000 characters" })
   answer: string;
 }

@@ -1,58 +1,41 @@
 import {
   IsString,
-  IsOptional,
   IsArray,
+  IsOptional,
   IsNumber,
-  IsEnum,
+  Min,
+  Max,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
-// ========== Generate Questions ==========
-
+// Generate Questions
 export class GenerateQuestionsDto {
-  @ApiProperty({
-    example: "backend",
-    description: "Interview field (backend, frontend, fullstack, etc.)",
-  })
+  @ApiProperty({ example: "backend" })
   @IsString()
   field: string;
 
-  @ApiPropertyOptional({
-    example: ["NestJS", "PostgreSQL", "TypeScript"],
-    description: "Tech stack",
-  })
+  @ApiProperty({ example: ["Node.js", "NestJS"] })
   @IsArray()
   @IsString({ each: true })
-  @IsOptional()
-  techStack?: string[];
+  techStack: string[];
 
-  @ApiPropertyOptional({
-    example: "intermediate",
-    description: "Difficulty: beginner, intermediate, advanced",
-  })
+  @ApiPropertyOptional({ example: "intermediate" })
   @IsString()
   @IsOptional()
   difficulty?: string;
 
-  @ApiPropertyOptional({
-    example: 5,
-    description: "Number of questions to generate",
-  })
+  @ApiPropertyOptional({ example: 5, default: 5 })
   @IsNumber()
+  @Min(1)
+  @Max(20)
   @IsOptional()
   count?: number;
-
-  @ApiPropertyOptional({ description: "Interview ID in Supabase" })
-  @IsString()
-  @IsOptional()
-  interviewId?: string;
 }
 
 export class GeneratedQuestionDto {
   @ApiProperty() question: string;
+  @ApiProperty() category: string;
   @ApiProperty() order: number;
-  @ApiPropertyOptional() hints?: string;
-  @ApiPropertyOptional() expectedKeyPoints?: string[];
 }
 
 export class GenerateQuestionsResponseDto {
@@ -60,40 +43,26 @@ export class GenerateQuestionsResponseDto {
   questions: GeneratedQuestionDto[];
 }
 
-// ========== Evaluate Interview ==========
-
-export class InterviewAnswerInput {
+// Evaluate Interview
+export class InterviewAnswerDto {
   @ApiProperty() question: string;
   @ApiProperty() answer: string;
-  @ApiPropertyOptional() order?: number;
+  @ApiProperty() order: number;
 }
 
 export class EvaluateInterviewDto {
-  @ApiProperty({ description: "Interview ID" })
-  @IsString()
-  interviewId: string;
-
   @ApiProperty({ example: "backend" })
   @IsString()
   field: string;
 
-  @ApiPropertyOptional({ example: ["NestJS", "PostgreSQL"] })
+  @ApiProperty({ example: ["Node.js"] })
   @IsArray()
   @IsString({ each: true })
-  @IsOptional()
-  techStack?: string[];
+  techStack: string[];
 
-  @ApiProperty({ type: [InterviewAnswerInput] })
+  @ApiProperty({ type: [InterviewAnswerDto] })
   @IsArray()
-  answers: InterviewAnswerInput[];
-}
-
-export class QuestionEvaluationDto {
-  @ApiProperty() question: string;
-  @ApiProperty() score: number;
-  @ApiProperty() feedback: string;
-  @ApiProperty({ type: [String] }) strengths: string[];
-  @ApiProperty({ type: [String] }) improvements: string[];
+  answers: InterviewAnswerDto[];
 }
 
 export class InterviewReportDto {
@@ -104,12 +73,14 @@ export class InterviewReportDto {
   @ApiProperty() overallScore: number;
   @ApiProperty() summary: string;
   @ApiProperty({ type: [String] }) recommendations: string[];
-  @ApiProperty({ type: [QuestionEvaluationDto] })
-  questionEvaluations: QuestionEvaluationDto[];
+  @ApiProperty() questionEvaluations: QuestionEvaluationDto[];
 }
 
-// ========== VAPI Webhook ==========
-
-export class VapiWebhookDto {
-  @ApiProperty() message: any;
+export class QuestionEvaluationDto {
+  @ApiProperty() question: string;
+  @ApiProperty() answer: string;
+  @ApiProperty() score: number;
+  @ApiProperty() feedback: string;
+  @ApiProperty({ type: [String] }) strengths: string[];
+  @ApiProperty({ type: [String] }) improvements: string[];
 }

@@ -1,312 +1,219 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { supabase, Interview, InterviewReport } from "../../src/lib/supabase";
+import { useState, useEffect, useCallback } from "react";
 import "./dashboard.scss";
 
-type InterviewWithReport = Interview & {
-  interview_reports?: Pick<
-    InterviewReport,
-    "overall_score" | "technical_score" | "communication_score"
-  >[];
-};
+interface Interview {
+  id: string;
+  field: string;
+  techStack: string[];
+  status: string;
+  totalScore?: number;
+  report?: {
+    overallScore: number;
+    technicalScore: number;
+    communicationScore: number;
+    dictionScore: number;
+    confidenceScore: number;
+    summary?: string;
+  };
+  createdAt: string;
+  completedAt?: string;
+}
+
+interface Stats {
+  totalInterviews: number;
+  completedInterviews: number;
+  averageScore: number;
+  bestScore: number;
+  totalQuestionsAnswered: number;
+}
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_INTERVIEW_SERVICE_URL ||
+  "http://localhost:3005/api/v1";
+const USER_ID = "anonymous";
 
 export default function DashboardPage() {
-  const [interviews, setInterviews] = useState<InterviewWithReport[]>([]);
+  const [interviews, setInterviews] = useState<Interview[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    total: 0,
-    completed: 0,
-    avgScore: 0,
-    bestScore: 0,
-  });
 
-  useEffect(() => {
-    loadInterviews();
-  }, []);
-
-  async function loadInterviews() {
+  const loadData = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from("interviews")
-        .select(
-          "*, interview_reports(overall_score, technical_score, communication_score)",
-        )
-        .order("created_at", { ascending: false });
+      const [interviewsRes, statsRes] = await Promise.all([
+        fetch(`${API_BASE}/interviews`, {
+          headers: { "x-user-id": USER_ID },
+        }),
+        fetch(`${API_BASE}/interviews/stats`, {
+          headers: { "x-user-id": USER_ID },
+        }),
+      ]);
 
-      if (error) throw error;
+      if (interviewsRes.ok) {
+        const data = await interviewsRes.json();
+        setInterviews(data.interviews || []);
+      }
 
-      const interviewList = (data || []) as InterviewWithReport[];
-      setInterviews(interviewList);
-
-      // Calculate stats
-      const completed = interviewList.filter((i) => i.status === "completed");
-      const scores = completed
-        .map((i) => i.interview_reports?.[0]?.overall_score)
-        .filter((s): s is number => s !== undefined);
-
-      setStats({
-        total: interviewList.length,
-        completed: completed.length,
-        avgScore:
-          scores.length > 0
-            ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-            : 0,
-        bestScore: scores.length > 0 ? Math.max(...scores) : 0,
-      });
+      if (statsRes.ok) {
+        const data = await statsRes.json();
+        setStats(data);
+      }
     } catch (error) {
-      console.error("Failed to load interviews:", error);
+      console.error("Failed to load dashboard data", error);
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
-  function getScoreColor(score: number): string {
-    if (score >= 80) return "score--excellent";
-    if (score >= 60) return "score--good";
-    if (score >= 40) return "score--average";
-    return "score--low";
-  }
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
-  function getStatusLabel(status: string): string {
-    switch (status) {
-      case "preparing":
-        return "Hazırlanıyor";
-      case "in_progress":
-        return "Devam Ediyor";
-      case "completed":
-        return "Tamamlandı";
-      case "cancelled":
-        return "İptal Edildi";
-      default:
-        return status;
-    }
-  }
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return "#34d399";
+    if (score >= 60) return "#fbbf24";
+    return "#f87171";
+  };
 
-  function getFieldLabel(field: string): string {
-    const fields: Record<string, string> = {
+  const getFieldLabel = (field: string): string => {
+    const labels: Record<string, string> = {
       backend: "Backend",
       frontend: "Frontend",
-      fullstack: "Full Stack",
-      mobile: "Mobil",
+      fullstack: "Fullstack",
+      mobile: "Mobile",
       devops: "DevOps",
+      data_science: "Data Science",
     };
-    return fields[field] || field;
-  }
+    return labels[field] || field;
+  };
 
-  function formatDate(date: string): string {
-    return new Date(date).toLocaleDateString("tr-TR", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const getFieldIcon = (field: string): string => {
+    const icons: Record<string, string> = {
+      backend: "🖥️",
+      frontend: "🎨",
+      fullstack: "⚡",
+      mobile: "📱",
+      devops: "🔧",
+      data_science: "📊",
+    };
+    return icons[field] || "📋";
+  };
+
+  if (loading) {
+    return (
+      <div className="dashboard-page">
+        <div className="loading-state">
+          <div className="loader" />
+          <p>Yükleniyor...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="dashboard">
-      <div className="dashboard__container">
-        {/* Header */}
-        <div className="dashboard__header">
-          <div>
-            <h1 className="dashboard__title">Dashboard</h1>
-            <p className="dashboard__subtitle">
-              Mülakat performansını takip et ve kendini geliştir
-            </p>
-          </div>
-          <a href="/interview" className="dashboard__new-btn">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-            </svg>
-            Yeni Mülakat
+    <div className="dashboard-page">
+      <div className="dashboard-container">
+        <div className="dashboard-header">
+          <h1>📊 Dashboard</h1>
+          <a href="/interview" className="new-interview-btn">
+            🎤 Yeni Mülakat
           </a>
         </div>
 
-        {/* Stats */}
+        {/* Stats Cards */}
         <div className="stats-grid">
           <div className="stat-card">
-            <div className="stat-card__icon stat-card__icon--purple">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-              </svg>
-            </div>
-            <div className="stat-card__value">{stats.total}</div>
-            <div className="stat-card__label">Toplam Mülakat</div>
+            <span className="stat-icon">📋</span>
+            <span className="stat-value">{stats?.totalInterviews || 0}</span>
+            <span className="stat-label">Toplam Mülakat</span>
           </div>
-
           <div className="stat-card">
-            <div className="stat-card__icon stat-card__icon--green">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            </div>
-            <div className="stat-card__value">{stats.completed}</div>
-            <div className="stat-card__label">Tamamlanan</div>
+            <span className="stat-icon">✅</span>
+            <span className="stat-value">
+              {stats?.completedInterviews || 0}
+            </span>
+            <span className="stat-label">Tamamlanan</span>
           </div>
-
           <div className="stat-card">
-            <div className="stat-card__icon stat-card__icon--blue">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <line x1="18" y1="20" x2="18" y2="10" />
-                <line x1="12" y1="20" x2="12" y2="4" />
-                <line x1="6" y1="20" x2="6" y2="14" />
-              </svg>
-            </div>
-            <div className="stat-card__value">
-              {stats.avgScore}
-              <span className="stat-card__unit">%</span>
-            </div>
-            <div className="stat-card__label">Ortalama Puan</div>
+            <span className="stat-icon">📈</span>
+            <span className="stat-value">
+              {Math.round(stats?.averageScore || 0)}
+            </span>
+            <span className="stat-label">Ortalama Puan</span>
           </div>
-
           <div className="stat-card">
-            <div className="stat-card__icon stat-card__icon--gold">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-              </svg>
-            </div>
-            <div className="stat-card__value">
-              {stats.bestScore}
-              <span className="stat-card__unit">%</span>
-            </div>
-            <div className="stat-card__label">En İyi Puan</div>
+            <span className="stat-icon">🏆</span>
+            <span className="stat-value">
+              {Math.round(stats?.bestScore || 0)}
+            </span>
+            <span className="stat-label">En İyi Puan</span>
           </div>
         </div>
 
         {/* Interview History */}
-        <div className="interview-history">
-          <h2 className="interview-history__title">Geçmiş Mülakatlar</h2>
+        <div className="history-section">
+          <h2>Mülakat Geçmişi</h2>
 
-          {loading ? (
-            <div className="interview-history__loading">
-              <div className="spinner" />
-              <p>Yükleniyor...</p>
-            </div>
-          ) : interviews.length === 0 ? (
-            <div className="interview-history__empty">
-              <svg
-                width="48"
-                height="48"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                <line x1="12" y1="19" x2="12" y2="23" />
-              </svg>
-              <h3>Henüz mülakat yok</h3>
-              <p>İlk mülakatınızı başlatarak yapay zeka ile pratiğe başlayın</p>
-              <a href="/interview" className="dashboard__new-btn">
-                Mülakata Başla
+          {interviews.length === 0 ? (
+            <div className="empty-state">
+              <span className="empty-icon">🎙️</span>
+              <p>Henüz bir mülakat yapmadınız.</p>
+              <a href="/interview" className="empty-cta">
+                İlk Mülakatınıza Başlayın →
               </a>
             </div>
           ) : (
             <div className="interview-list">
               {interviews.map((interview) => {
-                const report = interview.interview_reports?.[0];
-                const score = report?.overall_score;
-
+                const score =
+                  interview.report?.overallScore || interview.totalScore || 0;
                 return (
                   <a
                     key={interview.id}
                     href={`/interview/${interview.id}`}
                     className="interview-card"
                   >
-                    <div className="interview-card__left">
-                      <div className="interview-card__field-badge">
-                        {getFieldLabel(interview.field)}
-                      </div>
-                      <div className="interview-card__meta">
-                        <span
-                          className={`interview-card__status interview-card__status--${interview.status}`}
-                        >
-                          {getStatusLabel(interview.status)}
+                    <div className="card-left">
+                      <span className="card-icon">
+                        {getFieldIcon(interview.field)}
+                      </span>
+                      <div className="card-info">
+                        <span className="card-field">
+                          {getFieldLabel(interview.field)}
                         </span>
-                        <span className="interview-card__date">
-                          {formatDate(interview.created_at)}
+                        <span className="card-tech">
+                          {interview.techStack?.join(" • ") || "General"}
+                        </span>
+                        <span className="card-date">
+                          {new Date(interview.createdAt).toLocaleDateString(
+                            "tr-TR",
+                            {
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric",
+                            },
+                          )}
                         </span>
                       </div>
-                      {interview.tech_stack &&
-                        interview.tech_stack.length > 0 && (
-                          <div className="interview-card__tags">
-                            {interview.tech_stack.slice(0, 4).map((tech) => (
-                              <span key={tech} className="interview-card__tag">
-                                {tech}
-                              </span>
-                            ))}
-                            {interview.tech_stack.length > 4 && (
-                              <span className="interview-card__tag">
-                                +{interview.tech_stack.length - 4}
-                              </span>
-                            )}
-                          </div>
-                        )}
                     </div>
-
-                    {score !== undefined && (
-                      <div
-                        className={`interview-card__score ${getScoreColor(score)}`}
-                      >
-                        <span className="interview-card__score-value">
+                    <div className="card-right">
+                      {interview.status === "completed" ? (
+                        <span
+                          className="card-score"
+                          style={{ color: getScoreColor(score) }}
+                        >
                           {score}
                         </span>
-                        <span className="interview-card__score-label">
-                          puan
+                      ) : (
+                        <span className={`card-status ${interview.status}`}>
+                          {interview.status === "in_progress"
+                            ? "Devam Ediyor"
+                            : "Bekliyor"}
                         </span>
-                      </div>
-                    )}
-
-                    <svg
-                      className="interview-card__arrow"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <polyline points="9 18 15 12 9 6" />
-                    </svg>
+                      )}
+                      <span className="card-arrow">→</span>
+                    </div>
                   </a>
                 );
               })}

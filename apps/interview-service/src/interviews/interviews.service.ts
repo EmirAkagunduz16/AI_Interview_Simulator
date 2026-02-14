@@ -1,6 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import axios from "axios";
 import { KafkaTopics } from "@ai-coach/shared-types";
 import { KafkaProducerService } from "@ai-coach/kafka-client";
 import { InterviewRepository } from "./repositories/interview.repository";
@@ -8,8 +7,8 @@ import { CreateInterviewDto, SubmitAnswerDto, InterviewStatsDto } from "./dto";
 import {
   InterviewDocument,
   InterviewStatus,
-  InterviewType,
   InterviewAnswer,
+  InterviewReport,
 } from "./entities/interview.entity";
 import {
   InterviewNotFoundException,
@@ -21,59 +20,44 @@ import {
 @Injectable()
 export class InterviewsService {
   private readonly logger = new Logger(InterviewsService.name);
-  private readonly userServiceUrl: string;
-  private readonly questionServiceUrl: string;
-  private readonly aiServiceUrl: string;
 
   constructor(
     private readonly interviewRepository: InterviewRepository,
     private readonly configService: ConfigService,
     private readonly kafkaProducer: KafkaProducerService,
-  ) {
-    this.userServiceUrl = this.configService.get<string>(
-      "service.userServiceUrl",
-    )!;
-    this.questionServiceUrl = this.configService.get<string>(
-      "service.questionServiceUrl",
-    )!;
-    this.aiServiceUrl = this.configService.get<string>("service.aiServiceUrl")!;
-  }
+  ) {}
 
   async create(
     userId: string,
     dto: CreateInterviewDto,
   ): Promise<InterviewDocument> {
-    this.logger.log(`Creating interview for user: ${userId}`);
-
-    // Get random questions
-    const questionCount = dto.questionCount || 5;
-    const questions = await this.getRandomQuestions(
-      dto.type,
-      dto.difficulty,
-      questionCount,
-    );
-    const questionIds = questions.map((q: { id: string }) => q.id);
-
     const interview = await this.interviewRepository.create({
       userId,
-      title: dto.title || `Interview - ${new Date().toLocaleDateString()}`,
-      type: dto.type || InterviewType.MIXED,
+      field: dto.field,
+      techStack: dto.techStack,
+      difficulty: dto.difficulty || "intermediate",
+      title: dto.title || `${dto.field} Mülakat`,
+      type: dto.type,
       targetRole: dto.targetRole,
-      difficulty: dto.difficulty,
       durationMinutes: dto.durationMinutes || 30,
-      questionIds,
+      vapiCallId: dto.vapiCallId,
+      status: InterviewStatus.PENDING,
     });
 
-    // Emit Kafka event for interview started
-    await this.kafkaProducer.emit(KafkaTopics.INTERVIEW_STARTED, {
-      interviewId: interview._id.toString(),
-      userId,
-      type: interview.type,
-      targetRole: interview.targetRole,
-      questionCount: questionIds.length,
-    });
+    this.logger.log(`Interview created: ${interview._id} for user: ${userId}`);
 
-    this.logger.log(`Interview created: ${interview._id}`);
+    // Emit Kafka event
+    try {
+      await this.kafkaProducer.emit(KafkaTopics.INTERVIEW_CREATED, {
+        interviewId: interview._id.toString(),
+        userId,
+        field: dto.field,
+        questionCount: dto.questionCount || 5,
+      });
+    } catch (error) {
+      this.logger.warn("Failed to emit INTERVIEW_CREATED event", error);
+    }
+
     return interview;
   }
 
@@ -88,6 +72,20 @@ export class InterviewsService {
     return interview;
   }
 
+  async findByIdInternal(id: string): Promise<InterviewDocument> {
+    const interview = await this.interviewRepository.findById(id);
+    if (!interview) {
+      throw new InterviewNotFoundException(id);
+    }
+    return interview;
+  }
+
+  async findByVapiCallId(
+    vapiCallId: string,
+  ): Promise<InterviewDocument | null> {
+    return this.interviewRepository.findByVapiCallId(vapiCallId);
+  }
+
   async findByUserId(
     userId: string,
     options: { page?: number; limit?: number; status?: InterviewStatus } = {},
@@ -97,26 +95,48 @@ export class InterviewsService {
     page: number;
     totalPages: number;
   }> {
-    const { page = 1, limit = 10 } = options;
-    const { interviews, total } = await this.interviewRepository.findByUserId(
-      userId,
-      options,
-    );
-    return { interviews, total, page, totalPages: Math.ceil(total / limit) };
+    const page = options.page || 1;
+    const limit = options.limit || 10;
+
+    const result = await this.interviewRepository.findByUserId(userId, {
+      page,
+      limit,
+      status: options.status,
+    });
+
+    return {
+      ...result,
+      page,
+      totalPages: Math.ceil(result.total / limit),
+    };
   }
 
   async start(userId: string, id: string): Promise<InterviewDocument> {
     const interview = await this.findById(userId, id);
 
-    if (interview.status !== InterviewStatus.PENDING) {
+    if (interview.status === InterviewStatus.IN_PROGRESS) {
       throw new InterviewAlreadyStartedException();
+    }
+    if (interview.status === InterviewStatus.COMPLETED) {
+      throw new InterviewAlreadyCompletedException();
     }
 
     const updated = await this.interviewRepository.updateStatus(
       id,
       InterviewStatus.IN_PROGRESS,
     );
-    this.logger.log(`Interview started: ${id}`);
+
+    // Emit Kafka event
+    try {
+      await this.kafkaProducer.emit(KafkaTopics.INTERVIEW_STARTED, {
+        interviewId: id,
+        userId,
+        startedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.logger.warn("Failed to emit INTERVIEW_STARTED event", error);
+    }
+
     return updated!;
   }
 
@@ -127,35 +147,76 @@ export class InterviewsService {
   ): Promise<InterviewDocument> {
     const interview = await this.findById(userId, id);
 
-    if (interview.status === InterviewStatus.PENDING) {
+    if (interview.status !== InterviewStatus.IN_PROGRESS) {
       throw new InterviewNotStartedException();
     }
-    if (interview.status === InterviewStatus.COMPLETED) {
-      throw new InterviewAlreadyCompletedException();
-    }
 
-    // Get question details
-    const question = await this.getQuestion(dto.questionId);
-
-    // Get AI evaluation (async, don't wait)
     const answer: InterviewAnswer = {
       questionId: dto.questionId,
-      questionTitle: question?.title || "Unknown Question",
+      questionTitle: dto.questionTitle,
       answer: dto.answer,
+      strengths: [],
+      improvements: [],
       answeredAt: new Date(),
-    };
+    } as InterviewAnswer;
 
     const updated = await this.interviewRepository.addAnswer(id, answer);
 
-    // Emit Kafka event for answer submitted - AI service will consume this
-    await this.kafkaProducer.emit(KafkaTopics.INTERVIEW_ANSWER_SUBMITTED, {
-      interviewId: id,
-      userId,
+    // Emit Kafka event for AI evaluation
+    try {
+      await this.kafkaProducer.emit(KafkaTopics.INTERVIEW_ANSWER_SUBMITTED, {
+        interviewId: id,
+        userId,
+        questionId: dto.questionId,
+        questionTitle: dto.questionTitle,
+        questionContent: dto.questionTitle,
+        answer: dto.answer,
+      });
+    } catch (error) {
+      this.logger.warn(
+        "Failed to emit INTERVIEW_ANSWER_SUBMITTED event",
+        error,
+      );
+    }
+
+    return updated!;
+  }
+
+  // Internal method for VAPI webhook — no userId check needed
+  async submitAnswerInternal(
+    interviewId: string,
+    dto: SubmitAnswerDto,
+  ): Promise<InterviewDocument> {
+    const interview = await this.interviewRepository.findById(interviewId);
+    if (!interview) throw new InterviewNotFoundException(interviewId);
+
+    const answer: InterviewAnswer = {
       questionId: dto.questionId,
-      questionTitle: question?.title || "Unknown",
-      questionContent: question?.content || "",
+      questionTitle: dto.questionTitle,
       answer: dto.answer,
-    });
+      strengths: [],
+      improvements: [],
+      answeredAt: new Date(),
+    } as InterviewAnswer;
+
+    const updated = await this.interviewRepository.addAnswer(
+      interviewId,
+      answer,
+    );
+
+    // Emit Kafka event
+    try {
+      await this.kafkaProducer.emit(KafkaTopics.INTERVIEW_ANSWER_SUBMITTED, {
+        interviewId,
+        userId: interview.userId,
+        questionId: dto.questionId,
+        questionTitle: dto.questionTitle,
+        questionContent: dto.questionTitle,
+        answer: dto.answer,
+      });
+    } catch (error) {
+      this.logger.warn("Failed to emit answer event", error);
+    }
 
     return updated!;
   }
@@ -163,19 +224,11 @@ export class InterviewsService {
   async complete(userId: string, id: string): Promise<InterviewDocument> {
     const interview = await this.findById(userId, id);
 
-    if (interview.status !== InterviewStatus.IN_PROGRESS) {
-      throw new InterviewNotStartedException();
+    if (interview.status === InterviewStatus.COMPLETED) {
+      throw new InterviewAlreadyCompletedException();
     }
 
-    // Calculate total score from answers
-    const scores = interview.answers
-      .filter((a) => a.score !== undefined)
-      .map((a) => a.score as number);
-    const totalScore =
-      scores.length > 0
-        ? Math.round(scores.reduce((sum, s) => sum + s, 0) / scores.length)
-        : 0;
-
+    const totalScore = this.calculateAverageScore(interview);
     const overallFeedback = this.generateOverallFeedback(
       totalScore,
       interview.answers.length,
@@ -187,17 +240,54 @@ export class InterviewsService {
       overallFeedback,
     );
 
-    // Emit Kafka event for interview completed
-    await this.kafkaProducer.emit(KafkaTopics.INTERVIEW_COMPLETED, {
-      interviewId: id,
-      userId,
-      score: totalScore,
-      questionsAnswered: interview.answers.length,
-      duration: interview.durationMinutes,
-    });
+    // Emit Kafka event
+    try {
+      await this.kafkaProducer.emit(KafkaTopics.INTERVIEW_COMPLETED, {
+        interviewId: id,
+        userId,
+        totalScore,
+        completedAt: new Date().toISOString(),
+        totalTimeSpent: 0,
+      });
+    } catch (error) {
+      this.logger.warn("Failed to emit INTERVIEW_COMPLETED event", error);
+    }
 
-    this.logger.log(`Interview completed: ${id}, score: ${totalScore}`);
     return updated!;
+  }
+
+  async completeWithReport(
+    interviewId: string,
+    report: InterviewReport,
+    overallFeedback: string,
+  ): Promise<InterviewDocument> {
+    const updated = await this.interviewRepository.setReport(
+      interviewId,
+      report,
+      report.overallScore,
+      overallFeedback,
+    );
+
+    if (!updated) throw new InterviewNotFoundException(interviewId);
+
+    this.logger.log(
+      `Interview ${interviewId} completed with score: ${report.overallScore}`,
+    );
+
+    // Emit Kafka event
+    try {
+      await this.kafkaProducer.emit(KafkaTopics.INTERVIEW_COMPLETED, {
+        interviewId,
+        userId: updated.userId,
+        totalScore: report.overallScore,
+        completedAt: new Date().toISOString(),
+        totalTimeSpent: 0,
+      });
+    } catch (error) {
+      this.logger.warn("Failed to emit INTERVIEW_COMPLETED event", error);
+    }
+
+    return updated;
   }
 
   async cancel(userId: string, id: string): Promise<InterviewDocument> {
@@ -211,7 +301,6 @@ export class InterviewsService {
       id,
       InterviewStatus.CANCELLED,
     );
-    this.logger.log(`Interview cancelled: ${id}`);
     return updated!;
   }
 
@@ -219,45 +308,7 @@ export class InterviewsService {
     return this.interviewRepository.getStats(userId);
   }
 
-  private async getRandomQuestions(
-    type?: InterviewType,
-    difficulty?: string,
-    count = 5,
-  ): Promise<{ id: string; title: string }[]> {
-    try {
-      const params = new URLSearchParams();
-      if (type) params.append("type", type);
-      if (difficulty) params.append("difficulty", difficulty);
-      params.append("count", count.toString());
-
-      const response = await axios.get(
-        `${this.questionServiceUrl}/api/v1/questions/random?${params.toString()}`,
-        { timeout: 5000 },
-      );
-      return response.data;
-    } catch (error) {
-      this.logger.warn("Failed to get questions, using defaults");
-      return [];
-    }
-  }
-
-  private async getQuestion(
-    questionId: string,
-  ): Promise<{ title: string; content: string } | null> {
-    try {
-      const response = await axios.get(
-        `${this.questionServiceUrl}/api/v1/questions/${questionId}`,
-        { timeout: 5000 },
-      );
-      return response.data;
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * Update answer with AI feedback received from Kafka event
-   */
+  // Update answer with AI evaluation feedback (from Kafka event)
   async updateAnswerWithAiFeedback(
     interviewId: string,
     questionId: string,
@@ -269,27 +320,37 @@ export class InterviewsService {
     },
   ): Promise<void> {
     await this.interviewRepository.updateAnswer(interviewId, questionId, {
-      feedback: feedback.feedback,
       score: feedback.score,
-      suggestions: feedback.improvements,
+      feedback: feedback.feedback,
+      strengths: feedback.strengths,
+      improvements: feedback.improvements,
       evaluatedAt: new Date(),
-    } as InterviewAnswer);
+    });
 
     this.logger.log(
-      `Answer updated with AI feedback: ${interviewId}/${questionId}`,
+      `Answer evaluated for interview ${interviewId}, question ${questionId}`,
     );
+  }
+
+  private calculateAverageScore(interview: InterviewDocument): number {
+    const scoredAnswers = interview.answers.filter(
+      (a) => a.score !== undefined,
+    );
+    if (scoredAnswers.length === 0) return 0;
+    const sum = scoredAnswers.reduce((acc, a) => acc + (a.score || 0), 0);
+    return Math.round(sum / scoredAnswers.length);
   }
 
   private generateOverallFeedback(
     score: number,
     questionCount: number,
   ): string {
-    if (score >= 80) {
-      return `Excellent performance! You answered ${questionCount} questions with an average score of ${score}%. Keep up the great work!`;
-    } else if (score >= 60) {
-      return `Good job! You scored ${score}% on ${questionCount} questions. Review the feedback to improve further.`;
-    } else {
-      return `You completed ${questionCount} questions with a ${score}% score. Consider practicing more and reviewing the suggestions.`;
-    }
+    if (score >= 90)
+      return `Mükemmel performans! ${questionCount} sorudan ${score} puan aldınız.`;
+    if (score >= 75)
+      return `İyi performans! ${questionCount} sorudan ${score} puan aldınız.`;
+    if (score >= 60)
+      return `Orta düzey performans. ${questionCount} sorudan ${score} puan aldınız.`;
+    return `Geliştirilmesi gereken alanlar var. ${questionCount} sorudan ${score} puan aldınız.`;
   }
 }
