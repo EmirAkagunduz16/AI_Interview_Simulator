@@ -2,6 +2,16 @@
   margin-bottom: 20px;
   text-align: left;
 
+  &--error {
+    .input-field__wrapper {
+      border-color: #e53935;
+    }
+
+    .input-field__label {
+      color: #e53935;
+    }
+  }
+
   &__label {
     display: block;
     font-size: 13px;
@@ -51,5 +61,13 @@
     &::placeholder {
       color: #aaa;
     }
+  }
+
+  &__error {
+    display: block;
+    font-size: 12px;
+    color: #e53935;
+    margin-top: 6px;
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
   }
 }

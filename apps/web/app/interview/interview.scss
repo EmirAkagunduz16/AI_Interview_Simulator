@@ -1,0 +1,384 @@
+// interview.scss - VAPI Interview Page
+
+.interview-page {
+  min-height: 100vh;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  padding: 1.5rem;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    max-width: 800px;
+    margin: 0 auto 2rem;
+  }
+
+  &__back {
+    color: var(--color-text-muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.2s;
+
+    &:hover {
+      color: var(--color-accent);
+    }
+  }
+
+  &__title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    background: var(--gradient-text);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  &__progress {
+    margin-left: auto;
+    background: var(--color-bg-glass);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    padding: 0.4rem 1rem;
+    font-size: 0.85rem;
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+
+  &__content {
+    max-width: 800px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  &__completed {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  &__score {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  &__score-value {
+    font-size: 4rem;
+    font-weight: 800;
+    background: var(--gradient-text);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  &__score-label {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+  }
+
+  &__completed-actions {
+    display: flex;
+    gap: 1rem;
+  }
+}
+
+// Voice Visualizer
+.voice-visualizer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 3rem 2rem;
+  background: var(--color-bg-glass);
+  border: 1px solid var(--color-border);
+  border-radius: 1.5rem;
+  backdrop-filter: blur(20px);
+  transition: all 0.4s ease;
+
+  &.active {
+    border-color: rgba(124, 58, 237, 0.3);
+    box-shadow: var(--shadow-glow);
+  }
+
+  &__orb {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__pulse {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      rgba(124, 58, 237, 0.3),
+      transparent 70%
+    );
+    animation: pulse 2s ease-in-out infinite;
+
+    &.speaking {
+      animation: pulse-fast 0.8s ease-in-out infinite;
+      background: radial-gradient(
+        circle,
+        rgba(124, 58, 237, 0.5),
+        transparent 70%
+      );
+    }
+  }
+
+  &__icon {
+    position: relative;
+    z-index: 1;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--gradient-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+  }
+
+  &__spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  &__bars {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 60px;
+  }
+
+  &__status {
+    color: var(--color-text-secondary);
+    font-size: 0.95rem;
+    text-align: center;
+  }
+}
+
+.volume-bar {
+  width: 4px;
+  background: var(--gradient-accent);
+  border-radius: 4px;
+  opacity: 0.3;
+  transition: all 0.15s ease;
+  min-height: 8px;
+
+  &.active {
+    opacity: 0.8;
+    animation: bar-bounce 0.5s ease-in-out infinite alternate;
+  }
+
+  &.speaking {
+    opacity: 1;
+  }
+}
+
+// Current Question
+.current-question {
+  background: var(--color-bg-glass);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  backdrop-filter: blur(20px);
+
+  &__badge {
+    display: inline-block;
+    background: var(--gradient-accent);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  &__text {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: var(--color-text-primary);
+  }
+}
+
+// Transcript
+.transcript {
+  background: var(--color-bg-glass);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  backdrop-filter: blur(20px);
+
+  &__title {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-text-muted);
+    margin-bottom: 1rem;
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: var(--color-border);
+      border-radius: 4px;
+    }
+  }
+
+  &__entry {
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+
+    &--assistant {
+      background: rgba(124, 58, 237, 0.1);
+      border: 1px solid rgba(124, 58, 237, 0.15);
+    }
+
+    &--user {
+      background: rgba(37, 99, 235, 0.1);
+      border: 1px solid rgba(37, 99, 235, 0.15);
+    }
+  }
+
+  &__role {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
+    display: block;
+    opacity: 0.7;
+  }
+
+  &__text {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--color-text-secondary);
+  }
+}
+
+// Buttons
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+
+  &--primary {
+    background: var(--gradient-accent);
+    color: white;
+    box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+
+    &:hover {
+      box-shadow: 0 6px 25px rgba(124, 58, 237, 0.5);
+      transform: translateY(-1px);
+    }
+  }
+
+  &--secondary {
+    background: var(--color-bg-glass);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+
+    &:hover {
+      border-color: var(--color-accent);
+      color: var(--color-text-primary);
+    }
+  }
+
+  &--danger {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+
+    &:hover {
+      box-shadow: 0 6px 25px rgba(239, 68, 68, 0.5);
+      transform: translateY(-1px);
+    }
+  }
+
+  &--large {
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+    border-radius: 1rem;
+  }
+}
+
+// Animations
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
+  }
+}
+
+@keyframes pulse-fast {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes bar-bounce {
+  0% {
+    transform: scaleY(0.5);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}

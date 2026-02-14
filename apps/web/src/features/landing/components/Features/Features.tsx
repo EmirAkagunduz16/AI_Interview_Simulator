@@ -36,7 +36,7 @@ const features = [
 
 const Features = () => {
   return (
-    <section className="features">
+    <section className="features" id="features">
       <div className="features__header">
         <span className="features__tag">Özellikler</span>
         <h2 className="features__title">

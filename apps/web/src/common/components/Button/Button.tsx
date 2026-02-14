@@ -7,6 +7,7 @@ interface ButtonProps {
   type?: 'button' | 'submit'
   onClick?: () => void
   className?: string
+  disabled?: boolean
 }
 
 const Button = ({ 
@@ -14,13 +15,15 @@ const Button = ({
   variant = 'primary', 
   type = 'button',
   onClick,
-  className = ''
+  className = '',
+  disabled = false
 }: ButtonProps) => {
   return (
     <button 
       type={type}
-      className={`btn btn--${variant} ${className}`}
+      className={`btn btn--${variant} ${className} ${disabled ? 'btn--disabled' : ''}`}
       onClick={onClick}
+      disabled={disabled}
     >
       {children}
     </button>

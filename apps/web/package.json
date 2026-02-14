@@ -13,9 +13,11 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@monaco-editor/react": "^4.7.0",
     "@mui/material": "^7.3.7",
     "@reduxjs/toolkit": "^2.11.2",
-    "@repo/ui": "workspace:*",
+    "@supabase/supabase-js": "^2.95.3",
+    "@vapi-ai/web": "^2.5.2",
     "next": "16.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -28,7 +30,10 @@
     "@types/node": "^22.15.3",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
+    "autoprefixer": "^10.4.24",
     "eslint": "^9.39.1",
+    "postcss": "^8.5.6",
+    "tailwindcss": "3",
     "typescript": "5.9.2"
   },
   "peerDependencies": {

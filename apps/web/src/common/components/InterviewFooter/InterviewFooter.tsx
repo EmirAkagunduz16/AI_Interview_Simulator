@@ -9,28 +9,36 @@ interface InterviewFooterProps {
   onButtonClick: () => void
   showNote?: boolean
   noteText?: string
+  showWebcam?: boolean
+  showMediaStatus?: boolean
+  disabled?: boolean
 }
 
 const InterviewFooter = ({ 
   buttonText, 
   onButtonClick, 
   showNote = true,
-  noteText = "Note : Do not refresh the page or you'll lose your data"
+  noteText = "Not: Sayfayı yenilemeyin, aksi halde verileriniz kaybolur.",
+  showWebcam = false,
+  showMediaStatus = true,
+  disabled = false
 }: InterviewFooterProps) => {
   return (
     <div className="interview-footer">
       <div className="interview-footer__action">
-        <Button onClick={onButtonClick}>{buttonText}</Button>
+        <Button onClick={onButtonClick} disabled={disabled}>{buttonText}</Button>
       </div>
       
       {showNote && (
         <p className="interview-footer__note">{noteText}</p>
       )}
       
-      <div className="interview-footer__media">
-        <MediaStatusIndicator />
-        <WebcamPreview />
-      </div>
+      {(showMediaStatus || showWebcam) && (
+        <div className="interview-footer__media">
+          {showMediaStatus && <MediaStatusIndicator />}
+          {showWebcam && <WebcamPreview />}
+        </div>
+      )}
     </div>
   )
 }

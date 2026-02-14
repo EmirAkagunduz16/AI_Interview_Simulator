@@ -1,0 +1,27 @@
+{
+  "name": "@ai-coach/kafka-client",
+  "version": "0.1.0",
+  "description": "Shared Kafka client for AI Coach microservices",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/config": "^4.0.0",
+    "kafkajs": "^2.2.4",
+    "uuid": "^13.0.0",
+    "@ai-coach/shared-types": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/uuid": "^11.0.0",
+    "typescript": "^5.7.2"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/config": "^4.0.0"
+  }
+}

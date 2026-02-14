@@ -32,6 +32,13 @@ const McqQuestion = () => {
     }
   }, [isTimerRunning, timeRemaining, dispatch])
 
+  useEffect(() => {
+    if (timeRemaining === 0 && isTimerRunning) {
+      handleSubmit()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeRemaining])
+
   const handleOptionToggle = (option: string) => {
     setSelectedOptions(prev => {
       if (prev.includes(option)) {
@@ -80,7 +87,7 @@ const McqQuestion = () => {
                   </svg>
                 )}
               </span>
-              <span className={`mcq-question__option-text ${index === 2 ? 'underlined' : ''}`}>
+              <span className="mcq-question__option-text">
                 {option}
               </span>
             </label>
@@ -91,7 +98,8 @@ const McqQuestion = () => {
       <InterviewFooter 
         buttonText="Gönder ve Devam Et" 
         onButtonClick={handleSubmit}
-        noteText="Not: Sayfayı yenilemeyin, aksi halde verileriniz kaybolur."
+        showMediaStatus={false}
+        showWebcam={false}
       />
     </div>
   )

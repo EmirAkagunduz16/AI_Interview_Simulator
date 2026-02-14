@@ -9,6 +9,7 @@ interface InputProps {
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void
   prefix?: string
   name?: string
+  error?: string
 }
 
 const Input = ({ 
@@ -18,10 +19,11 @@ const Input = ({
   value, 
   onChange,
   prefix,
-  name
+  name,
+  error
 }: InputProps) => {
   return (
-    <div className='input-field'>
+    <div className={`input-field ${error ? 'input-field--error' : ''}`}>
       <label className='input-field__label'>{label}</label>
       <div className={`input-field__wrapper ${prefix ? 'input-field__wrapper--with-prefix' : ''}`}>
         {prefix && <span className='input-field__prefix'>{prefix}</span>}
@@ -34,6 +36,7 @@ const Input = ({
           name={name}
         />
       </div>
+      {error && <span className='input-field__error'>{error}</span>}
     </div>
   )
 }

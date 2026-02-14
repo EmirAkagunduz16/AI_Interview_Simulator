@@ -1,29 +1,17 @@
 .top-palette-container {
   display: flex;
-  height: 8px;
+  height: 3px;
+  background: linear-gradient(90deg, #7c3aed, #2563eb, #a78bfa, #7c3aed);
+  background-size: 300% 100%;
+  animation: gradientShift 8s ease-in-out infinite;
+}
 
-  .red {
-    flex: 1;
-    background-color: #e74c3c;
+@keyframes gradientShift {
+  0%,
+  100% {
+    background-position: 0% 50%;
   }
-
-  .orange {
-    flex: 1;
-    background-color: #f39c12;
-  }
-
-  .light-green {
-    flex: 1;
-    background-color: #f1c40f;
-  }
-
-  .dark-green {
-    flex: 1;
-    background-color: #2ecc71;
-  }
-
-  .blue {
-    flex: 1;
-    background-color: #00bfa5;
+  50% {
+    background-position: 100% 50%;
   }
 }

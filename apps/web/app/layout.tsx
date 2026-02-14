@@ -14,8 +14,9 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "HappierWork - AI Interview Coach",
-  description: "Your AI-powered interview preparation assistant",
+  title: "AI Coach - Yapay Zeka Destekli Mulakat Hazirligi",
+  description:
+    "AI Coach ile gercek mulakat deneyimi yasayin. Yapay zeka destekli sorular, anlik geri bildirimler ve kisisellestirilmis oneriler.",
 };
 
 export default function RootLayout({
