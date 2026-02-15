@@ -6,6 +6,7 @@ import configuration from "./config/configuration";
 import { ProxyModule } from "./proxy/proxy.module";
 import { RoutesModule } from "./proxy/routes/routes.module";
 import { HealthModule } from "./health/health.module";
+import { JwtAuthGuard } from "./common/guards/auth.guard";
 
 @Module({
   imports: [
@@ -34,6 +35,10 @@ import { HealthModule } from "./health/health.module";
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
     },
   ],
 })

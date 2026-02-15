@@ -1,13 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
 import { FIELDS } from "../../data/interviewConfig";
-
-interface TranscriptEntry {
-  role: "assistant" | "user";
-  text: string;
-  timestamp: Date;
-}
 
 interface VoiceInterviewPanelProps {
   field: string;
@@ -17,7 +10,6 @@ interface VoiceInterviewPanelProps {
   isSpeaking: boolean;
   volumeLevel: number;
   currentQuestion: string;
-  transcript: TranscriptEntry[];
   error: string | null;
   onStartCall: () => void;
   onEndCall: () => void;
@@ -31,17 +23,10 @@ export default function VoiceInterviewPanel({
   isSpeaking,
   volumeLevel,
   currentQuestion,
-  transcript,
   error,
   onStartCall,
   onEndCall,
 }: VoiceInterviewPanelProps) {
-  const transcriptEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [transcript]);
-
   const fieldInfo = FIELDS.find((f) => f.id === field);
 
   return (
@@ -110,35 +95,16 @@ export default function VoiceInterviewPanel({
         </div>
       )}
 
-      {/* Transcript */}
-      {transcript.length > 0 && (
-        <div className="transcript-area">
-          <h3>Konuşma Geçmişi</h3>
-          <div className="transcript-list">
-            {transcript.map((entry, i) => (
-              <div key={i} className={`transcript-entry ${entry.role}`}>
-                <span className="role-icon">
-                  {entry.role === "assistant" ? "🤖" : "👤"}
-                </span>
-                <p>{entry.text}</p>
-              </div>
-            ))}
-            <div ref={transcriptEndRef} />
-          </div>
-        </div>
-      )}
-
       {/* Controls */}
       <div className="interview-controls">
-        {isCallActive ? (
-          <button className="end-call-btn" onClick={onEndCall}>
-            📞 Mülakatı Bitir
-          </button>
-        ) : (
+        {!isCallActive && (
           <button className="start-call-btn" onClick={onStartCall}>
             🎙️ Yeniden Bağlan
           </button>
         )}
+        <button className="end-call-btn" onClick={onEndCall}>
+          🚪 Mülakatı Bitir & Sonuçları Gör
+        </button>
       </div>
     </div>
   );

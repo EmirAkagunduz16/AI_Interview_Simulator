@@ -7,7 +7,7 @@ export type UserDocument = User & Document;
   timestamps: true,
   collection: "users",
   toJSON: {
-    transform: (_, ret: Record<string, unknown>) => {
+    transform: (_: unknown, ret: Record<string, unknown>) => {
       ret.id = (ret._id as { toString(): string }).toString();
       delete ret._id;
       delete ret.__v;
@@ -33,6 +33,11 @@ export class User {
   @Prop({ trim: true }) name?: string;
   @Prop() phone?: string;
   @Prop({ default: true }) isActive: boolean;
+
+  // Dashboard stats
+  @Prop({ default: 0 }) interviewCount: number;
+  @Prop({ default: 0 }) totalScore: number;
+  @Prop() lastInterviewAt?: Date;
 
   createdAt: Date;
   updatedAt: Date;

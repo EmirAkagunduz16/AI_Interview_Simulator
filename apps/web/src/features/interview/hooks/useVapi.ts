@@ -3,23 +3,16 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Vapi from "@vapi-ai/web";
 
-interface UseVapiConfig {
+export interface UseVapiConfig {
   field: string;
   techStack: string[];
   difficulty: string;
-}
-
-interface TranscriptEntry {
-  role: "assistant" | "user";
-  text: string;
-  timestamp: Date;
 }
 
 interface UseVapiReturn {
   isConnected: boolean;
   isCallActive: boolean;
   isSpeaking: boolean;
-  transcript: TranscriptEntry[];
   currentQuestion: string;
   interviewId: string | null;
   overallScore: number | null;
@@ -29,11 +22,10 @@ interface UseVapiReturn {
   endCall: () => void;
 }
 
-export function useVapi(config: UseVapiConfig | null): UseVapiReturn {
+export function useVapi(config: UseVapiConfig): UseVapiReturn {
   const [isConnected, setIsConnected] = useState(false);
   const [isCallActive, setIsCallActive] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState("");
   const [interviewId, setInterviewId] = useState<string | null>(null);
   const [overallScore, setOverallScore] = useState<number | null>(null);
@@ -43,6 +35,10 @@ export function useVapi(config: UseVapiConfig | null): UseVapiReturn {
   const manualEndRef = useRef(false);
 
   const vapiRef = useRef<Vapi | null>(null);
+  // Keep config in a ref so startCall always reads the latest value
+  const configRef = useRef(config);
+  configRef.current = config;
+
   const publicKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY;
 
   useEffect(() => {
@@ -63,11 +59,9 @@ export function useVapi(config: UseVapiConfig | null): UseVapiReturn {
     vapi.on("call-end", () => {
       setIsCallActive(false);
       setIsSpeaking(false);
-      // Keep isConnected true so UI doesn't show "Bağlanıyor..."
       // If user manually ended, transition to completed
       if (manualEndRef.current) {
         manualEndRef.current = false;
-        // Set a default score so the page transitions to completed
         setOverallScore((prev) => (prev !== null ? prev : 0));
       }
     });
@@ -80,19 +74,6 @@ export function useVapi(config: UseVapiConfig | null): UseVapiReturn {
     });
 
     vapi.on("message", (msg: any) => {
-      if (msg.type === "transcript") {
-        if (msg.transcriptType === "final") {
-          setTranscript((prev) => [
-            ...prev,
-            {
-              role: msg.role,
-              text: msg.transcript,
-              timestamp: new Date(),
-            },
-          ]);
-        }
-      }
-
       if (msg.type === "function-call") {
         handleFunctionCall(msg);
       }
@@ -129,47 +110,62 @@ export function useVapi(config: UseVapiConfig | null): UseVapiReturn {
       if (score != null) {
         setOverallScore(score);
       } else {
-        // AI called end_interview but didn't provide score — use 0 to trigger transition
         setOverallScore(0);
       }
     }
   }, []);
 
   const startCall = useCallback(() => {
-    if (!vapiRef.current || !config) return;
+    if (!vapiRef.current) return;
 
-    // Always use inline assistant config to ensure Turkish language settings
-    // Do NOT use NEXT_PUBLIC_VAPI_ASSISTANT_ID — that uses dashboard config which may be English
-    vapiRef.current.start({
-      name: "AI Mülakat Asistanı",
-      transcriber: {
-        provider: "deepgram" as any,
-        model: "nova-2" as any,
-        language: "tr" as any,
-      },
+    // Always read latest config from ref (avoids stale closure)
+    const cfg = configRef.current;
+    if (!cfg.field) return;
+
+    const assistantId = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID;
+    if (!assistantId) {
+      setError("VAPI Assistant ID yapılandırılmamış");
+      return;
+    }
+
+    // Use the dashboard assistant (model, voice, transcriber come from Vapi dashboard)
+    // Only override: system prompt, tools, and firstMessage
+    vapiRef.current.start(assistantId, {
       model: {
         provider: "google" as any,
         model: "gemini-2.0-flash" as any,
         messages: [
           {
             role: "system" as any,
-            content: `Sen Türkçe konuşan bir teknik mülakat yapay zeka asistanısın.
+            content: `Sen Türkçe konuşan profesyonel bir teknik mülakat yapay zeka asistanısın. Adın "AI Mülakat Koçu".
 
-KURALLAR:
-1. SADECE ve YALNIZCA Türkçe konuş. Asla İngilizce konuşma.
-2. Her soru sorduktan sonra MUTLAKA kullanıcının cevabını bekle
-3. Kullanıcı cevap vermeden bir sonraki soruya geçme
-4. Kibarlığını koru, cesaretlendirici ol
-5. Her cevaptan sonra kısa bir yorum yap, sonra sıradaki soruya geç
-6. Kullanıcı "mülakatı bitir" veya "bitir" dediğinde hemen end_interview fonksiyonunu çağır
+ÖNEMLİ KURALLAR:
+1. SADECE ve YALNIZCA Türkçe konuş. Asla İngilizce kelime veya cümle kullanma.
+2. Her soruyu sorduktan sonra MUTLAKA kullanıcının cevabını bekle. Cevap gelmeden KESİNLİKLE yeni soru sorma.
+3. Kendin tekrar etme. "İlk soruyla başlayalım" veya "mülakata başlayalım" gibi ifadeleri SADECE BİR KERE söyle, sonra bir daha tekrarlama.
+4. firstMessage zaten mülakatı tanıttı, sen doğrudan ilk soruyu sor. Kendini tekrar tanıtma, mülakatı tekrar açıklama.
+
+SORU GEÇİŞ TARZI:
+- Kullanıcı cevap verdikten sonra, önce kısa ve yapıcı bir yorum yap (1 cümle). Örnek: "Güzel bir yaklaşım, özellikle X kısmını iyi açıkladınız."
+- Sonra doğal bir geçiş cümlesi kullan. Örnekler:
+  * "Peki, şimdi şunu sormak istiyorum..."
+  * "Tamamdır, bir sonraki konumuza geçelim."
+  * "Anladım, peki şu konuda ne düşünüyorsunuz..."
+  * "İlginç bir bakış açısı. Şimdi farklı bir konuya geçiyorum."
+- ASLA "Harika, ilk soruyla mülakata başlayalım" gibi tekrarlayan kalıplar kullanma.
+- Her geçişte farklı bir ifade kullan, monoton olma.
 
 MÜLAKAT BİLGİLERİ:
-Alan: ${config.field}
-Teknolojiler: ${config.techStack.join(", ")}
-Seviye: ${config.difficulty}
+Alan: ${cfg.field}
+Teknolojiler: ${cfg.techStack.join(", ")}
+Seviye: ${cfg.difficulty}
 
-İlk olarak kendinizi tanıtın ve mülakata başlayacağınızı söyleyin. Sonra ilk soruyu sorun ve cevabı bekleyin.
-Toplamda 5 soru sorun. Son sorudan sonra end_interview fonksiyonunu çağırarak mülakatı sonlandırın.`,
+AKIŞ:
+1. Doğrudan ilk teknik soruyu sor (firstMessage zaten tanıtımı yaptı).
+2. Cevabı dinle, kısa yorum yap, sonraki soruya geç.
+3. Toplamda 5 soru sor.
+4. Son sorudan sonra kısa bir genel değerlendirme yap ve end_interview fonksiyonunu çağır.
+5. Kullanıcı "mülakatı bitir" veya "bitir" derse hemen end_interview fonksiyonunu çağır.`,
           },
         ],
         tools: [
@@ -217,7 +213,7 @@ Toplamda 5 soru sorun. Son sorudan sonra end_interview fonksiyonunu çağırarak
             function: {
               name: "end_interview",
               description:
-                "Mülakatı sonlandır. Kullanıcı bitirmek istediğinde veya tüm sorular bittığında çağır.",
+                "Mülakatı sonlandır. Kullanıcı bitirmek istediğinde veya tüm sorular bittiğinde çağır.",
               parameters: {
                 type: "object",
                 properties: {
@@ -234,14 +230,10 @@ Toplamda 5 soru sorun. Son sorudan sonra end_interview fonksiyonunu çağırarak
             },
           },
         ],
-      },
-      voice: {
-        provider: "11labs" as any,
-        voiceId: "TX3LPaxmHKxFdv7VOQHJ" as any,
-      },
-      firstMessage: `Merhaba! Ben yapay zeka mülakat asistanınızım. ${config.field} alanında, ${config.techStack.join(", ")} teknolojileri hakkında ${config.difficulty} seviyesinde bir mülakat gerçekleştireceğiz. Hazır olduğunuzda başlayabiliriz. İlk sorumla başlıyorum.`,
+      } as any,
+      firstMessage: `Merhaba! Ben AI Mülakat Koçunuzum. ${cfg.field} alanında, ${cfg.techStack.join(", ")} teknolojileri hakkında ${cfg.difficulty} seviyesinde bir mülakat gerçekleştireceğiz. Hazırsanız hemen başlıyorum.`,
     } as any);
-  }, [config]);
+  }, []);
 
   const endCall = useCallback(() => {
     // Mark that user manually ended the call
@@ -253,7 +245,6 @@ Toplamda 5 soru sorun. Son sorudan sonra end_interview fonksiyonunu çağırarak
     isConnected,
     isCallActive,
     isSpeaking,
-    transcript,
     currentQuestion,
     interviewId,
     overallScore,

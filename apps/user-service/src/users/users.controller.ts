@@ -30,6 +30,15 @@ import {
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @Get("me/stats")
+  @ApiOperation({ summary: "Get current user dashboard stats" })
+  @ApiHeader({ name: "x-user-id", description: "User Auth ID" })
+  @ApiResponse({ status: 200, description: "Dashboard stats" })
+  @ApiResponse({ status: 404, description: "User not found" })
+  async getMyStats(@Headers("x-user-id") authId: string) {
+    return this.usersService.getDashboardStats(authId);
+  }
+
   @Get("me")
   @ApiOperation({ summary: "Get current user profile" })
   @ApiHeader({ name: "x-user-id", description: "User ID" })

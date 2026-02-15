@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { AuthGuard } from "@/features/auth/components";
 import {
   StatsGrid,
   InterviewHistoryList,
@@ -9,40 +10,29 @@ import type {
   InterviewStats,
   InterviewListItem,
 } from "@/features/dashboard/types";
+import api from "@/lib/axios";
 import "./dashboard.scss";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+function DashboardContent() {
+  const { data: stats, isLoading: statsLoading } = useQuery<InterviewStats>({
+    queryKey: ["dashboard", "stats"],
+    queryFn: async () => {
+      const res = await api.get("/interviews/stats");
+      return res.data;
+    },
+  });
 
-export default function DashboardPage() {
-  const [stats, setStats] = useState<InterviewStats | null>(null);
-  const [interviews, setInterviews] = useState<InterviewListItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: interviews, isLoading: interviewsLoading } = useQuery<
+    InterviewListItem[]
+  >({
+    queryKey: ["dashboard", "interviews"],
+    queryFn: async () => {
+      const res = await api.get("/interviews?limit=20");
+      return res.data.interviews || res.data || [];
+    },
+  });
 
-  const fetchData = useCallback(async () => {
-    try {
-      const headers = { "x-user-id": "demo-user" };
-      const [statsRes, interviewsRes] = await Promise.all([
-        fetch(`${API_BASE}/interviews/stats`, { headers }),
-        fetch(`${API_BASE}/interviews?limit=20`, { headers }),
-      ]);
-
-      if (statsRes.ok) {
-        setStats(await statsRes.json());
-      }
-      if (interviewsRes.ok) {
-        const data = await interviewsRes.json();
-        setInterviews(data.interviews || data || []);
-      }
-    } catch (err) {
-      console.error("Failed to fetch dashboard data:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const loading = statsLoading || interviewsLoading;
 
   if (loading) {
     return (
@@ -69,9 +59,17 @@ export default function DashboardPage() {
 
         <div className="history-section">
           <h2>Mülakat Geçmişi</h2>
-          <InterviewHistoryList interviews={interviews} />
+          <InterviewHistoryList interviews={interviews || []} />
         </div>
       </div>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <AuthGuard>
+      <DashboardContent />
+    </AuthGuard>
   );
 }

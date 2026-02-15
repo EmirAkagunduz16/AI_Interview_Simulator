@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import TopPalette from "../src/common/components/TopPalette/TopPalette";
-import ReduxProvider from "../src/common/providers/ReduxProvider";
+import QueryProvider from "../src/common/providers/QueryProvider";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -27,10 +27,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <ReduxProvider>
+        <QueryProvider>
           <TopPalette />
           {children}
-        </ReduxProvider>
+        </QueryProvider>
       </body>
     </html>
   );

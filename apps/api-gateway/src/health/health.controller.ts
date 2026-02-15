@@ -2,6 +2,7 @@ import { Controller, Get } from "@nestjs/common";
 import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { ConfigService } from "@nestjs/config";
 import axios from "axios";
+import { Public } from "../common/decorators/public.decorator";
 
 interface ServiceHealth {
   name: string;
@@ -12,6 +13,7 @@ interface ServiceHealth {
 
 @ApiTags("Health")
 @Controller("health")
+@Public()
 export class HealthController {
   private readonly startTime = Date.now();
   private readonly services: { name: string; url: string }[];

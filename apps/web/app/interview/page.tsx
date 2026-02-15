@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useVapi } from "@/features/interview/hooks/useVapi";
 import { InterviewConfigForm } from "@/features/interview/components/InterviewConfigForm";
 import { VoiceInterviewPanel } from "@/features/interview/components/VoiceInterviewPanel";
 import { CompletedScreen } from "@/features/interview/components/CompletedScreen";
+import { AuthGuard } from "@/features/auth/components";
 import "./interview.scss";
 
 export default function InterviewPage() {
@@ -15,14 +16,24 @@ export default function InterviewPage() {
   const [techStack, setTechStack] = useState<string[]>([]);
   const [difficulty, setDifficulty] = useState("intermediate");
 
-  const config = step !== "config" ? { field, techStack, difficulty } : null;
+  const config = { field, techStack, difficulty };
   const vapi = useVapi(config);
+
+  const shouldStartRef = useRef(false);
 
   useEffect(() => {
     if (vapi.overallScore !== null) {
       setStep("completed");
     }
   }, [vapi.overallScore]);
+
+  useEffect(() => {
+    if (step === "interview" && shouldStartRef.current) {
+      shouldStartRef.current = false;
+      const timer = setTimeout(() => vapi.startCall(), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [step, vapi.startCall]);
 
   const handleFieldChange = (newField: string) => {
     setField(newField);
@@ -37,8 +48,8 @@ export default function InterviewPage() {
 
   const handleStartInterview = () => {
     if (!field) return;
+    shouldStartRef.current = true;
     setStep("interview");
-    setTimeout(() => vapi.startCall(), 500);
   };
 
   const handleRetry = () => {
@@ -47,9 +58,9 @@ export default function InterviewPage() {
     setTechStack([]);
   };
 
-  if (step === "config") {
-    return (
-      <div className="interview-page">
+  const renderContent = () => {
+    if (step === "config") {
+      return (
         <InterviewConfigForm
           field={field}
           techStack={techStack}
@@ -59,24 +70,20 @@ export default function InterviewPage() {
           onDifficultyChange={setDifficulty}
           onStart={handleStartInterview}
         />
-      </div>
-    );
-  }
+      );
+    }
 
-  if (step === "completed") {
-    return (
-      <div className="interview-page">
+    if (step === "completed") {
+      return (
         <CompletedScreen
           overallScore={vapi.overallScore}
           interviewId={vapi.interviewId}
           onRetry={handleRetry}
         />
-      </div>
-    );
-  }
+      );
+    }
 
-  return (
-    <div className="interview-page">
+    return (
       <VoiceInterviewPanel
         field={field}
         techStack={techStack}
@@ -85,11 +92,16 @@ export default function InterviewPage() {
         isSpeaking={vapi.isSpeaking}
         volumeLevel={vapi.volumeLevel}
         currentQuestion={vapi.currentQuestion}
-        transcript={vapi.transcript}
         error={vapi.error}
         onStartCall={vapi.startCall}
         onEndCall={vapi.endCall}
       />
-    </div>
+    );
+  };
+
+  return (
+    <AuthGuard>
+      <div className="interview-page">{renderContent()}</div>
+    </AuthGuard>
   );
 }

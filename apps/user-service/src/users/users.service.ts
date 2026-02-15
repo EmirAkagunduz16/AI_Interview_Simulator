@@ -85,6 +85,26 @@ export class UsersService {
     return { users, total, page, totalPages };
   }
 
+  async getDashboardStats(authId: string): Promise<{
+    interviewCount: number;
+    totalScore: number;
+    averageScore: number;
+    lastInterviewAt: Date | null;
+  }> {
+    const user = await this.findByAuthId(authId);
+    const averageScore =
+      user.interviewCount > 0
+        ? Math.round(user.totalScore / user.interviewCount)
+        : 0;
+
+    return {
+      interviewCount: user.interviewCount,
+      totalScore: user.totalScore,
+      averageScore,
+      lastInterviewAt: user.lastInterviewAt || null,
+    };
+  }
+
   async deactivate(authId: string): Promise<void> {
     const user = await this.findByAuthId(authId);
     await this.userRepository.deactivate(user._id.toString());
