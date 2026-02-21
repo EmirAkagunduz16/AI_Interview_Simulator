@@ -1,38 +1,42 @@
-import React from 'react'
-import './features.styles.scss'
+import React from "react";
+import "./features.styles.scss";
 
 const features = [
   {
-    icon: '🎯',
-    title: 'Kişiselleştirilmiş Sorular',
-    description: 'Seçtiğiniz alana özel, güncel teknolojilere uygun mülakat soruları',
+    icon: "🎯",
+    title: "Kişiselleştirilmiş Sorular",
+    description:
+      "Seçtiğiniz alana özel, güncel teknolojilere uygun mülakat soruları",
   },
   {
-    icon: '🤖',
-    title: 'AI Destekli Analiz',
-    description: 'Yapay zeka ile yanıtlarınızın anlık analizi ve değerlendirmesi',
+    icon: "🤖",
+    title: "AI Destekli Analiz",
+    description:
+      "Yapay zeka ile yanıtlarınızın anlık analizi ve değerlendirmesi",
   },
   {
-    icon: '📊',
-    title: 'Detaylı Raporlama',
-    description: 'Performansınızı ölçen kapsamlı raporlar ve gelişim önerileri',
+    icon: "📊",
+    title: "Detaylı Raporlama",
+    description: "Performansınızı ölçen kapsamlı raporlar ve gelişim önerileri",
   },
   {
-    icon: '🎥',
-    title: 'Video Mülakat',
-    description: 'Gerçek mülakat deneyimi için video ve ses kayıt desteği',
+    icon: "🗣️",
+    title: "Sesli İletişim",
+    description:
+      "Gerçek mülakat deneyimi için kesintisiz ve akıcı sesli yapay zeka desteği",
   },
   {
-    icon: '💻',
-    title: 'Canlı Kod Editörü',
-    description: 'Kodlama sorularını gerçek zamanlı çözebileceğiniz editör',
+    icon: "⚡",
+    title: "Anlık Geri Bildirim",
+    description:
+      "Verdiğiniz cevaplara anında yapay zeka yorumu ve bir sonraki soruya adaptasyon",
   },
   {
-    icon: '⏱️',
-    title: 'Zaman Yönetimi',
-    description: 'Her soru için belirlenen süre ile gerçek mülakat simülasyonu',
+    icon: "⏱️",
+    title: "Zaman Yönetimi",
+    description: "Her soru için belirlenen süre ile gerçek mülakat simülasyonu",
   },
-]
+];
 
 const Features = () => {
   return (
@@ -42,10 +46,12 @@ const Features = () => {
         <h2 className="features__title">
           Başarılı Bir Mülakat İçin
           <br />
-          <span className="features__title-highlight">İhtiyacınız Olan Her Şey</span>
+          <span className="features__title-highlight">
+            İhtiyacınız Olan Her Şey
+          </span>
         </h2>
         <p className="features__subtitle">
-          Modern teknolojiler ve yapay zeka ile desteklenen platformumuz, 
+          Modern teknolojiler ve yapay zeka ile desteklenen platformumuz,
           mülakat hazırlığınızı bir üst seviyeye taşır.
         </p>
       </div>
@@ -60,7 +66,7 @@ const Features = () => {
         ))}
       </div>
     </section>
-  )
-}
+  );
+};
 
-export default Features
+export default Features;

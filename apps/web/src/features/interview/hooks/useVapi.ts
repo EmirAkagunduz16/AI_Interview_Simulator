@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Vapi from "@vapi-ai/web";
+import api from "@/lib/axios";
 
 export interface UseVapiConfig {
   field: string;
@@ -30,6 +31,7 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
   const [interviewId, setInterviewId] = useState<string | null>(null);
   const [overallScore, setOverallScore] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [allQuestions, setAllQuestions] = useState<any[]>([]);
   const [volumeLevel, setVolumeLevel] = useState(0);
   // Track whether call was manually ended by user (vs connection drop)
   const manualEndRef = useRef(false);
@@ -89,31 +91,75 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
     };
   }, [publicKey]);
 
-  const handleFunctionCall = useCallback((msg: any) => {
-    const { functionCall } = msg;
-    if (!functionCall) return;
+  const handleFunctionCall = useCallback(
+    async (msg: any) => {
+      const { functionCall } = msg;
+      if (!functionCall) return;
 
-    const result = functionCall.result || {};
+      try {
+        // 1. Forward to backend webhook
+        const response = await api.post("/ai/vapi/webhook", { message: msg });
 
-    if (functionCall.name === "save_preferences") {
-      if (result.interviewId) setInterviewId(result.interviewId);
-      if (result.firstQuestion) setCurrentQuestion(result.firstQuestion);
-    }
+        const data = response.data;
+        const result = data.result || {};
 
-    if (functionCall.name === "get_next_question") {
-      if (result.question) setCurrentQuestion(result.question);
-      if (result.finished) setCurrentQuestion("");
-    }
+        // 2. Update local state based on function name
+        if (functionCall.name === "save_preferences") {
+          if (result.interviewId) setInterviewId(result.interviewId);
+          if (result.firstQuestion) setCurrentQuestion(result.firstQuestion);
+          if (result.questions) setAllQuestions(result.questions);
+        }
 
-    if (functionCall.name === "end_interview") {
-      const score = result.overallScore ?? result.score ?? result.overall_score;
-      if (score != null) {
-        setOverallScore(score);
-      } else {
-        setOverallScore(0);
+        // Logic for save_answer to inject next question
+        if (functionCall.name === "save_answer") {
+          const currentOrder = functionCall.parameters.questionOrder;
+          const nextQ = allQuestions.find((q) => q.order === currentOrder + 1);
+
+          if (nextQ) {
+            result.nextQuestion = nextQ.question;
+            result.progress = `Question ${nextQ.order} of ${allQuestions.length}`;
+            setCurrentQuestion(nextQ.question);
+          } else {
+            result.finished = true;
+            result.message = "Tüm sorular tamamlandı. Mülakatı bitirebilirsin.";
+            setCurrentQuestion("");
+          }
+        }
+
+        if (functionCall.name === "get_next_question") {
+          if (result.question) setCurrentQuestion(result.question);
+          if (result.finished) setCurrentQuestion("");
+        }
+
+        if (functionCall.name === "end_interview") {
+          const score =
+            result.overallScore ?? result.score ?? result.overall_score;
+          if (score != null) {
+            setOverallScore(score);
+          } else {
+            setOverallScore(0);
+          }
+        }
+
+        // 3. Send result back to Vapi
+        if (vapiRef.current) {
+          vapiRef.current.send({
+            type: "add-message",
+            message: {
+              role: "tool",
+              toolCallId: functionCall.toolCallId || msg.toolCallId,
+              name: functionCall.name,
+              content:
+                typeof result === "string" ? result : JSON.stringify(result),
+            },
+          });
+        }
+      } catch (err) {
+        console.error("Error handling function call:", err);
       }
-    }
-  }, []);
+    },
+    [allQuestions],
+  );
 
   const startCall = useCallback(() => {
     if (!vapiRef.current) return;
@@ -143,17 +189,18 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
 1. SADECE ve YALNIZCA Türkçe konuş. Asla İngilizce kelime veya cümle kullanma.
 2. Her soruyu sorduktan sonra MUTLAKA kullanıcının cevabını bekle. Cevap gelmeden KESİNLİKLE yeni soru sorma.
 3. Kendin tekrar etme. "İlk soruyla başlayalım" veya "mülakata başlayalım" gibi ifadeleri SADECE BİR KERE söyle, sonra bir daha tekrarlama.
-4. firstMessage zaten mülakatı tanıttı, sen doğrudan ilk soruyu sor. Kendini tekrar tanıtma, mülakatı tekrar açıklama.
+4. firstMessage zaten mülakatı tanıttı. Artık kendini tanıtma.
+
+SORU GEÇİŞ ALGORİTMASI (ÇOK ÖNEMLİ):
+- Kullanıcı cevabını aldıktan sonra "save_answer" fonksiyonunu çağır.
+- Bu fonksiyon sana "nextQuestion" (sonraki soru) dönecek.
+- Bir sonraki adımda KESİNLİKLE ve SADECE bu "nextQuestion"ı sor.
+- Kendi kafandan soru uydurma, listedeki sırayı takip et.
+- Eğer fonksiyon "finished": true dönerse, mülakatı bitiriyorum de ve "end_interview" çağır.
 
 SORU GEÇİŞ TARZI:
 - Kullanıcı cevap verdikten sonra, önce kısa ve yapıcı bir yorum yap (1 cümle). Örnek: "Güzel bir yaklaşım, özellikle X kısmını iyi açıkladınız."
-- Sonra doğal bir geçiş cümlesi kullan. Örnekler:
-  * "Peki, şimdi şunu sormak istiyorum..."
-  * "Tamamdır, bir sonraki konumuza geçelim."
-  * "Anladım, peki şu konuda ne düşünüyorsunuz..."
-  * "İlginç bir bakış açısı. Şimdi farklı bir konuya geçiyorum."
-- ASLA "Harika, ilk soruyla mülakata başlayalım" gibi tekrarlayan kalıplar kullanma.
-- Her geçişte farklı bir ifade kullan, monoton olma.
+- Sonra "save_answer" aracından gelen "nextQuestion"ı sor.
 
 MÜLAKAT BİLGİLERİ:
 Alan: ${cfg.field}
@@ -161,13 +208,15 @@ Teknolojiler: ${cfg.techStack.join(", ")}
 Seviye: ${cfg.difficulty}
 
 AKIŞ:
-1. Doğrudan ilk teknik soruyu sor (firstMessage zaten tanıtımı yaptı).
-2. Cevabı dinle, kısa yorum yap, sonraki soruya geç.
-3. Toplamda 5 soru sor.
-4. Son sorudan sonra kısa bir genel değerlendirme yap ve end_interview fonksiyonunu çağır.
-5. Kullanıcı "mülakatı bitir" veya "bitir" derse hemen end_interview fonksiyonunu çağır.`,
+1. Kullanıcıdan onay aldığın anda KESİNLİKLE İLK İŞ "save_preferences" fonksiyonunu çağır. Bu fonksiyon sana mülakat sorularını oluşturacak ve ilk soruyu (firstQuestion) döndürecektir.
+2. Sorular hazırlandıktan sonra, sadece sana dönen bu ilk soruyu sorarak mülakata başla.
+3. Cevabı al -> save_answer çağır -> gelen nextQuestion'ı sor.
+4. Toplamda 5 soru sor.
+5. Son sorudan sonra end_interview çağır.`,
           },
         ],
+        // ... (rest of tools)
+
         tools: [
           {
             type: "function" as any,
@@ -235,11 +284,36 @@ AKIŞ:
     } as any);
   }, []);
 
-  const endCall = useCallback(() => {
+  const endCall = useCallback(async () => {
     // Mark that user manually ended the call
     manualEndRef.current = true;
     vapiRef.current?.stop();
-  }, []);
+
+    if (interviewId) {
+      try {
+        const response = await api.post("/ai/vapi/webhook", {
+          message: {
+            type: "function-call",
+            functionCall: {
+              name: "end_interview",
+              parameters: { interviewId },
+            },
+          },
+        });
+        const data = response.data;
+        const score = data.result?.overallScore ?? data.result?.score;
+        if (score != null) {
+          setOverallScore(score);
+        } else {
+          setOverallScore(0);
+        }
+      } catch (err) {
+        console.error("Error gracefully ending interview:", err);
+      }
+    } else {
+      setOverallScore(0);
+    }
+  }, [interviewId]);
 
   return {
     isConnected,

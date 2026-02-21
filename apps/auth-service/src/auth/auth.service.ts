@@ -238,14 +238,19 @@ export class AuthService {
       role: user.role,
     };
 
+    const accessExpiresIn =
+      this.configService.get<string>("jwt.accessExpiresIn") ?? "15m";
+    const refreshExpiresIn =
+      this.configService.get<string>("jwt.refreshExpiresIn") ?? "7d";
+
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: this.configService.get<string>("jwt.accessSecret"),
-        expiresIn: this.configService.get<string>("jwt.accessExpiresIn", "15m"),
+        expiresIn: accessExpiresIn as unknown as number,
       }),
       this.jwtService.signAsync(payload, {
         secret: this.configService.get<string>("jwt.refreshSecret"),
-        expiresIn: this.configService.get<string>("jwt.refreshExpiresIn", "7d"),
+        expiresIn: refreshExpiresIn as unknown as number,
       }),
     ]);
 

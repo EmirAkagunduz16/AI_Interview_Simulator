@@ -1,43 +1,116 @@
 .dashboard-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 50%, #0a0a2a 100%);
-  color: #e0e0ff;
-  padding: 2rem 1rem;
+  background: #0f1016;
+  color: #e2e8f0;
   font-family: "Inter", "Segoe UI", sans-serif;
 }
 
-.dashboard-container {
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.dashboard-header {
+.dashboard-topnav {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  padding: 1rem 2rem;
+  background: rgba(15, 16, 22, 0.8);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  position: sticky;
+  top: 0;
+  z-index: 50;
 
-  h1 {
-    font-size: 1.8rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, #a78bfa, #60a5fa);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+  .topnav-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: opacity 0.2s;
+
+    &:hover {
+      opacity: 0.8;
+    }
+
+    .logo-icon {
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      padding: 0.4rem;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+
+    .logo-text {
+      font-size: 1.2rem;
+      font-weight: 700;
+      background: linear-gradient(to right, #fff, #a5b4fc);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
   }
 
-  .new-interview-btn {
-    padding: 0.6rem 1.2rem;
-    background: linear-gradient(135deg, #a78bfa, #60a5fa);
-    border-radius: 10px;
-    color: #fff;
+  .logout-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
     font-weight: 500;
-    font-size: 0.9rem;
-    text-decoration: none;
+    cursor: pointer;
     transition: all 0.2s;
 
     &:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+    }
+  }
+}
+
+.dashboard-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem;
+}
+
+.dashboard-greeting {
+  margin-bottom: 2rem;
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+  }
+
+  p {
+    color: #94a3b8;
+    font-size: 1.05rem;
+  }
+}
+
+.dashboard-actions {
+  margin-bottom: 2.5rem;
+  display: flex;
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.85rem 1.5rem;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff;
+    font-weight: 600;
+    border-radius: 12px;
+    text-decoration: none;
+    transition: all 0.2s;
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.2);
+
+    &:hover {
       transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(167, 139, 250, 0.3);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+    }
+
+    .icon {
+      font-size: 1.1rem;
     }
   }
 }
@@ -47,15 +120,15 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 60vh;
+  min-height: 80vh;
   gap: 1rem;
-  color: #888;
+  color: #64748b;
 
   .loader {
-    width: 32px;
-    height: 32px;
-    border: 3px solid rgba(167, 139, 250, 0.2);
-    border-top-color: #a78bfa;
+    width: 36px;
+    height: 36px;
+    border: 3px solid rgba(99, 102, 241, 0.2);
+    border-top-color: #8b5cf6;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }

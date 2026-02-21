@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import logo from "../../../../assets/logo.png";
+import { Sparkles } from "lucide-react";
 import "./navbar.styles.scss";
 
 const Navbar = () => {
@@ -22,8 +22,36 @@ const Navbar = () => {
 
   return (
     <nav className="navbar">
-      <div className="navbar__logo" onClick={() => router.push("/")}>
-        <Image src={logo} alt="AI Coach" width={150} height={38} priority />
+      <div
+        className="navbar__logo"
+        onClick={() => router.push("/")}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          cursor: "pointer",
+        }}
+      >
+        <div
+          style={{
+            background: "linear-gradient(135deg, #7c3aed, #4f46e5)",
+            padding: "6px",
+            borderRadius: "8px",
+          }}
+        >
+          <Sparkles color="white" size={20} />
+        </div>
+        <span
+          style={{
+            fontSize: "1.25rem",
+            fontWeight: 700,
+            background: "linear-gradient(to right, #fff, #a5b4fc)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}
+        >
+          AI Coach
+        </span>
       </div>
 
       <div
@@ -36,7 +64,7 @@ const Navbar = () => {
             scrollToSection("features");
           }}
         >
-          Ozellikler
+          Özellikler
         </a>
         <a
           href="#how-it-works"
@@ -45,28 +73,16 @@ const Navbar = () => {
             scrollToSection("how-it-works");
           }}
         >
-          Nasil Calisir?
+          Nasıl Çalışır?
         </a>
         {isAuthenticated && (
           <>
-            <a
-              href="/dashboard"
-              onClick={(e) => {
-                e.preventDefault();
-                router.push("/dashboard");
-              }}
-            >
+            <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
               Dashboard
-            </a>
-            <a
-              href="/interview"
-              onClick={(e) => {
-                e.preventDefault();
-                router.push("/interview");
-              }}
-            >
-              Mulakat
-            </a>
+            </Link>
+            <Link href="/interview" onClick={() => setMobileMenuOpen(false)}>
+              Mülakat
+            </Link>
           </>
         )}
       </div>
@@ -77,24 +93,21 @@ const Navbar = () => {
             <span className="navbar__user-name">
               {user?.name || user?.email}
             </span>
-            <button className="navbar__btn navbar__btn--logout" onClick={logout}>
-              Cikis
+            <button
+              className="navbar__btn navbar__btn--logout"
+              onClick={logout}
+            >
+              Logout
             </button>
           </>
         ) : (
           <>
-            <button
-              className="navbar__btn navbar__btn--login"
-              onClick={() => router.push("/login")}
-            >
-              Giris Yap
-            </button>
-            <button
-              className="navbar__btn navbar__btn--signup"
-              onClick={() => router.push("/register")}
-            >
-              Kayit Ol
-            </button>
+            <Link href="/login" className="navbar__btn navbar__btn--login">
+              Giriş Yap
+            </Link>
+            <Link href="/register" className="navbar__btn navbar__btn--signup">
+              Kayıt Ol
+            </Link>
           </>
         )}
 
@@ -118,7 +131,7 @@ const Navbar = () => {
               scrollToSection("features");
             }}
           >
-            Ozellikler
+            Özellikler
           </a>
           <a
             href="#how-it-works"
@@ -127,30 +140,16 @@ const Navbar = () => {
               scrollToSection("how-it-works");
             }}
           >
-            Nasil Calisir?
+            Nasıl Çalışır?
           </a>
           {isAuthenticated ? (
             <>
-              <a
-                href="/dashboard"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setMobileMenuOpen(false);
-                  router.push("/dashboard");
-                }}
-              >
+              <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
                 Dashboard
-              </a>
-              <a
-                href="/interview"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setMobileMenuOpen(false);
-                  router.push("/interview");
-                }}
-              >
-                Mulakat
-              </a>
+              </Link>
+              <Link href="/interview" onClick={() => setMobileMenuOpen(false)}>
+                Mülakat
+              </Link>
               <button
                 className="navbar__btn navbar__btn--logout navbar__btn--mobile"
                 onClick={() => {
@@ -158,29 +157,25 @@ const Navbar = () => {
                   logout();
                 }}
               >
-                Cikis ({user?.name || user?.email})
+                Logout ({user?.name || user?.email})
               </button>
             </>
           ) : (
             <>
-              <button
+              <Link
+                href="/login"
                 className="navbar__btn navbar__btn--login navbar__btn--mobile"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  router.push("/login");
-                }}
+                onClick={() => setMobileMenuOpen(false)}
               >
-                Giris Yap
-              </button>
-              <button
+                Giriş Yap
+              </Link>
+              <Link
+                href="/register"
                 className="navbar__btn navbar__btn--signup navbar__btn--mobile"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  router.push("/register");
-                }}
+                onClick={() => setMobileMenuOpen(false)}
               >
-                Kayit Ol
-              </button>
+                Kayıt Ol
+              </Link>
             </>
           )}
         </div>

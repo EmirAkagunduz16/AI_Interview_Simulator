@@ -8,6 +8,7 @@ import {
   HttpCode,
   HttpStatus,
   Logger,
+  Headers,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { ConfigService } from "@nestjs/config";
@@ -77,7 +78,10 @@ export class AiController {
   @Post("vapi/webhook")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "VAPI voice agent webhook handler" })
-  async handleVapiWebhook(@Body() body: any): Promise<any> {
+  async handleVapiWebhook(
+    @Body() body: any,
+    @Headers("x-user-id") userId?: string,
+  ): Promise<any> {
     const { message } = body;
 
     if (!message) {
@@ -88,7 +92,7 @@ export class AiController {
 
     switch (message.type) {
       case "function-call":
-        return this.handleFunctionCall(message);
+        return this.handleFunctionCall(message, userId);
 
       case "end-of-call-report":
         await this.handleEndOfCall(message);
@@ -109,15 +113,24 @@ export class AiController {
     }
   }
 
-  private async handleFunctionCall(message: any): Promise<any> {
+  private async handleFunctionCall(
+    message: any,
+    headerUserId?: string,
+  ): Promise<any> {
     const { functionCall } = message;
 
     this.logger.log(`Function call: ${functionCall.name}`);
 
     switch (functionCall.name) {
       case "save_preferences": {
-        const { field, techStack, difficulty, userId } =
-          functionCall.parameters;
+        const {
+          field,
+          techStack,
+          difficulty,
+          userId: paramsUserId,
+        } = functionCall.parameters;
+
+        const userId = headerUserId || paramsUserId || "anonymous";
 
         try {
           // 1. Create interview via interview-service
@@ -219,7 +232,7 @@ export class AiController {
               answer: answer,
             },
             {
-              headers: { "x-user-id": "anonymous" },
+              headers: { "x-user-id": headerUserId || "anonymous" },
             },
           );
         } catch (error) {
@@ -241,7 +254,7 @@ export class AiController {
           try {
             const res = await axios.get(
               `${this.interviewServiceUrl}/interviews/${interviewId}`,
-              { headers: { "x-user-id": "anonymous" } },
+              { headers: { "x-user-id": headerUserId || "anonymous" } },
             );
             interviewData = res.data;
           } catch {
@@ -282,7 +295,7 @@ export class AiController {
                   },
                   overallFeedback: evaluation.summary,
                 },
-                { headers: { "x-user-id": "anonymous" } },
+                { headers: { "x-user-id": headerUserId || "anonymous" } },
               );
             } catch (e) {
               this.logger.warn("Failed to complete interview", e);

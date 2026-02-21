@@ -14,9 +14,9 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "AI Coach - Yapay Zeka Destekli Mulakat Hazirligi",
+  title: "AI Coach - Yapay Zeka Destekli Mülakat Hazırlığı",
   description:
-    "AI Coach ile gercek mulakat deneyimi yasayin. Yapay zeka destekli sorular, anlik geri bildirimler ve kisisellestirilmis oneriler.",
+    "AI Coach ile gerçek mülakat deneyimi yaşayın. Yapay zeka destekli sorular, anlık geri bildirimler ve kişiselleştirilmiş öneriler.",
 };
 
 export default function RootLayout({

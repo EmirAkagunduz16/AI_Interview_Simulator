@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { AuthGuard } from "@/features/auth/components";
 import {
@@ -47,18 +48,47 @@ function DashboardContent() {
 
   return (
     <div className="dashboard-page">
+      <header className="dashboard-topnav">
+        <div
+          className="topnav-logo"
+          onClick={() => (window.location.href = "/")}
+        >
+          <div className="logo-icon">✨</div>
+          <span className="logo-text">AI Coach</span>
+        </div>
+        <div className="topnav-actions">
+          <button
+            className="logout-btn"
+            onClick={() => {
+              localStorage.removeItem("accessToken");
+              localStorage.removeItem("refreshToken");
+              localStorage.removeItem("authUser");
+              window.location.href = "/";
+            }}
+          >
+            Logout
+          </button>
+        </div>
+      </header>
+
       <div className="dashboard-container">
-        <div className="dashboard-header">
-          <h1>Dashboard</h1>
-          <a href="/interview" className="new-interview-btn">
-            + Yeni Mülakat
-          </a>
+        <div className="dashboard-greeting">
+          <h1>Hoş Geldiniz</h1>
+          <p>Mülakat performansınızı takip edin ve hedeflerinize ulaşın.</p>
+        </div>
+
+        <div className="dashboard-actions">
+          <Link href="/interview" className="btn-primary">
+            <span className="icon">🚀</span> Yeni Mülakat Başlat
+          </Link>
         </div>
 
         {stats && <StatsGrid stats={stats} />}
 
         <div className="history-section">
-          <h2>Mülakat Geçmişi</h2>
+          <div className="section-header">
+            <h2>Son Mülakatlar</h2>
+          </div>
           <InterviewHistoryList interviews={interviews || []} />
         </div>
       </div>

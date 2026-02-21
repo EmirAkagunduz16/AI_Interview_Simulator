@@ -7,9 +7,9 @@ import "./how-it-works.styles.scss";
 const steps = [
   {
     number: "01",
-    title: "Alan Secin",
+    title: "Alan Seçin",
     description:
-      "Backend, Frontend, Fullstack, Mobile veya DevOps gibi uzmanlik alaninizi secin. Sorular sectiginiz alana gore hazirlanir.",
+      "Backend, Frontend, Fullstack, Mobile veya DevOps gibi uzmanlık alanınızı seçin. Sorular seçtiğiniz alana göre hazırlanır.",
     icon: (
       <svg
         width="32"
@@ -28,7 +28,7 @@ const steps = [
     number: "02",
     title: "Bilgilerinizi Girin",
     description:
-      "Ad, e-posta gibi temel bilgilerinizi doldurun ve kisa tanitim videosunu izleyerek sistemi taniyin.",
+      "Ad, e-posta gibi temel bilgilerinizi doldurun ve mülakat yapılandırmanızı tamamlayın.",
     icon: (
       <svg
         width="32"
@@ -45,9 +45,9 @@ const steps = [
   },
   {
     number: "03",
-    title: "Mulakata Baslayin",
+    title: "Mülakata Başlayın",
     description:
-      "Sesli, goruntulu, coktan secmeli ve kodlama sorulariyla gercek bir mulakat deneyimi yasayin. Her sorunun belirli bir suresi vardir.",
+      "Sesli ve akıcı yapay zeka iletişimiyle gerçek bir mülakat deneyimi yaşayın. Her sorunun belirli bir süresi vardır.",
     icon: (
       <svg
         width="32"
@@ -63,9 +63,9 @@ const steps = [
   },
   {
     number: "04",
-    title: "Sonuclari Gorun",
+    title: "Sonuçları Görün",
     description:
-      "Mulakat tamamlandiginda AI destekli analizle performansinizi goruntuleyin, guclu ve zayif yonlerinizi kesfedein.",
+      "Mülakat tamamlandığında yapay zeka destekli analizle performansınızı görüntüleyin, güçlü ve zayıf yönlerinizi keşfedin.",
     icon: (
       <svg
         width="32"
@@ -89,17 +89,17 @@ const HowItWorks = () => {
   return (
     <section className="how-it-works" id="how-it-works">
       <div className="how-it-works__header">
-        <span className="how-it-works__tag">Nasil Calisir?</span>
+        <span className="how-it-works__tag">Nasıl Çalışır?</span>
         <h2 className="how-it-works__title">
-          4 Basit Adimda
+          4 Basit Adımda
           <br />
           <span className="how-it-works__title-highlight">
-            Mulakatinizi Tamamlayin
+            Mülakatınızı Tamamlayın
           </span>
         </h2>
         <p className="how-it-works__subtitle">
-          Platformumuzu kullanmak cok kolay. Birka&ccedil; dakika i&ccedil;inde
-          mulakat pratigi yapmaya baslayabilirsiniz.
+          Platformumuzu kullanmak çok kolay. Birkaç dakika içinde mülakat
+          pratiği yapmaya başlayabilirsiniz.
         </p>
       </div>
 

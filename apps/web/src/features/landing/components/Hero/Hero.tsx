@@ -32,14 +32,14 @@ const Hero = () => {
         </div>
 
         <h1 className="hero__title">
-          Mulakat Hazirliginda
+          Mülakat Hazırlığında
           <span className="hero__title-highlight"> Yeni Nesil</span>
           <br />
           Deneyim
         </h1>
 
         <p className="hero__subtitle">
-          AI Coach ile gercek mulakat deneyimi yasayin. Yapay zeka destekli
+          AI Coach ile gerçek mülakat deneyimi yaşayın. Yapay zeka destekli
           sorular, anlik geri bildirimler ve kisisellestirilmis onerilerle
           hayalinizdeki ise bir adim daha yaklasin.
         </p>
@@ -49,7 +49,7 @@ const Hero = () => {
             className="hero__btn hero__btn--primary"
             onClick={handleStart}
           >
-            Mulakata Basla
+            Mülakata Başla
             <svg
               width="20"
               height="20"
@@ -73,7 +73,7 @@ const Hero = () => {
         <div className="hero__stats">
           <div className="hero__stat">
             <span className="hero__stat-number">10K+</span>
-            <span className="hero__stat-label">Basarili Mulakat</span>
+            <span className="hero__stat-label">Başarılı Mülakat</span>
           </div>
           <div className="hero__stat">
             <span className="hero__stat-number">95%</span>

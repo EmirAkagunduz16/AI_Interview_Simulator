@@ -1,7 +1,7 @@
-import { KafkaModule, KafkaEventHandler } from '@ai-coach/kafka-client';
-import { KafkaTopics, IUserRegisteredPayload } from '@ai-coach/shared-types';
-import { ConfigService } from '@nestjs/config';
-import { UserRegisteredHandler } from './handlers/user-registered.handler';
+import { KafkaModule, KafkaEventHandler } from "@ai-coach/kafka-client";
+import { KafkaTopics, IUserRegisteredPayload } from "@ai-coach/shared-types";
+import { ConfigService } from "@nestjs/config";
+import { UserRegisteredHandler } from "./handlers/user-registered.handler";
 
 // Event handlers for user-service
 export const createUserKafkaHandlers = (
@@ -19,10 +19,12 @@ export const createUserKafkaModule = (handlers: KafkaEventHandler[]) =>
   KafkaModule.forRootAsync(
     {
       useFactory: (configService: ConfigService) => ({
-        clientId: 'user-service',
-        brokers: configService.get<string>('KAFKA_BROKERS')?.split(',') || ['localhost:9092'],
-        groupId: 'user-service-group',
-        logLevel: 'WARN',
+        clientId: "user-service",
+        brokers: configService.get<string>("KAFKA_BROKERS")?.split(",") || [
+          "localhost:9092",
+        ],
+        groupId: "user-service-group",
+        logLevel: "WARN",
       }),
       inject: [ConfigService],
     },
