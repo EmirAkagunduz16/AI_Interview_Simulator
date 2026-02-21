@@ -27,16 +27,6 @@ async function bootstrap() {
     allowedHeaders: ["Content-Type", "Authorization", "x-user-id"],
   });
 
-  // Global pipes
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: { enableImplicitConversion: true },
-    }),
-  );
-
   // Global filters and interceptors
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.useGlobalInterceptors(new LoggingInterceptor());

@@ -128,35 +128,114 @@ export class AiController {
           techStack,
           difficulty,
           userId: paramsUserId,
+          interviewId,
         } = functionCall.parameters;
 
         const userId = headerUserId || paramsUserId || "anonymous";
 
         try {
-          // 1. Create interview via interview-service
-          const interviewRes = await axios.post(
-            `${this.interviewServiceUrl}/interviews`,
-            {
-              field: field || "fullstack",
-              techStack: techStack || [],
-              difficulty: difficulty || "intermediate",
-              vapiCallId: message.call?.id,
-            },
-            {
-              headers: { "x-user-id": userId || "anonymous" },
-            },
-          );
+          // 1. Create interview via interview-service OR fetch if exists
+          let interview;
+          try {
+            if (interviewId) {
+              const res = await axios.get(
+                `${this.interviewServiceUrl}/interviews/${interviewId}`,
+                { headers: { "x-user-id": userId } },
+              );
+              interview = res.data;
+            } else {
+              const createReq = await axios.post(
+                `${this.interviewServiceUrl}/interviews`,
+                {
+                  field,
+                  techStack,
+                  difficulty,
+                  vapiCallId: message.call?.id,
+                  title: `${field} Developer Interview`,
+                  questionCount: 5,
+                },
+                {
+                  headers: { "x-user-id": userId },
+                },
+              );
+              interview = createReq.data;
+            }
+          } catch (e) {
+            this.logger.error("Failed to access interview", e);
+            throw new Error("Could not initialize interview");
+          }
+          // 2. Fetch or Generate questions
+          const questionCount = 5;
+          let questions: any[] = [];
 
-          const interview = interviewRes.data;
+          try {
+            // Try fetching from question-service
+            const query = new URLSearchParams();
+            if (field) query.append("category", field);
+            if (difficulty) query.append("difficulty", difficulty);
+            query.append("count", questionCount.toString());
 
-          // 2. Generate questions with Gemini
-          const questions = await this.geminiService.generateInterviewQuestions(
-            {
-              field: field || "fullstack",
-              techStack: techStack || [],
-              difficulty: difficulty || "intermediate",
-            },
-          );
+            const res = await axios.get(
+              `${this.questionServiceUrl}/questions/random?${query}`,
+            );
+            questions = res.data || [];
+          } catch (e) {
+            this.logger.warn("Failed to fetch from question-service", e);
+          }
+
+          // If not enough questions in DB, try generating via question-service
+          if (questions.length < questionCount) {
+            this.logger.log(
+              `Not enough questions in DB (${questions.length}/${questionCount}). Generating more...`,
+            );
+            try {
+              await axios.post(
+                `${this.questionServiceUrl}/questions/generate`,
+                {
+                  field: field || "fullstack",
+                  techStack: techStack || [],
+                  difficulty: difficulty || "intermediate",
+                  count: questionCount,
+                },
+              );
+
+              // Re-fetch after generating to ensure we get a completely random mix
+              const query = new URLSearchParams();
+              if (field) query.append("category", field);
+              if (difficulty) query.append("difficulty", difficulty);
+              query.append("count", questionCount.toString());
+
+              const res2 = await axios.get(
+                `${this.questionServiceUrl}/questions/random?${query}`,
+              );
+              questions = res2.data || [];
+            } catch (e) {
+              this.logger.error(
+                "Failed to generate questions. Falling back to Gemini service directly",
+                e,
+              );
+              // Last resort fallback directly via ai-service gemini integration
+              const fallbackQuestions =
+                await this.geminiService.generateInterviewQuestions({
+                  field: field || "fullstack",
+                  techStack: techStack || [],
+                  difficulty: difficulty || "intermediate",
+                  count: questionCount,
+                });
+              questions = fallbackQuestions.map((q) => ({
+                content: q.question,
+                order: q.order,
+              }));
+            }
+          }
+
+          // Map questions to the expected output format
+          const formattedQuestions = questions
+            .slice(0, questionCount)
+            .map((q: any, index: number) => ({
+              question: q.content || q.title || q.question, // Extract the question text
+              order: index + 1,
+            }));
 
           // 3. Start the interview
           await axios.post(
@@ -168,14 +247,14 @@ export class AiController {
           return {
             result: {
               interviewId: interview.id,
-              firstQuestion: questions[0]?.question,
-              totalQuestions: questions.length,
-              questions: questions.map((q) => ({
+              firstQuestion: formattedQuestions[0]?.question,
+              totalQuestions: formattedQuestions.length,
+              questions: formattedQuestions.map((q) => ({
                 id: `q_${q.order}`,
                 question: q.question,
                 order: q.order,
               })),
-              message: `${questions.length} soru hazırlandı. İlk soru ile başlıyoruz.`,
+              message: `${formattedQuestions.length} soru hazırlandı. İlk soru ile başlıyoruz.`,
             },
           };
         } catch (error) {
@@ -308,6 +387,30 @@ export class AiController {
                 summary: evaluation.summary,
               },
             };
+          }
+
+          // Complete with empty report if no answers were given
+          try {
+            await axios.post(
+              `${this.interviewServiceUrl}/interviews/${interviewId}/complete-with-report`,
+              {
+                report: {
+                  technicalScore: 0,
+                  communicationScore: 0,
+                  dictionScore: 0,
+                  confidenceScore: 0,
+                  overallScore: 0,
+                  summary:
+                    "Mülakat erken sonlandırıldı veya hiç cevap verilmedi.",
+                  recommendations: ["Mülakat pratiği yapmaya devam edin."],
+                },
+                overallFeedback:
+                  "Mülakat erken sonlandırıldığı için değerlendirme yapılamadı.",
+              },
+              { headers: { "x-user-id": headerUserId || "anonymous" } },
+            );
+          } catch (e) {
+            this.logger.warn("Failed to complete empty interview", e);
           }
 
           return {

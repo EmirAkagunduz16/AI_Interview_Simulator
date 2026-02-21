@@ -63,10 +63,13 @@ export class QuestionsService {
     };
 
     const { page = 1, limit = 10 } = query;
-    const { questions, total } = await this.questionRepository.findAll(filter, {
-      page,
-      limit,
-    });
+    const { questions, total } = await this.questionRepository.findAllQuestions(
+      filter,
+      {
+        page,
+        limit,
+      },
+    );
     const totalPages = Math.ceil(total / limit);
 
     return { questions, total, page, totalPages };
@@ -177,7 +180,7 @@ export class QuestionsService {
   }
 
   async seed(): Promise<{ created: number }> {
-    const count = await this.questionRepository.count();
+    const count = await this.questionRepository.countQuestions();
     if (count > 0) {
       this.logger.log("Questions already seeded, skipping...");
       return { created: 0 };

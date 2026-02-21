@@ -1,8 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
-import {
-  UserRepository,
-  PaginationOptions,
-} from "./repositories/user.repository";
+import { UserRepository } from "./repositories/user.repository";
+import { PaginationOptions } from "@ai-coach/database";
 import { CreateUserInternalDto, UpdateUserDto } from "./dto";
 import { User, UserDocument } from "./entities/user.entity";
 import {
@@ -79,7 +77,10 @@ export class UsersService {
     totalPages: number;
   }> {
     const { page = 1, limit = 10 } = options;
-    const { users, total } = await this.userRepository.findAll({}, options);
+    const { items: users, total } = await this.userRepository.findAll(
+      {},
+      options,
+    );
     const totalPages = Math.ceil(total / limit);
 
     return { users, total, page, totalPages };

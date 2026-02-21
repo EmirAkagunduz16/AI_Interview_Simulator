@@ -1,7 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, FilterQuery } from 'mongoose';
-import { Question, QuestionDocument, QuestionType, Difficulty } from '../entities/question.entity';
+import { Injectable, Logger } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, FilterQuery } from "mongoose";
+import {
+  Question,
+  QuestionDocument,
+  QuestionType,
+  Difficulty,
+} from "../entities/question.entity";
+import { BaseRepository } from "@ai-coach/database";
 
 export interface QuestionFilter {
   type?: QuestionType;
@@ -12,56 +18,33 @@ export interface QuestionFilter {
 }
 
 @Injectable()
-export class QuestionRepository {
+export class QuestionRepository extends BaseRepository<QuestionDocument> {
   private readonly logger = new Logger(QuestionRepository.name);
 
   constructor(
     @InjectModel(Question.name)
     private readonly questionModel: Model<QuestionDocument>,
-  ) {}
-
-  async create(data: Partial<Question>): Promise<QuestionDocument> {
-    const question = new this.questionModel(data);
-    return question.save();
+  ) {
+    super(questionModel);
   }
 
-  async createMany(data: Partial<Question>[]): Promise<QuestionDocument[]> {
-    return this.questionModel.insertMany(data) as unknown as QuestionDocument[];
-  }
-
-  async findById(id: string): Promise<QuestionDocument | null> {
-    return this.questionModel.findById(id).exec();
-  }
-
-  async findAll(
+  async findAllQuestions(
     filter: QuestionFilter = {},
     options: { page?: number; limit?: number } = {},
   ): Promise<{ questions: QuestionDocument[]; total: number }> {
-    const { page = 1, limit = 10 } = options;
-    const skip = (page - 1) * limit;
-
     const query = this.buildFilterQuery(filter);
-
-    const [questions, total] = await Promise.all([
-      this.questionModel.find(query).skip(skip).limit(limit).sort({ createdAt: -1 }).exec(),
-      this.questionModel.countDocuments(query).exec(),
-    ]);
-
-    return { questions, total };
+    const result = await super.findAll(query, options);
+    return { questions: result.items, total: result.total };
   }
 
-  async findRandom(filter: QuestionFilter = {}, count = 5): Promise<QuestionDocument[]> {
+  async findRandom(
+    filter: QuestionFilter = {},
+    count = 5,
+  ): Promise<QuestionDocument[]> {
     const query = this.buildFilterQuery({ ...filter, isActive: true });
-    return this.questionModel.aggregate([
-      { $match: query },
-      { $sample: { size: count } },
-    ]).exec() as unknown as QuestionDocument[];
-  }
-
-  async update(id: string, data: Partial<Question>): Promise<QuestionDocument | null> {
     return this.questionModel
-      .findByIdAndUpdate(id, { $set: data }, { new: true })
-      .exec();
+      .aggregate([{ $match: query }, { $sample: { size: count } }])
+      .exec() as unknown as QuestionDocument[];
   }
 
   async incrementUsage(id: string): Promise<void> {
@@ -70,21 +53,17 @@ export class QuestionRepository {
       .exec();
   }
 
-  async delete(id: string): Promise<void> {
-    await this.questionModel.findByIdAndDelete(id).exec();
-  }
-
   async getDistinctCategories(): Promise<string[]> {
-    return this.questionModel.distinct('category', { isActive: true }).exec();
+    return this.questionModel.distinct("category", { isActive: true }).exec();
   }
 
   async getDistinctTags(): Promise<string[]> {
-    return this.questionModel.distinct('tags', { isActive: true }).exec();
+    return this.questionModel.distinct("tags", { isActive: true }).exec();
   }
 
-  async count(filter: QuestionFilter = {}): Promise<number> {
+  async countQuestions(filter: QuestionFilter = {}): Promise<number> {
     const query = this.buildFilterQuery(filter);
-    return this.questionModel.countDocuments(query).exec();
+    return super.count(query);
   }
 
   private buildFilterQuery(filter: QuestionFilter): FilterQuery<Question> {

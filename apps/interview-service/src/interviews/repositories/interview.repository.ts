@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, FilterQuery } from "mongoose";
+import { BaseRepository } from "@ai-coach/database";
 import {
   Interview,
   InterviewDocument,
@@ -10,21 +11,14 @@ import {
 } from "../entities/interview.entity";
 
 @Injectable()
-export class InterviewRepository {
+export class InterviewRepository extends BaseRepository<InterviewDocument> {
   private readonly logger = new Logger(InterviewRepository.name);
 
   constructor(
     @InjectModel(Interview.name)
     private readonly interviewModel: Model<InterviewDocument>,
-  ) {}
-
-  async create(data: Partial<Interview>): Promise<InterviewDocument> {
-    const interview = new this.interviewModel(data);
-    return interview.save();
-  }
-
-  async findById(id: string): Promise<InterviewDocument | null> {
-    return this.interviewModel.findById(id).exec();
+  ) {
+    super(interviewModel);
   }
 
   async findByVapiCallId(

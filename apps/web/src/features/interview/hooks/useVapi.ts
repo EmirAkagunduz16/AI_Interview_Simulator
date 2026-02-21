@@ -29,6 +29,7 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState("");
   const [interviewId, setInterviewId] = useState<string | null>(null);
+  const interviewIdRef = useRef<string | null>(null);
   const [overallScore, setOverallScore] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [allQuestions, setAllQuestions] = useState<any[]>([]);
@@ -105,7 +106,10 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
 
         // 2. Update local state based on function name
         if (functionCall.name === "save_preferences") {
-          if (result.interviewId) setInterviewId(result.interviewId);
+          if (result.interviewId) {
+            setInterviewId(result.interviewId);
+            interviewIdRef.current = result.interviewId;
+          }
           if (result.firstQuestion) setCurrentQuestion(result.firstQuestion);
           if (result.questions) setAllQuestions(result.questions);
         }
@@ -161,7 +165,7 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
     [allQuestions],
   );
 
-  const startCall = useCallback(() => {
+  const startCall = useCallback(async () => {
     if (!vapiRef.current) return;
 
     // Always read latest config from ref (avoids stale closure)
@@ -171,6 +175,28 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
     const assistantId = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID;
     if (!assistantId) {
       setError("VAPI Assistant ID yapılandırılmamış");
+      return;
+    }
+
+    // CREATE INTERVIEW FIRST
+    let newInterviewId: string;
+    try {
+      const res = await api.post("/interviews", {
+        field: cfg.field,
+        techStack: cfg.techStack,
+        difficulty: cfg.difficulty,
+        title: `${cfg.field} Developer Interview`,
+        questionCount: 5,
+        type: "technical",
+        targetRole: cfg.field,
+        durationMinutes: 30,
+      });
+      newInterviewId = res.data.id;
+      setInterviewId(newInterviewId);
+      interviewIdRef.current = newInterviewId;
+    } catch (err: any) {
+      console.error("Failed to create interview on start:", err);
+      setError("Mülakat başlatılamadı, lütfen tekrar deneyin.");
       return;
     }
 
@@ -206,9 +232,10 @@ MÜLAKAT BİLGİLERİ:
 Alan: ${cfg.field}
 Teknolojiler: ${cfg.techStack.join(", ")}
 Seviye: ${cfg.difficulty}
+Interview ID: ${newInterviewId}
 
 AKIŞ:
-1. Kullanıcıdan onay aldığın anda KESİNLİKLE İLK İŞ "save_preferences" fonksiyonunu çağır. Bu fonksiyon sana mülakat sorularını oluşturacak ve ilk soruyu (firstQuestion) döndürecektir.
+1. Kullanıcıdan onay aldığın anda KESİNLİKLE İLK İŞ "save_preferences" fonksiyonunu çağır (tercihlere ek olarak "interviewId": "${newInterviewId}" ekle). Bu fonksiyon sana mülakat sorularını oluşturacak ve ilk soruyu (firstQuestion) döndürecektir.
 2. Sorular hazırlandıktan sonra, sadece sana dönen bu ilk soruyu sorarak mülakata başla.
 3. Cevabı al -> save_answer çağır -> gelen nextQuestion'ı sor.
 4. Toplamda 5 soru sor.
@@ -236,8 +263,13 @@ AKIŞ:
                     type: "string",
                     description: "Zorluk seviyesi",
                   },
+                  interviewId: {
+                    type: "string",
+                    description:
+                      "Mülakat ID'si. Değer her zaman: " + newInterviewId,
+                  },
                 },
-                required: ["field"],
+                required: ["field", "interviewId"],
               },
             },
           },
@@ -252,8 +284,12 @@ AKIŞ:
                   questionOrder: { type: "number" },
                   questionText: { type: "string" },
                   answer: { type: "string" },
+                  interviewId: {
+                    type: "string",
+                    description: "Mülakat ID'si. Her zaman: " + newInterviewId,
+                  },
                 },
-                required: ["questionOrder", "answer"],
+                required: ["questionOrder", "answer", "interviewId"],
               },
             },
           },
@@ -274,7 +310,12 @@ AKIŞ:
                     type: "string",
                     description: "Kısa değerlendirme özeti",
                   },
+                  interviewId: {
+                    type: "string",
+                    description: "Mülakat ID'si. Her zaman: " + newInterviewId,
+                  },
                 },
+                required: ["interviewId"],
               },
             },
           },
@@ -289,14 +330,16 @@ AKIŞ:
     manualEndRef.current = true;
     vapiRef.current?.stop();
 
-    if (interviewId) {
+    const activeInterviewId = interviewIdRef.current;
+
+    if (activeInterviewId) {
       try {
         const response = await api.post("/ai/vapi/webhook", {
           message: {
             type: "function-call",
             functionCall: {
               name: "end_interview",
-              parameters: { interviewId },
+              parameters: { interviewId: activeInterviewId },
             },
           },
         });
@@ -313,7 +356,7 @@ AKIŞ:
     } else {
       setOverallScore(0);
     }
-  }, [interviewId]);
+  }, []);
 
   return {
     isConnected,

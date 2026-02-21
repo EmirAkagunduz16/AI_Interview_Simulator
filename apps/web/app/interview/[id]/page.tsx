@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
   ScoreGauge,
@@ -8,9 +9,8 @@ import {
   QuestionDetails,
 } from "@/features/results/components";
 import type { InterviewResult } from "@/features/results/types";
+import api from "@/lib/axios";
 import "./results.scss";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 export default function ResultsPage() {
   const params = useParams();
@@ -25,13 +25,12 @@ export default function ResultsPage() {
 
   const fetchResults = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/interviews/${id}`, {
-        headers: { "x-user-id": "demo-user" },
-      });
-      if (!res.ok) throw new Error("Sonuçlar yüklenemedi");
-      setData(await res.json());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Bir hata oluştu");
+      const res = await api.get(`/interviews/${id}`);
+      setData(res.data);
+    } catch (err: any) {
+      setError(
+        err?.response?.data?.message || err.message || "Bir hata oluştu",
+      );
     } finally {
       setLoading(false);
     }
@@ -57,7 +56,7 @@ export default function ResultsPage() {
       <div className="results-page">
         <div className="error-state">
           <p>⚠️ {error || "Sonuçlar bulunamadı"}</p>
-          <a href="/dashboard">Dashboard&apos;a dön</a>
+          <Link href="/dashboard">Dashboard&apos;a dön</Link>
         </div>
       </div>
     );
@@ -69,9 +68,9 @@ export default function ResultsPage() {
     <div className="results-page">
       <div className="results-container">
         <div className="results-header">
-          <a href="/dashboard" className="back-link">
+          <Link href="/dashboard" className="back-link">
             ← Dashboard
-          </a>
+          </Link>
           <h1>Mülakat Sonuçları</h1>
           <p className="result-meta">
             {data.field} • {data.techStack.join(", ")} •{" "}
@@ -135,12 +134,12 @@ export default function ResultsPage() {
         )}
 
         <div className="results-actions">
-          <a href="/interview" className="retry-btn">
+          <Link href="/interview" className="retry-btn">
             🔄 Yeni Mülakat
-          </a>
-          <a href="/dashboard" className="dashboard-btn">
+          </Link>
+          <Link href="/dashboard" className="dashboard-btn">
             📋 Dashboard
-          </a>
+          </Link>
         </div>
       </div>
     </div>

@@ -24,7 +24,6 @@ export class ProxyService {
     const config: AxiosRequestConfig = {
       url,
       method,
-      data,
       headers: {
         "Content-Type": "application/json",
         ...headers,
@@ -32,6 +31,10 @@ export class ProxyService {
       timeout,
       validateStatus: () => true, // Handle all statuses
     };
+
+    if (data !== undefined && data !== null) {
+      config.data = data;
+    }
 
     try {
       this.logger.debug(`Proxying ${method} ${url}`);
