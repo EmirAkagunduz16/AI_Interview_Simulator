@@ -4,25 +4,29 @@ import {
   ExecutionContext,
   UnauthorizedException,
   Logger,
+  Inject,
+  OnModuleInit,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { ConfigService } from "@nestjs/config";
-import axios from "axios";
+import { ClientGrpc } from "@nestjs/microservices";
+import { firstValueFrom } from "rxjs";
+import { GRPC_AUTH_SERVICE, IGrpcAuthService } from "@ai-coach/grpc";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
 
 @Injectable()
-export class JwtAuthGuard implements CanActivate {
+export class JwtAuthGuard implements CanActivate, OnModuleInit {
   private readonly logger = new Logger(JwtAuthGuard.name);
-  private readonly authServiceUrl: string;
+  private authService!: IGrpcAuthService;
 
   constructor(
     private readonly reflector: Reflector,
-    private readonly configService: ConfigService,
-  ) {
-    this.authServiceUrl =
-      this.configService.get<string>("microservices.auth") ||
-      process.env.AUTH_SERVICE_URL ||
-      "http://localhost:3002";
+    @Inject(GRPC_AUTH_SERVICE) private readonly grpcClient: ClientGrpc,
+  ) {}
+
+  onModuleInit() {
+    this.authService =
+      this.grpcClient.getService<IGrpcAuthService>("AuthService");
+    this.logger.log("gRPC AuthService client initialized");
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -43,30 +47,39 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException("Token bulunamadı");
     }
 
+    const token = authHeader.replace("Bearer ", "");
+
     try {
-      const response = await axios.post(
-        `${this.authServiceUrl}/api/v1/auth/validate`,
-        {},
-        {
-          headers: { Authorization: authHeader },
-          timeout: 5000,
-        },
+      const result = await firstValueFrom<{
+        valid: boolean;
+        user_id: string;
+        email: string;
+        role: string;
+      }>(
+        this.authService.validateToken({
+          access_token: token,
+        }) as any,
       );
 
-      const { valid, userId, email, role } = response.data;
-
-      if (!valid) {
+      if (!result.valid) {
         throw new UnauthorizedException("Token geçersiz");
       }
 
       // Attach user to request for downstream use
-      request.user = { userId, email, role };
+      request.user = {
+        userId: result.user_id,
+        email: result.email,
+        role: result.role,
+      };
       return true;
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      this.logger.error("Auth validation failed", (error as Error).message);
+      this.logger.error(
+        "gRPC auth validation failed",
+        (error as Error).message,
+      );
       throw new UnauthorizedException("Kimlik doğrulama hatası");
     }
   }

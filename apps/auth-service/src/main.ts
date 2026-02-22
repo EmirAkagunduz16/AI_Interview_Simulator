@@ -2,6 +2,8 @@ import { NestFactory } from "@nestjs/core";
 import { ValidationPipe, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
+import { MicroserviceOptions, Transport } from "@nestjs/microservices";
+import { join } from "path";
 import { AppModule } from "./app.module";
 
 async function bootstrap() {
@@ -12,8 +14,26 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>("service.port", 3002);
+  const grpcPort = configService.get<number>("service.grpcPort", 50051);
   const nodeEnv = configService.get<string>("service.nodeEnv", "development");
 
+  // ── gRPC Microservice ──────────────────────────────────────────
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.GRPC,
+    options: {
+      package: "auth",
+      protoPath: join(
+        require.resolve("@ai-coach/grpc/package.json"),
+        "..",
+        "dist",
+        "proto",
+        "auth.proto",
+      ),
+      url: `0.0.0.0:${grpcPort}`,
+    },
+  });
+
+  // ── HTTP Config ────────────────────────────────────────────────
   app.setGlobalPrefix("api/v1");
 
   app.enableCors({ origin: true, credentials: true });
@@ -42,9 +62,13 @@ async function bootstrap() {
   }
 
   app.enableShutdownHooks();
+
+  // Start both transports
+  await app.startAllMicroservices();
   await app.listen(port);
 
-  logger.log(`Auth Service running on port ${port}`);
+  logger.log(`Auth Service HTTP running on port ${port}`);
+  logger.log(`Auth Service gRPC running on port ${grpcPort}`);
   logger.log(`Environment: ${nodeEnv}`);
   if (nodeEnv !== "production") {
     logger.log(`Swagger docs: http://localhost:${port}/docs`);

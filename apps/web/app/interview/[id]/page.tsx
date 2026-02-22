@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   ScoreGauge,
   CategoryScores,
@@ -16,29 +17,28 @@ export default function ResultsPage() {
   const params = useParams();
   const id = params.id as string;
 
-  const [data, setData] = useState<InterviewResult | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "questions">(
     "overview",
   );
 
-  const fetchResults = useCallback(async () => {
-    try {
+  const {
+    data,
+    isLoading: loading,
+    error: queryError,
+  } = useQuery<InterviewResult>({
+    queryKey: ["interview", id],
+    queryFn: async () => {
       const res = await api.get(`/interviews/${id}`);
-      setData(res.data);
-    } catch (err: any) {
-      setError(
-        err?.response?.data?.message || err.message || "Bir hata oluştu",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
+      return res.data;
+    },
+    enabled: !!id,
+  });
 
-  useEffect(() => {
-    fetchResults();
-  }, [fetchResults]);
+  const error = queryError
+    ? (queryError as any)?.response?.data?.message ||
+      (queryError as Error).message ||
+      "Bir hata oluştu"
+    : null;
 
   if (loading) {
     return (

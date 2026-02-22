@@ -1,7 +1,8 @@
 import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
-import { ConfigModule } from "@nestjs/config";
+import { ConfigModule, ConfigService } from "@nestjs/config";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
+import { GrpcModule, GRPC_AUTH_SERVICE, PROTO_PACKAGES } from "@ai-coach/grpc";
 import configuration from "./config/configuration";
 import { ProxyModule } from "./proxy/proxy.module";
 import { RoutesModule } from "./proxy/routes/routes.module";
@@ -25,6 +26,17 @@ import { JwtAuthGuard } from "./common/guards/auth.guard";
         limit: 100,
       },
     ]),
+
+    // gRPC: Auth service client (for auth guard)
+    GrpcModule.forClientAsync({
+      serviceName: GRPC_AUTH_SERVICE,
+      packageName: PROTO_PACKAGES.AUTH,
+      protoPath: GrpcModule.getProtoPath("auth.proto"),
+      useFactory: (config: ConfigService) => ({
+        url: config.get<string>("microservices.authGrpc") || "localhost:50051",
+      }),
+      inject: [ConfigService],
+    }),
 
     // Core modules
     ProxyModule,

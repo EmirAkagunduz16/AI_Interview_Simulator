@@ -105,6 +105,7 @@ services:
     restart: unless-stopped
     ports:
       - "3002:3002"
+      - "50051:50051"
     environment:
       - PORT=3002
       - NODE_ENV=production
@@ -140,6 +141,7 @@ services:
       - PORT=3001
       - NODE_ENV=production
       - AUTH_SERVICE_URL=http://auth-service:3002
+      - AUTH_GRPC_URL=auth-service:50051
       - USER_SERVICE_URL=http://user-service:3003
       - QUESTION_SERVICE_URL=http://question-service:3004
       - INTERVIEW_SERVICE_URL=http://interview-service:3005

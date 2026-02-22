@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp -r src/proto dist/proto",
     "dev": "tsc --watch"
   },
   "dependencies": {

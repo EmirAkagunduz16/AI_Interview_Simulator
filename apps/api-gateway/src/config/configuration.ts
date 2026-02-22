@@ -7,6 +7,7 @@ export const serviceConfig = registerAs("service", () => ({
 
 export const microservicesConfig = registerAs("microservices", () => ({
   auth: process.env.AUTH_SERVICE_URL || "http://localhost:3002",
+  authGrpc: process.env.AUTH_GRPC_URL || "localhost:50051",
   user: process.env.USER_SERVICE_URL || "http://localhost:3003",
   question: process.env.QUESTION_SERVICE_URL || "http://localhost:3004",
   interview: process.env.INTERVIEW_SERVICE_URL || "http://localhost:3005",

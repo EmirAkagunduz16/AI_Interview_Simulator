@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { AuthGuard } from "@/features/auth/components";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import {
   StatsGrid,
   InterviewHistoryList,
@@ -15,6 +16,8 @@ import api from "@/lib/axios";
 import "./dashboard.scss";
 
 function DashboardContent() {
+  const { logout } = useAuth();
+
   const { data: stats, isLoading: statsLoading } = useQuery<InterviewStats>({
     queryKey: ["dashboard", "stats"],
     queryFn: async () => {
@@ -57,15 +60,7 @@ function DashboardContent() {
           <span className="logo-text">AI Coach</span>
         </div>
         <div className="topnav-actions">
-          <button
-            className="logout-btn"
-            onClick={() => {
-              localStorage.removeItem("accessToken");
-              localStorage.removeItem("refreshToken");
-              localStorage.removeItem("authUser");
-              window.location.href = "/";
-            }}
-          >
+          <button className="logout-btn" onClick={() => logout()}>
             Logout
           </button>
         </div>
