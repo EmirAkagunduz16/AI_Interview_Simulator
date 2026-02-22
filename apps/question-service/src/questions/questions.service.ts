@@ -18,8 +18,6 @@ import {
   Difficulty,
 } from "./entities/question.entity";
 import { QuestionNotFoundException } from "../common/exceptions";
-import { KafkaProducerService } from "@ai-coach/kafka-client";
-import { KafkaTopics } from "@ai-coach/shared-types";
 
 @Injectable()
 export class QuestionsService {
@@ -27,7 +25,6 @@ export class QuestionsService {
 
   constructor(
     private readonly questionRepository: QuestionRepository,
-    private readonly kafkaProducer: KafkaProducerService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -155,20 +152,6 @@ export class QuestionsService {
         });
 
         savedQuestions.push(question);
-
-        // Emit Kafka event for each created question
-        await this.kafkaProducer.emit(
-          KafkaTopics.QUESTION_CREATED,
-          {
-            questionId: question._id.toString(),
-            title: question.title,
-            type: question.type,
-            difficulty: question.difficulty,
-            category: question.category,
-            tags: question.tags,
-          },
-          { key: question._id.toString() },
-        );
       }
 
       this.logger.log(`Generated and saved ${savedQuestions.length} questions`);

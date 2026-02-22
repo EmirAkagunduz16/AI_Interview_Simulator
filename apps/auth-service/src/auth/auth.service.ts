@@ -9,8 +9,8 @@ import { JwtService } from "@nestjs/jwt";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import * as bcrypt from "bcrypt";
-import { v4 as uuidv4 } from "uuid";
-import { Kafka, Producer, logLevel } from "kafkajs";
+import { KafkaProducerService } from "@ai-coach/kafka-client";
+import { KafkaTopics } from "@ai-coach/shared-types";
 import { AuthUser, AuthUserDocument } from "./entities/auth-user.entity";
 import {
   RegisterDto,
@@ -23,7 +23,6 @@ import { RedisService } from "../common/redis/redis.service";
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-  private producer: Producer | null = null;
 
   constructor(
     @InjectModel(AuthUser.name)
@@ -31,29 +30,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
-  ) {
-    this.initKafkaProducer();
-  }
-
-  private async initKafkaProducer(): Promise<void> {
-    const brokers = this.configService
-      .get<string>("KAFKA_BROKERS")
-      ?.split(",") || ["localhost:9092"];
-    const kafka = new Kafka({
-      clientId: "auth-service-producer",
-      brokers,
-      logLevel: logLevel.WARN,
-      retry: { initialRetryTime: 1000, retries: 10 },
-    });
-
-    this.producer = kafka.producer();
-    try {
-      await this.producer.connect();
-      this.logger.log("Kafka producer connected");
-    } catch (error) {
-      this.logger.error("Failed to connect Kafka producer", error);
-    }
-  }
+    private readonly kafkaProducer: KafkaProducerService,
+  ) {}
 
   async register(dto: RegisterDto): Promise<TokenResponseDto> {
     // Check if user already exists
@@ -84,7 +62,18 @@ export class AuthService {
     await authUser.save();
 
     // Emit Kafka event: user.registered
-    await this.emitUserRegistered(authUser);
+    try {
+      await this.kafkaProducer.emit(KafkaTopics.USER_REGISTERED, {
+        userId: authUser._id.toString(),
+        email: authUser.email,
+        name: authUser.name,
+      });
+      this.logger.log(
+        `Kafka event emitted: user.registered for ${authUser.email}`,
+      );
+    } catch (error) {
+      this.logger.warn("Failed to emit user.registered event", error);
+    }
 
     this.logger.log(`User registered: ${authUser.email}`);
 
@@ -255,34 +244,5 @@ export class AuthService {
     ]);
 
     return { accessToken, refreshToken };
-  }
-
-  private async emitUserRegistered(user: AuthUserDocument): Promise<void> {
-    if (!this.producer) return;
-
-    try {
-      await this.producer.send({
-        topic: "user.registered",
-        messages: [
-          {
-            key: user._id.toString(),
-            value: JSON.stringify({
-              eventId: uuidv4(),
-              eventType: "user.registered",
-              timestamp: new Date().toISOString(),
-              source: "auth-service",
-              payload: {
-                userId: user._id.toString(),
-                email: user.email,
-                name: user.name,
-              },
-            }),
-          },
-        ],
-      });
-      this.logger.log(`Kafka event emitted: user.registered for ${user.email}`);
-    } catch (error) {
-      this.logger.error("Failed to emit user.registered event", error);
-    }
   }
 }

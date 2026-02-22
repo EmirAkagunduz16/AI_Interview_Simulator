@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package question;
+
+// Question service gRPC definition
+service QuestionService {
+  // Get a question by ID
+  rpc GetQuestion(GetQuestionRequest) returns (QuestionResponse);
+
+  // Get random questions with filters
+  rpc GetRandomQuestions(GetRandomQuestionsRequest) returns (QuestionListResponse);
+
+  // Get all categories
+  rpc GetCategories(EmptyRequest) returns (CategoriesResponse);
+}
+
+message EmptyRequest {}
+
+message GetQuestionRequest {
+  string question_id = 1;
+}
+
+message GetRandomQuestionsRequest {
+  int32 count = 1;
+  optional string type = 2;
+  optional string difficulty = 3;
+  optional string category = 4;
+}
+
+message QuestionResponse {
+  string id = 1;
+  string title = 2;
+  string content = 3;
+  string hints = 4;
+  string sample_answer = 5;
+  string type = 6;
+  string difficulty = 7;
+  string category = 8;
+  repeated string tags = 9;
+  repeated McqOptionResponse mcq_options = 10;
+}
+
+message McqOptionResponse {
+  string text = 1;
+  bool is_correct = 2;
+}
+
+message QuestionListResponse {
+  repeated QuestionResponse questions = 1;
+}
+
+message CategoriesResponse {
+  repeated string categories = 1;
+}

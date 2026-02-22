@@ -11,6 +11,7 @@
     "start:prod": "node dist/main"
   },
   "dependencies": {
+    "@ai-coach/kafka-client": "workspace:^",
     "@ai-coach/shared-types": "workspace:^",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.0",
@@ -22,7 +23,9 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "@google/generative-ai": "^0.24.0",
-    "axios": "^1.7.0"
+    "axios": "^1.7.0",
+    "kafkajs": "^2.2.4",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",

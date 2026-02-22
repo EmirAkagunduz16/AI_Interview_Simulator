@@ -46,18 +46,6 @@ export class InterviewsService {
 
     this.logger.log(`Interview created: ${interview._id} for user: ${userId}`);
 
-    // Emit Kafka event
-    try {
-      await this.kafkaProducer.emit(KafkaTopics.INTERVIEW_CREATED, {
-        interviewId: interview._id.toString(),
-        userId,
-        field: dto.field,
-        questionCount: dto.questionCount || 5,
-      });
-    } catch (error) {
-      this.logger.warn("Failed to emit INTERVIEW_CREATED event", error);
-    }
-
     return interview;
   }
 
@@ -125,18 +113,6 @@ export class InterviewsService {
       id,
       InterviewStatus.IN_PROGRESS,
     );
-
-    // Emit Kafka event
-    try {
-      await this.kafkaProducer.emit(KafkaTopics.INTERVIEW_STARTED, {
-        interviewId: id,
-        userId,
-        startedAt: new Date().toISOString(),
-      });
-    } catch (error) {
-      this.logger.warn("Failed to emit INTERVIEW_STARTED event", error);
-    }
-
     return updated!;
   }
 
