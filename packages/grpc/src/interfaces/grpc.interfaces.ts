@@ -5,13 +5,9 @@ import { InjectionToken, OptionalFactoryDependency } from "@nestjs/common";
 // ===========================
 
 export interface GrpcServiceOptions {
-  /** Unique name for this gRPC service (used as injection token) */
   serviceName: string;
-  /** Package name matching the proto file */
   packageName: string;
-  /** Absolute or relative path to the .proto file */
   protoPath: string;
-  /** Host:port of the gRPC server */
   url: string;
 }
 
@@ -33,6 +29,7 @@ export const GRPC_AUTH_SERVICE = "GRPC_AUTH_SERVICE";
 export const GRPC_USER_SERVICE = "GRPC_USER_SERVICE";
 export const GRPC_INTERVIEW_SERVICE = "GRPC_INTERVIEW_SERVICE";
 export const GRPC_QUESTION_SERVICE = "GRPC_QUESTION_SERVICE";
+export const GRPC_AI_SERVICE = "GRPC_AI_SERVICE";
 
 // ===========================
 // Proto Package Names
@@ -43,37 +40,32 @@ export const PROTO_PACKAGES = {
   USER: "user",
   INTERVIEW: "interview",
   QUESTION: "question",
+  AI: "ai",
 } as const;
 
 // ===========================
-// gRPC Service Interface Contracts
+// Auth Service
 // ===========================
 
-// Auth Service
 export interface IGrpcAuthService {
-  validateToken(data: { access_token: string }): Promise<{
-    valid: boolean;
-    user_id: string;
-    email: string;
-    role: string;
-  }>;
+  validateToken(data: {
+    access_token: string;
+  }): Promise<{ valid: boolean; user_id: string; email: string; role: string }>;
 
-  getTokenUser(data: { access_token: string }): Promise<{
-    user_id: string;
-    email: string;
-    name: string;
-    role: string;
-  }>;
+  getTokenUser(data: {
+    access_token: string;
+  }): Promise<{ user_id: string; email: string; name: string; role: string }>;
 }
 
+// ===========================
 // User Service
+// ===========================
+
 export interface IGrpcUserService {
   getUserByAuthId(data: { auth_id: string }): Promise<IGrpcUserResponse>;
-
   getUserById(data: { user_id: string }): Promise<IGrpcUserResponse>;
-
   updateUser(data: {
-    user_id: string;
+    auth_id: string;
     name?: string;
     avatar?: string;
     bio?: string;
@@ -81,6 +73,13 @@ export interface IGrpcUserService {
     experience_level?: string;
     skills?: string[];
   }): Promise<IGrpcUserResponse>;
+  getUserStats(data: { auth_id: string }): Promise<{ json_data: string }>;
+  getUsers(data: { page: number; limit: number }): Promise<{
+    users: IGrpcUserResponse[];
+    total: number;
+    page: number;
+    total_pages: number;
+  }>;
 }
 
 export interface IGrpcUserResponse {
@@ -104,9 +103,15 @@ export interface IGrpcUserResponse {
   is_active: boolean;
 }
 
+// ===========================
 // Interview Service
+// ===========================
+
 export interface IGrpcInterviewService {
-  getInterview(data: { interview_id: string }): Promise<IGrpcInterviewResponse>;
+  getInterview(data: {
+    interview_id: string;
+    user_id: string;
+  }): Promise<IGrpcInterviewResponse>;
 
   getUserInterviews(data: {
     user_id: string;
@@ -127,6 +132,55 @@ export interface IGrpcInterviewService {
     best_score: number;
     total_questions_answered: number;
   }>;
+
+  createInterview(data: {
+    user_id: string;
+    field: string;
+    tech_stack: string[];
+    difficulty: string;
+    title?: string;
+    vapi_call_id?: string;
+    question_count?: number;
+  }): Promise<IGrpcInterviewResponse>;
+
+  startInterview(data: {
+    interview_id: string;
+    user_id: string;
+  }): Promise<IGrpcInterviewResponse>;
+
+  submitAnswer(data: {
+    interview_id: string;
+    user_id: string;
+    question_id: string;
+    question_title: string;
+    answer: string;
+  }): Promise<IGrpcInterviewResponse>;
+
+  completeInterview(data: {
+    interview_id: string;
+    user_id: string;
+  }): Promise<IGrpcInterviewResponse>;
+
+  completeWithReport(data: {
+    interview_id: string;
+    report: IGrpcInterviewReportData;
+    overall_feedback: string;
+  }): Promise<IGrpcInterviewResponse>;
+
+  cancelInterview(data: {
+    interview_id: string;
+    user_id: string;
+  }): Promise<IGrpcInterviewResponse>;
+}
+
+export interface IGrpcInterviewReportData {
+  technical_score: number;
+  communication_score: number;
+  diction_score: number;
+  confidence_score: number;
+  overall_score: number;
+  summary: string;
+  recommendations: string[];
 }
 
 export interface IGrpcInterviewResponse {
@@ -141,6 +195,7 @@ export interface IGrpcInterviewResponse {
   duration_minutes: number;
   total_score?: number;
   overall_feedback?: string;
+  created_at: string;
   answers: {
     question_id: string;
     question_title: string;
@@ -158,25 +213,81 @@ export interface IGrpcInterviewResponse {
     overall_score: number;
     summary: string;
     recommendations: string[];
+    question_evaluations: {
+      question: string;
+      answer: string;
+      score: number;
+      feedback: string;
+      strengths: string[];
+      improvements: string[];
+    }[];
   };
 }
 
+// ===========================
 // Question Service
+// ===========================
+
 export interface IGrpcQuestionService {
   getQuestion(data: { question_id: string }): Promise<IGrpcQuestionResponse>;
+
+  getQuestions(data: {
+    type?: string;
+    difficulty?: string;
+    category?: string;
+    page: number;
+    limit: number;
+  }): Promise<{
+    questions: IGrpcQuestionResponse[];
+    total: number;
+    page: number;
+    total_pages: number;
+  }>;
 
   getRandomQuestions(data: {
     count: number;
     type?: string;
     difficulty?: string;
     category?: string;
-  }): Promise<{
-    questions: IGrpcQuestionResponse[];
-  }>;
+  }): Promise<{ questions: IGrpcQuestionResponse[] }>;
 
-  getCategories(data: Record<string, never>): Promise<{
-    categories: string[];
-  }>;
+  getCategories(data: Record<string, never>): Promise<{ items: string[] }>;
+
+  getTags(data: Record<string, never>): Promise<{ items: string[] }>;
+
+  createQuestion(data: {
+    title: string;
+    content: string;
+    type: string;
+    difficulty: string;
+    category: string;
+    hints?: string;
+    sample_answer?: string;
+    tags?: string[];
+  }): Promise<IGrpcQuestionResponse>;
+
+  generateQuestions(data: {
+    field: string;
+    tech_stack: string[];
+    difficulty: string;
+    count: number;
+  }): Promise<{ questions: IGrpcQuestionResponse[] }>;
+
+  seedQuestions(data: Record<string, never>): Promise<{ created: number }>;
+
+  updateQuestion(data: {
+    question_id: string;
+    title?: string;
+    content?: string;
+    type?: string;
+    difficulty?: string;
+    category?: string;
+    hints?: string;
+    sample_answer?: string;
+    tags?: string[];
+  }): Promise<IGrpcQuestionResponse>;
+
+  deleteQuestion(data: { question_id: string }): Promise<Record<string, never>>;
 }
 
 export interface IGrpcQuestionResponse {
@@ -189,8 +300,25 @@ export interface IGrpcQuestionResponse {
   difficulty: string;
   category: string;
   tags: string[];
-  mcq_options: {
-    text: string;
-    is_correct: boolean;
-  }[];
+  mcq_options: { text: string; is_correct: boolean }[];
+}
+
+// ===========================
+// AI Service
+// ===========================
+
+export interface IGrpcAiService {
+  generateQuestions(data: {
+    field: string;
+    tech_stack: string[];
+    difficulty: string;
+    count: number;
+  }): Promise<{
+    questions: { question: string; order: number; expected_answer: string }[];
+  }>;
+
+  handleVapiWebhook(data: {
+    json_body: string;
+    user_id?: string;
+  }): Promise<{ json_response: string }>;
 }

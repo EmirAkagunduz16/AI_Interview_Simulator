@@ -2,20 +2,21 @@ syntax = "proto3";
 
 package interview;
 
-// Interview service gRPC definition
 service InterviewService {
-  // Get an interview by ID (internal, without user check)
   rpc GetInterview(GetInterviewRequest) returns (InterviewResponse);
-
-  // Get interviews for a user
   rpc GetUserInterviews(GetUserInterviewsRequest) returns (InterviewListResponse);
-
-  // Get interview stats for a user
   rpc GetInterviewStats(GetInterviewStatsRequest) returns (InterviewStatsResponse);
+  rpc CreateInterview(CreateInterviewRequest) returns (InterviewResponse);
+  rpc StartInterview(StartInterviewRequest) returns (InterviewResponse);
+  rpc SubmitAnswer(SubmitAnswerRequest) returns (InterviewResponse);
+  rpc CompleteInterview(CompleteInterviewRequest) returns (InterviewResponse);
+  rpc CompleteWithReport(CompleteWithReportRequest) returns (InterviewResponse);
+  rpc CancelInterview(CancelInterviewRequest) returns (InterviewResponse);
 }
 
 message GetInterviewRequest {
   string interview_id = 1;
+  string user_id = 2;
 }
 
 message GetUserInterviewsRequest {
@@ -27,6 +28,45 @@ message GetUserInterviewsRequest {
 
 message GetInterviewStatsRequest {
   string user_id = 1;
+}
+
+message CreateInterviewRequest {
+  string user_id = 1;
+  string field = 2;
+  repeated string tech_stack = 3;
+  string difficulty = 4;
+  optional string title = 5;
+  optional string vapi_call_id = 6;
+  optional int32 question_count = 7;
+}
+
+message StartInterviewRequest {
+  string interview_id = 1;
+  string user_id = 2;
+}
+
+message SubmitAnswerRequest {
+  string interview_id = 1;
+  string user_id = 2;
+  string question_id = 3;
+  string question_title = 4;
+  string answer = 5;
+}
+
+message CompleteInterviewRequest {
+  string interview_id = 1;
+  string user_id = 2;
+}
+
+message CompleteWithReportRequest {
+  string interview_id = 1;
+  InterviewReportData report = 2;
+  string overall_feedback = 3;
+}
+
+message CancelInterviewRequest {
+  string interview_id = 1;
+  string user_id = 2;
 }
 
 message InterviewResponse {
@@ -43,6 +83,7 @@ message InterviewResponse {
   optional string overall_feedback = 11;
   repeated InterviewAnswerResponse answers = 12;
   optional InterviewReportResponse report = 13;
+  string created_at = 14;
 }
 
 message InterviewAnswerResponse {
@@ -55,6 +96,16 @@ message InterviewAnswerResponse {
   repeated string improvements = 7;
 }
 
+message InterviewReportData {
+  double technical_score = 1;
+  double communication_score = 2;
+  double diction_score = 3;
+  double confidence_score = 4;
+  double overall_score = 5;
+  string summary = 6;
+  repeated string recommendations = 7;
+}
+
 message InterviewReportResponse {
   double technical_score = 1;
   double communication_score = 2;
@@ -63,6 +114,16 @@ message InterviewReportResponse {
   double overall_score = 5;
   string summary = 6;
   repeated string recommendations = 7;
+  repeated QuestionEvaluationResponse question_evaluations = 8;
+}
+
+message QuestionEvaluationResponse {
+  string question = 1;
+  string answer = 2;
+  double score = 3;
+  string feedback = 4;
+  repeated string strengths = 5;
+  repeated string improvements = 6;
 }
 
 message InterviewListResponse {

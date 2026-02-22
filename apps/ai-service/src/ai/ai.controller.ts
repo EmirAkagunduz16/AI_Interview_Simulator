@@ -6,30 +6,40 @@ import {
   HttpStatus,
   Logger,
   Headers,
+  Inject,
+  OnModuleInit,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
-import { ConfigService } from "@nestjs/config";
-import axios from "axios";
+import { ClientGrpc } from "@nestjs/microservices";
+import { firstValueFrom } from "rxjs";
+import {
+  GRPC_INTERVIEW_SERVICE,
+  GRPC_QUESTION_SERVICE,
+  IGrpcInterviewService,
+  IGrpcQuestionService,
+} from "@ai-coach/grpc";
 import { GeminiService } from "./ai.service";
 import { GenerateQuestionsDto, GenerateQuestionsResponseDto } from "./dto";
 
 @ApiTags("AI")
 @Controller("ai")
-export class AiController {
+export class AiController implements OnModuleInit {
   private readonly logger = new Logger(AiController.name);
-  private readonly interviewServiceUrl: string;
-  private readonly questionServiceUrl: string;
+  private interviewService!: IGrpcInterviewService;
+  private questionService!: IGrpcQuestionService;
 
   constructor(
     private readonly geminiService: GeminiService,
-    private readonly configService: ConfigService,
-  ) {
-    this.interviewServiceUrl =
-      this.configService.get<string>("INTERVIEW_SERVICE_URL") ||
-      "http://localhost:3005/api/v1";
-    this.questionServiceUrl =
-      this.configService.get<string>("QUESTION_SERVICE_URL") ||
-      "http://localhost:3004/api/v1";
+    @Inject(GRPC_INTERVIEW_SERVICE) private readonly interviewGrpc: ClientGrpc,
+    @Inject(GRPC_QUESTION_SERVICE) private readonly questionGrpc: ClientGrpc,
+  ) {}
+
+  onModuleInit() {
+    this.interviewService =
+      this.interviewGrpc.getService<IGrpcInterviewService>("InterviewService");
+    this.questionService =
+      this.questionGrpc.getService<IGrpcQuestionService>("QuestionService");
+    this.logger.log("gRPC clients initialized (Interview + Question)");
   }
 
   // ========================================================
@@ -96,7 +106,7 @@ export class AiController {
   }
 
   // ========================================================
-  // VAPI Function Call Handler — her fonksiyon ilgili servise yönlendirilir
+  // VAPI Function Call Handler
   // ========================================================
 
   private async handleFunctionCall(
@@ -129,8 +139,8 @@ export class AiController {
   /**
    * save_preferences:
    * 1. Interview zaten frontend'de oluşturuldu, varsa fetch et
-   * 2. question-service'ten soruları çek/üret
-   * 3. interview-service'te mülakatı başlat
+   * 2. question-service'ten soruları çek/üret (gRPC)
+   * 3. interview-service'te mülakatı başlat (gRPC)
    */
   private async handleSavePreferences(
     functionCall: any,
@@ -149,42 +159,40 @@ export class AiController {
     const questionCount = 5;
 
     try {
-      // 1. Interview'ı al veya oluştur (interview-service'e delege et)
+      // 1. Interview'ı al veya oluştur (gRPC)
       let interview: any;
       if (interviewId) {
-        const res = await axios.get(
-          `${this.interviewServiceUrl}/interviews/${interviewId}`,
-          { headers: { "x-user-id": userId } },
+        interview = await firstValueFrom(
+          this.interviewService.getInterview({
+            interview_id: interviewId,
+            user_id: userId,
+          }) as any,
         );
-        interview = res.data;
       } else {
-        const res = await axios.post(
-          `${this.interviewServiceUrl}/interviews`,
-          {
+        interview = await firstValueFrom(
+          this.interviewService.createInterview({
+            user_id: userId,
             field,
-            techStack,
-            difficulty,
-            vapiCallId: message.call?.id,
+            tech_stack: techStack || [],
+            difficulty: difficulty || "intermediate",
             title: `${field} Developer Interview`,
-            questionCount,
-          },
-          { headers: { "x-user-id": userId } },
+            question_count: questionCount,
+            vapi_call_id: message.call?.id,
+          }) as any,
         );
-        interview = res.data;
       }
 
-      // 2. Soruları question-service'ten çek
+      // 2. Soruları question-service'ten çek (gRPC)
       let questions: any[] = [];
       try {
-        const query = new URLSearchParams();
-        if (field) query.append("category", field);
-        if (difficulty) query.append("difficulty", difficulty);
-        query.append("count", questionCount.toString());
-
-        const res = await axios.get(
-          `${this.questionServiceUrl}/questions/random?${query}`,
+        const result: any = await firstValueFrom(
+          this.questionService.getRandomQuestions({
+            count: questionCount,
+            category: field,
+            difficulty,
+          }) as any,
         );
-        questions = res.data || [];
+        questions = result.questions || [];
       } catch (e) {
         this.logger.warn(
           "question-service'ten soru çekilemedi, generate ediliyor...",
@@ -192,26 +200,27 @@ export class AiController {
         );
       }
 
-      // 3. Yetersizse question-service'e ürettir (o da ai-service'in Gemini'sini çağırır)
+      // 3. Yetersizse question-service'e ürettir (gRPC)
       if (questions.length < questionCount) {
         try {
-          await axios.post(`${this.questionServiceUrl}/questions/generate`, {
-            field: field || "fullstack",
-            techStack: techStack || [],
-            difficulty: difficulty || "intermediate",
-            count: questionCount,
-          });
+          const genResult: any = await firstValueFrom(
+            this.questionService.generateQuestions({
+              field: field || "fullstack",
+              tech_stack: techStack || [],
+              difficulty: difficulty || "intermediate",
+              count: questionCount,
+            }) as any,
+          );
 
           // Üretildikten sonra tekrar çek
-          const query = new URLSearchParams();
-          if (field) query.append("category", field);
-          if (difficulty) query.append("difficulty", difficulty);
-          query.append("count", questionCount.toString());
-
-          const res = await axios.get(
-            `${this.questionServiceUrl}/questions/random?${query}`,
+          const retryResult: any = await firstValueFrom(
+            this.questionService.getRandomQuestions({
+              count: questionCount,
+              category: field,
+              difficulty,
+            }) as any,
           );
-          questions = res.data || [];
+          questions = retryResult.questions || genResult.questions || [];
         } catch (e) {
           this.logger.error(
             "question-service soru üretemedi, Gemini fallback",
@@ -239,11 +248,12 @@ export class AiController {
           order: index + 1,
         }));
 
-      // 5. Mülakatı başlat (interview-service)
-      await axios.post(
-        `${this.interviewServiceUrl}/interviews/${interview.id}/start`,
-        null,
-        { headers: { "x-user-id": userId } },
+      // 5. Mülakatı başlat (gRPC)
+      await firstValueFrom(
+        this.interviewService.startInterview({
+          interview_id: interview.id,
+          user_id: userId,
+        }) as any,
       );
 
       return {
@@ -271,7 +281,7 @@ export class AiController {
 
   /**
    * save_answer:
-   * Cevabı interview-service'e kaydet, sıradaki soruyu döndür
+   * Cevabı interview-service'e kaydet (gRPC), sıradaki soruyu döndür
    */
   private async handleSaveAnswer(
     functionCall: any,
@@ -280,16 +290,16 @@ export class AiController {
     const { interviewId, questionOrder, questionText, answer, questions } =
       functionCall.parameters;
 
-    // Cevabı interview-service'e kaydet
+    // Cevabı interview-service'e kaydet (gRPC)
     try {
-      await axios.post(
-        `${this.interviewServiceUrl}/interviews/${interviewId}/submit`,
-        {
-          questionId: `q_${questionOrder}`,
-          questionTitle: questionText || `Soru ${questionOrder}`,
+      await firstValueFrom(
+        this.interviewService.submitAnswer({
+          interview_id: interviewId,
+          user_id: headerUserId || "anonymous",
+          question_id: `q_${questionOrder}`,
+          question_title: questionText || `Soru ${questionOrder}`,
           answer,
-        },
-        { headers: { "x-user-id": headerUserId || "anonymous" } },
+        }) as any,
       );
     } catch (error) {
       this.logger.warn("Cevap kaydedilemedi (interview-service)", error);
@@ -357,7 +367,7 @@ export class AiController {
 
   /**
    * end_interview:
-   * Gemini ile değerlendir + interview-service'e report gönder
+   * Gemini ile değerlendir + interview-service'e report gönder (gRPC)
    */
   private async handleEndInterview(
     functionCall: any,
@@ -366,53 +376,53 @@ export class AiController {
     const { interviewId, answers } = functionCall.parameters;
 
     try {
-      // Interview verisini al
+      // Interview verisini al (gRPC)
       let interviewData: any;
       try {
-        const res = await axios.get(
-          `${this.interviewServiceUrl}/interviews/${interviewId}`,
-          { headers: { "x-user-id": headerUserId || "anonymous" } },
+        interviewData = await firstValueFrom(
+          this.interviewService.getInterview({
+            interview_id: interviewId,
+            user_id: headerUserId || "anonymous",
+          }) as any,
         );
-        interviewData = res.data;
       } catch {
-        interviewData = { field: "fullstack", techStack: [] };
+        interviewData = { field: "fullstack", tech_stack: [] };
       }
 
       // Değerlendirme için cevapları hazırla
       const answersForEval =
         answers ||
         interviewData?.answers?.map((a: any) => ({
-          question: a.questionTitle,
+          question: a.question_title,
           answer: a.answer,
           order: 1,
         })) ||
         [];
 
       if (answersForEval.length > 0) {
-        // Gemini ile değerlendir (ai-service'in tek gerçek sorumluluğu)
+        // Gemini ile değerlendir
         const evaluation = await this.geminiService.evaluateInterview({
           field: interviewData.field || "fullstack",
-          techStack: interviewData.techStack || [],
+          techStack: interviewData.tech_stack || [],
           answers: answersForEval,
         });
 
-        // Interview-service'e raporu gönder
+        // Interview-service'e raporu gönder (gRPC)
         try {
-          await axios.post(
-            `${this.interviewServiceUrl}/interviews/${interviewId}/complete-with-report`,
-            {
+          await firstValueFrom(
+            this.interviewService.completeWithReport({
+              interview_id: interviewId,
               report: {
-                technicalScore: evaluation.technicalScore,
-                communicationScore: evaluation.communicationScore,
-                dictionScore: evaluation.dictionScore,
-                confidenceScore: evaluation.confidenceScore,
-                overallScore: evaluation.overallScore,
+                technical_score: evaluation.technicalScore,
+                communication_score: evaluation.communicationScore,
+                diction_score: evaluation.dictionScore,
+                confidence_score: evaluation.confidenceScore,
+                overall_score: evaluation.overallScore,
                 summary: evaluation.summary,
                 recommendations: evaluation.recommendations,
               },
-              overallFeedback: evaluation.summary,
-            },
-            { headers: { "x-user-id": headerUserId || "anonymous" } },
+              overall_feedback: evaluation.summary,
+            }) as any,
           );
         } catch (e) {
           this.logger.warn("Interview complete-with-report başarısız", e);
@@ -427,24 +437,23 @@ export class AiController {
         };
       }
 
-      // Cevap yoksa boş rapor gönder
+      // Cevap yoksa boş rapor gönder (gRPC)
       try {
-        await axios.post(
-          `${this.interviewServiceUrl}/interviews/${interviewId}/complete-with-report`,
-          {
+        await firstValueFrom(
+          this.interviewService.completeWithReport({
+            interview_id: interviewId,
             report: {
-              technicalScore: 0,
-              communicationScore: 0,
-              dictionScore: 0,
-              confidenceScore: 0,
-              overallScore: 0,
+              technical_score: 0,
+              communication_score: 0,
+              diction_score: 0,
+              confidence_score: 0,
+              overall_score: 0,
               summary: "Mülakat erken sonlandırıldı veya hiç cevap verilmedi.",
               recommendations: ["Mülakat pratiği yapmaya devam edin."],
             },
-            overallFeedback:
+            overall_feedback:
               "Mülakat erken sonlandırıldığı için değerlendirme yapılamadı.",
-          },
-          { headers: { "x-user-id": headerUserId || "anonymous" } },
+          }) as any,
         );
       } catch (e) {
         this.logger.warn("Boş interview tamamlanamadı", e);

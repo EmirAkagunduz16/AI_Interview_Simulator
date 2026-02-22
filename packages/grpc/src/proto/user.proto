@@ -2,16 +2,12 @@ syntax = "proto3";
 
 package user;
 
-// User service gRPC definition
 service UserService {
-  // Get user profile by auth ID
   rpc GetUserByAuthId(GetUserByAuthIdRequest) returns (UserResponse);
-
-  // Get user profile by ID
   rpc GetUserById(GetUserByIdRequest) returns (UserResponse);
-
-  // Update user profile
   rpc UpdateUser(UpdateUserRequest) returns (UserResponse);
+  rpc GetUserStats(GetUserStatsRequest) returns (UserStatsResponse);
+  rpc GetUsers(GetUsersRequest) returns (UserListResponse);
 }
 
 message GetUserByAuthIdRequest {
@@ -23,13 +19,22 @@ message GetUserByIdRequest {
 }
 
 message UpdateUserRequest {
-  string user_id = 1;
+  string auth_id = 1;
   optional string name = 2;
   optional string avatar = 3;
   optional string bio = 4;
   optional string target_role = 5;
   optional string experience_level = 6;
   repeated string skills = 7;
+}
+
+message GetUserStatsRequest {
+  string auth_id = 1;
+}
+
+message GetUsersRequest {
+  int32 page = 1;
+  int32 limit = 2;
 }
 
 message UserResponse {
@@ -55,4 +60,15 @@ message Subscription {
   string plan = 1;
   int32 interviews_used = 2;
   int32 interviews_limit = 3;
+}
+
+message UserStatsResponse {
+  string json_data = 1;
+}
+
+message UserListResponse {
+  repeated UserResponse users = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 total_pages = 4;
 }

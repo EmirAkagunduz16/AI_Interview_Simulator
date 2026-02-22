@@ -143,13 +143,14 @@ services:
       - AUTH_SERVICE_URL=http://auth-service:3002
       - AUTH_GRPC_URL=auth-service:50051
       - USER_SERVICE_URL=http://user-service:3003
+      - USER_GRPC_URL=user-service:50052
       - QUESTION_SERVICE_URL=http://question-service:3004
+      - QUESTION_GRPC_URL=question-service:50054
       - INTERVIEW_SERVICE_URL=http://interview-service:3005
+      - INTERVIEW_GRPC_URL=interview-service:50053
       - AI_SERVICE_URL=http://ai-service:3006
+      - AI_GRPC_URL=ai-service:50055
       - CORS_ORIGIN=http://localhost:3000
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=redis123
     depends_on:
       auth-service:
         condition: service_started
@@ -175,6 +176,7 @@ services:
     restart: unless-stopped
     ports:
       - "3003:3003"
+      - "50052:50052"
     environment:
       - PORT=3003
       - NODE_ENV=production
@@ -202,6 +204,7 @@ services:
     restart: unless-stopped
     ports:
       - "3004:3004"
+      - "50054:50054"
     environment:
       - PORT=3004
       - NODE_ENV=production
@@ -229,6 +232,7 @@ services:
     restart: unless-stopped
     ports:
       - "3005:3005"
+      - "50053:50053"
     environment:
       - PORT=3005
       - NODE_ENV=production
@@ -256,9 +260,12 @@ services:
     restart: unless-stopped
     ports:
       - "3006:3006"
+      - "50055:50055"
     environment:
       - PORT=3006
       - NODE_ENV=production
+      - INTERVIEW_GRPC_URL=interview-service:50053
+      - QUESTION_GRPC_URL=question-service:50054
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_MODEL=gpt-4o
       - OPENAI_TTS_VOICE=nova

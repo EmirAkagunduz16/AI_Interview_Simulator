@@ -2,22 +2,32 @@ syntax = "proto3";
 
 package question;
 
-// Question service gRPC definition
 service QuestionService {
-  // Get a question by ID
   rpc GetQuestion(GetQuestionRequest) returns (QuestionResponse);
-
-  // Get random questions with filters
+  rpc GetQuestions(GetQuestionsRequest) returns (PaginatedQuestionResponse);
   rpc GetRandomQuestions(GetRandomQuestionsRequest) returns (QuestionListResponse);
-
-  // Get all categories
-  rpc GetCategories(EmptyRequest) returns (CategoriesResponse);
+  rpc GetCategories(EmptyRequest) returns (StringListResponse);
+  rpc GetTags(EmptyRequest) returns (StringListResponse);
+  rpc CreateQuestion(CreateQuestionRequest) returns (QuestionResponse);
+  rpc GenerateQuestions(GenerateQuestionsRequest) returns (QuestionListResponse);
+  rpc SeedQuestions(EmptyRequest) returns (SeedResponse);
+  rpc UpdateQuestion(UpdateQuestionRequest) returns (QuestionResponse);
+  rpc DeleteQuestion(DeleteQuestionRequest) returns (EmptyResponse);
 }
 
 message EmptyRequest {}
+message EmptyResponse {}
 
 message GetQuestionRequest {
   string question_id = 1;
+}
+
+message GetQuestionsRequest {
+  optional string type = 1;
+  optional string difficulty = 2;
+  optional string category = 3;
+  int32 page = 4;
+  int32 limit = 5;
 }
 
 message GetRandomQuestionsRequest {
@@ -25,6 +35,40 @@ message GetRandomQuestionsRequest {
   optional string type = 2;
   optional string difficulty = 3;
   optional string category = 4;
+}
+
+message CreateQuestionRequest {
+  string title = 1;
+  string content = 2;
+  string type = 3;
+  string difficulty = 4;
+  string category = 5;
+  optional string hints = 6;
+  optional string sample_answer = 7;
+  repeated string tags = 8;
+}
+
+message GenerateQuestionsRequest {
+  string field = 1;
+  repeated string tech_stack = 2;
+  string difficulty = 3;
+  int32 count = 4;
+}
+
+message UpdateQuestionRequest {
+  string question_id = 1;
+  optional string title = 2;
+  optional string content = 3;
+  optional string type = 4;
+  optional string difficulty = 5;
+  optional string category = 6;
+  optional string hints = 7;
+  optional string sample_answer = 8;
+  repeated string tags = 9;
+}
+
+message DeleteQuestionRequest {
+  string question_id = 1;
 }
 
 message QuestionResponse {
@@ -49,6 +93,17 @@ message QuestionListResponse {
   repeated QuestionResponse questions = 1;
 }
 
-message CategoriesResponse {
-  repeated string categories = 1;
+message PaginatedQuestionResponse {
+  repeated QuestionResponse questions = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 total_pages = 4;
+}
+
+message StringListResponse {
+  repeated string items = 1;
+}
+
+message SeedResponse {
+  int32 created = 1;
 }

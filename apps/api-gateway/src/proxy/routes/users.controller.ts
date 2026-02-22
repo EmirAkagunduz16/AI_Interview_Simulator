@@ -1,63 +1,72 @@
-import { Controller, Get, Patch, Body, Req, Query } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiQuery } from "@nestjs/swagger";
-import { ConfigService } from "@nestjs/config";
-import { Request } from "express";
-import { ProxyService } from "../proxy.service";
+import {
+  Controller,
+  Get,
+  Patch,
+  Req,
+  Body,
+  Inject,
+  OnModuleInit,
+} from "@nestjs/common";
+import { ApiTags, ApiOperation } from "@nestjs/swagger";
+import { ClientGrpc } from "@nestjs/microservices";
+import { firstValueFrom } from "rxjs";
+import { GRPC_USER_SERVICE, IGrpcUserService } from "@ai-coach/grpc";
 
-interface AuthenticatedRequest extends Request {
-  user?: { userId: string; email: string };
+interface AuthenticatedRequest {
+  user: { userId: string; email: string; role: string };
 }
 
 @ApiTags("Users")
 @Controller("users")
-export class UsersController {
-  private readonly userUrl: string;
+export class UsersController implements OnModuleInit {
+  private userService!: IGrpcUserService;
 
   constructor(
-    private readonly proxy: ProxyService,
-    private readonly config: ConfigService,
-  ) {
-    this.userUrl = this.config.get<string>("microservices.user")!;
+    @Inject(GRPC_USER_SERVICE) private readonly grpcClient: ClientGrpc,
+  ) {}
+
+  onModuleInit() {
+    this.userService =
+      this.grpcClient.getService<IGrpcUserService>("UserService");
   }
 
   @Get("me")
   @ApiOperation({ summary: "Get current user profile" })
   async getMe(@Req() req: AuthenticatedRequest) {
-    return this.proxy.forward(this.userUrl, "/api/v1/users/me", "GET", null, {
-      headers: { "x-user-id": req.user!.userId },
-    });
+    return firstValueFrom(
+      this.userService.getUserByAuthId({
+        auth_id: req.user.userId,
+      }) as any,
+    );
   }
 
   @Patch("me")
   @ApiOperation({ summary: "Update current user profile" })
-  async updateMe(@Req() req: AuthenticatedRequest, @Body() body: unknown) {
-    return this.proxy.forward(this.userUrl, "/api/v1/users/me", "PATCH", body, {
-      headers: { "x-user-id": req.user!.userId },
-    });
-  }
-
-  @Get("me/can-interview")
-  @ApiOperation({ summary: "Check if user can start interview" })
-  async canInterview(@Req() req: AuthenticatedRequest) {
-    return this.proxy.forward(
-      this.userUrl,
-      "/api/v1/users/me/can-interview",
-      "GET",
-      null,
-      {
-        headers: { "x-user-id": req.user!.userId },
-      },
+  async updateMe(@Req() req: AuthenticatedRequest, @Body() body: any) {
+    return firstValueFrom(
+      this.userService.updateUser({
+        auth_id: req.user.userId,
+        ...body,
+      }) as any,
     );
   }
 
+  @Get("me/stats")
+  @ApiOperation({ summary: "Get user dashboard stats" })
+  async getMyStats(@Req() req: AuthenticatedRequest) {
+    const result: any = await firstValueFrom(
+      this.userService.getUserStats({
+        auth_id: req.user.userId,
+      }) as any,
+    );
+    return JSON.parse(result.json_data);
+  }
+
   @Get()
-  @ApiOperation({ summary: "List all users (admin)" })
-  @ApiQuery({ name: "page", required: false })
-  @ApiQuery({ name: "limit", required: false })
-  async findAll(@Query("page") page?: number, @Query("limit") limit?: number) {
-    const query = new URLSearchParams();
-    if (page) query.append("page", page.toString());
-    if (limit) query.append("limit", limit.toString());
-    return this.proxy.forward(this.userUrl, `/api/v1/users?${query}`, "GET");
+  @ApiOperation({ summary: "List all users" })
+  async getUsers() {
+    return firstValueFrom(
+      this.userService.getUsers({ page: 1, limit: 50 }) as any,
+    );
   }
 }

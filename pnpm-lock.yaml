@@ -20,6 +20,9 @@ importers:
 
   apps/ai-service:
     dependencies:
+      '@ai-coach/grpc':
+        specifier: workspace:^
+        version: link:../../packages/grpc
       '@ai-coach/kafka-client':
         specifier: workspace:^
         version: link:../../packages/kafka-client
@@ -29,6 +32,12 @@ importers:
       '@google/generative-ai':
         specifier: ^0.24.0
         version: 0.24.1
+      '@grpc/grpc-js':
+        specifier: ^1.12.0
+        version: 1.14.3
+      '@grpc/proto-loader':
+        specifier: ^0.7.0
+        version: 0.7.15
       '@nestjs/common':
         specifier: ^11.0.0
         version: 11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -38,6 +47,9 @@ importers:
       '@nestjs/core':
         specifier: ^11.0.0
         version: 11.1.13(@nestjs/common@11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/microservices@11.1.13)(@nestjs/platform-express@11.1.13)(@nestjs/websockets@11.1.13)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/microservices':
+        specifier: ^11.0.0
+        version: 11.1.13(@grpc/grpc-js@1.14.3)(@nestjs/common@11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.13)(@nestjs/websockets@11.1.13)(cache-manager@7.2.8)(ioredis@5.9.2)(kafkajs@2.2.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/platform-express':
         specifier: ^11.0.0
         version: 11.1.13(@nestjs/common@11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.13)
@@ -227,12 +239,21 @@ importers:
       '@ai-coach/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@ai-coach/grpc':
+        specifier: workspace:^
+        version: link:../../packages/grpc
       '@ai-coach/kafka-client':
         specifier: workspace:*
         version: link:../../packages/kafka-client
       '@ai-coach/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      '@grpc/grpc-js':
+        specifier: ^1.12.0
+        version: 1.14.3
+      '@grpc/proto-loader':
+        specifier: ^0.7.0
+        version: 0.7.15
       '@nestjs/cache-manager':
         specifier: ^3.1.0
         version: 3.1.0(@nestjs/common@11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.13(@nestjs/common@11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/microservices@11.1.13)(@nestjs/platform-express@11.1.13)(@nestjs/websockets@11.1.13)(reflect-metadata@0.2.2)(rxjs@7.8.2))(cache-manager@7.2.8)(keyv@5.6.0)(rxjs@7.8.2)
@@ -306,12 +327,21 @@ importers:
       '@ai-coach/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@ai-coach/grpc':
+        specifier: workspace:^
+        version: link:../../packages/grpc
       '@ai-coach/kafka-client':
         specifier: workspace:*
         version: link:../../packages/kafka-client
       '@ai-coach/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      '@grpc/grpc-js':
+        specifier: ^1.12.0
+        version: 1.14.3
+      '@grpc/proto-loader':
+        specifier: ^0.7.0
+        version: 0.7.15
       '@nestjs/cache-manager':
         specifier: ^3.1.0
         version: 3.1.0(@nestjs/common@11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.13(@nestjs/common@11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/microservices@11.1.13)(@nestjs/platform-express@11.1.13)(@nestjs/websockets@11.1.13)(reflect-metadata@0.2.2)(rxjs@7.8.2))(cache-manager@7.2.8)(keyv@5.6.0)(rxjs@7.8.2)
@@ -385,12 +415,21 @@ importers:
       '@ai-coach/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@ai-coach/grpc':
+        specifier: workspace:^
+        version: link:../../packages/grpc
       '@ai-coach/kafka-client':
         specifier: workspace:*
         version: link:../../packages/kafka-client
       '@ai-coach/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      '@grpc/grpc-js':
+        specifier: ^1.12.0
+        version: 1.14.3
+      '@grpc/proto-loader':
+        specifier: ^0.7.0
+        version: 0.7.15
       '@nestjs/cache-manager':
         specifier: ^3.1.0
         version: 3.1.0(@nestjs/common@11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.13(@nestjs/common@11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/microservices@11.1.13)(@nestjs/platform-express@11.1.13)(@nestjs/websockets@11.1.13)(reflect-metadata@0.2.2)(rxjs@7.8.2))(cache-manager@7.2.8)(keyv@5.6.0)(rxjs@7.8.2)

@@ -2,168 +2,139 @@ import {
   Controller,
   Get,
   Post,
+  Req,
   Body,
   Param,
   Query,
-  Req,
-  HttpCode,
-  HttpStatus,
+  Inject,
+  OnModuleInit,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiQuery, ApiParam } from "@nestjs/swagger";
-import { ConfigService } from "@nestjs/config";
-import { Request } from "express";
-import { ProxyService } from "../proxy.service";
+import { ApiTags, ApiOperation } from "@nestjs/swagger";
+import { ClientGrpc } from "@nestjs/microservices";
+import { firstValueFrom } from "rxjs";
+import { GRPC_INTERVIEW_SERVICE, IGrpcInterviewService } from "@ai-coach/grpc";
 
-interface AuthenticatedRequest extends Request {
-  user?: { userId: string; email: string };
+interface AuthenticatedRequest {
+  user: { userId: string; email: string; role: string };
 }
 
 @ApiTags("Interviews")
 @Controller("interviews")
-export class InterviewsController {
-  private readonly interviewUrl: string;
+export class InterviewsController implements OnModuleInit {
+  private interviewService!: IGrpcInterviewService;
 
   constructor(
-    private readonly proxy: ProxyService,
-    private readonly config: ConfigService,
-  ) {
-    this.interviewUrl = this.config.get<string>("microservices.interview")!;
+    @Inject(GRPC_INTERVIEW_SERVICE) private readonly grpcClient: ClientGrpc,
+  ) {}
+
+  onModuleInit() {
+    this.interviewService =
+      this.grpcClient.getService<IGrpcInterviewService>("InterviewService");
   }
 
   @Get()
   @ApiOperation({ summary: "Get user interviews" })
-  @ApiQuery({ name: "page", required: false })
-  @ApiQuery({ name: "limit", required: false })
-  @ApiQuery({ name: "status", required: false })
   async findAll(
     @Req() req: AuthenticatedRequest,
-    @Query("page") page?: number,
-    @Query("limit") limit?: number,
+    @Query("page") page = 1,
+    @Query("limit") limit = 10,
     @Query("status") status?: string,
   ) {
-    const query = new URLSearchParams();
-    if (page) query.append("page", page.toString());
-    if (limit) query.append("limit", limit.toString());
-    if (status) query.append("status", status);
-    return this.proxy.forward(
-      this.interviewUrl,
-      `/api/v1/interviews?${query}`,
-      "GET",
-      null,
-      {
-        headers: { "x-user-id": req.user!.userId },
-      },
+    return firstValueFrom(
+      this.interviewService.getUserInterviews({
+        user_id: req.user.userId,
+        page,
+        limit,
+        status,
+      }) as any,
     );
   }
 
   @Get("stats")
-  @ApiOperation({ summary: "Get interview statistics" })
+  @ApiOperation({ summary: "Get interview stats" })
   async getStats(@Req() req: AuthenticatedRequest) {
-    return this.proxy.forward(
-      this.interviewUrl,
-      "/api/v1/interviews/stats",
-      "GET",
-      null,
-      {
-        headers: { "x-user-id": req.user!.userId },
-      },
+    return firstValueFrom(
+      this.interviewService.getInterviewStats({
+        user_id: req.user.userId,
+      }) as any,
     );
   }
 
   @Get(":id")
   @ApiOperation({ summary: "Get interview by ID" })
-  @ApiParam({ name: "id" })
   async findOne(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
-    return this.proxy.forward(
-      this.interviewUrl,
-      `/api/v1/interviews/${id}`,
-      "GET",
-      null,
-      {
-        headers: { "x-user-id": req.user!.userId },
-      },
+    return firstValueFrom(
+      this.interviewService.getInterview({
+        interview_id: id,
+        user_id: req.user.userId,
+      }) as any,
     );
   }
 
   @Post()
-  @ApiOperation({ summary: "Create new interview" })
-  async create(@Req() req: AuthenticatedRequest, @Body() body: unknown) {
-    return this.proxy.forward(
-      this.interviewUrl,
-      "/api/v1/interviews",
-      "POST",
-      body,
-      {
-        headers: { "x-user-id": req.user!.userId },
-      },
+  @ApiOperation({ summary: "Create interview" })
+  async create(@Req() req: AuthenticatedRequest, @Body() body: any) {
+    return firstValueFrom(
+      this.interviewService.createInterview({
+        user_id: req.user.userId,
+        field: body.field,
+        tech_stack: body.techStack || body.tech_stack || [],
+        difficulty: body.difficulty,
+        title: body.title,
+        vapi_call_id: body.vapiCallId,
+        question_count: body.questionCount,
+      }) as any,
     );
   }
 
   @Post(":id/start")
-  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Start interview" })
-  @ApiParam({ name: "id" })
   async start(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
-    return this.proxy.forward(
-      this.interviewUrl,
-      `/api/v1/interviews/${id}/start`,
-      "POST",
-      null,
-      {
-        headers: { "x-user-id": req.user!.userId },
-      },
+    return firstValueFrom(
+      this.interviewService.startInterview({
+        interview_id: id,
+        user_id: req.user.userId,
+      }) as any,
     );
   }
 
   @Post(":id/submit")
-  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Submit answer" })
-  @ApiParam({ name: "id" })
-  async submitAnswer(
+  async submit(
     @Req() req: AuthenticatedRequest,
     @Param("id") id: string,
-    @Body() body: unknown,
+    @Body() body: any,
   ) {
-    return this.proxy.forward(
-      this.interviewUrl,
-      `/api/v1/interviews/${id}/submit`,
-      "POST",
-      body,
-      {
-        headers: { "x-user-id": req.user!.userId },
-      },
+    return firstValueFrom(
+      this.interviewService.submitAnswer({
+        interview_id: id,
+        user_id: req.user.userId,
+        question_id: body.questionId || body.question_id,
+        question_title: body.questionTitle || body.question_title,
+        answer: body.answer,
+      }) as any,
     );
   }
 
   @Post(":id/complete")
-  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Complete interview" })
-  @ApiParam({ name: "id" })
   async complete(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
-    return this.proxy.forward(
-      this.interviewUrl,
-      `/api/v1/interviews/${id}/complete`,
-      "POST",
-      null,
-      {
-        headers: { "x-user-id": req.user!.userId },
-      },
+    return firstValueFrom(
+      this.interviewService.completeInterview({
+        interview_id: id,
+        user_id: req.user.userId,
+      }) as any,
     );
   }
 
   @Post(":id/cancel")
-  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Cancel interview" })
-  @ApiParam({ name: "id" })
   async cancel(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
-    return this.proxy.forward(
-      this.interviewUrl,
-      `/api/v1/interviews/${id}/cancel`,
-      "POST",
-      null,
-      {
-        headers: { "x-user-id": req.user!.userId },
-      },
+    return firstValueFrom(
+      this.interviewService.cancelInterview({
+        interview_id: id,
+        user_id: req.user.userId,
+      }) as any,
     );
   }
 }

@@ -7,156 +7,139 @@ import {
   Body,
   Param,
   Query,
+  Inject,
+  OnModuleInit,
   HttpCode,
   HttpStatus,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiQuery, ApiParam } from "@nestjs/swagger";
-import { ConfigService } from "@nestjs/config";
-import { ProxyService } from "../proxy.service";
+import { ApiTags, ApiOperation } from "@nestjs/swagger";
+import { ClientGrpc } from "@nestjs/microservices";
+import { firstValueFrom } from "rxjs";
+import { GRPC_QUESTION_SERVICE, IGrpcQuestionService } from "@ai-coach/grpc";
 
 @ApiTags("Questions")
 @Controller("questions")
-export class QuestionsController {
-  private readonly questionUrl: string;
+export class QuestionsController implements OnModuleInit {
+  private questionService!: IGrpcQuestionService;
 
   constructor(
-    private readonly proxy: ProxyService,
-    private readonly config: ConfigService,
-  ) {
-    this.questionUrl = this.config.get<string>("microservices.question")!;
+    @Inject(GRPC_QUESTION_SERVICE) private readonly grpcClient: ClientGrpc,
+  ) {}
+
+  onModuleInit() {
+    this.questionService =
+      this.grpcClient.getService<IGrpcQuestionService>("QuestionService");
   }
 
   @Get()
   @ApiOperation({ summary: "Get paginated questions" })
-  @ApiQuery({ name: "type", required: false })
-  @ApiQuery({ name: "difficulty", required: false })
-  @ApiQuery({ name: "category", required: false })
-  @ApiQuery({ name: "page", required: false })
-  @ApiQuery({ name: "limit", required: false })
   async findAll(
+    @Query("page") page = 1,
+    @Query("limit") limit = 10,
     @Query("type") type?: string,
     @Query("difficulty") difficulty?: string,
     @Query("category") category?: string,
-    @Query("page") page?: number,
-    @Query("limit") limit?: number,
   ) {
-    const query = new URLSearchParams();
-    if (type) query.append("type", type);
-    if (difficulty) query.append("difficulty", difficulty);
-    if (category) query.append("category", category);
-    if (page) query.append("page", page.toString());
-    if (limit) query.append("limit", limit.toString());
-    return this.proxy.forward(
-      this.questionUrl,
-      `/api/v1/questions?${query}`,
-      "GET",
+    return firstValueFrom(
+      this.questionService.getQuestions({
+        page,
+        limit,
+        type,
+        difficulty,
+        category,
+      }) as any,
     );
   }
 
   @Get("random")
   @ApiOperation({ summary: "Get random questions" })
   async getRandom(
+    @Query("count") count = 5,
     @Query("type") type?: string,
     @Query("difficulty") difficulty?: string,
-    @Query("count") count?: number,
+    @Query("category") category?: string,
   ) {
-    const query = new URLSearchParams();
-    if (type) query.append("type", type);
-    if (difficulty) query.append("difficulty", difficulty);
-    if (count) query.append("count", count.toString());
-    return this.proxy.forward(
-      this.questionUrl,
-      `/api/v1/questions/random?${query}`,
-      "GET",
+    const result: any = await firstValueFrom(
+      this.questionService.getRandomQuestions({
+        count,
+        type,
+        difficulty,
+        category,
+      }) as any,
     );
+    return result.questions;
   }
 
   @Get("categories")
   @ApiOperation({ summary: "Get all categories" })
   async getCategories() {
-    return this.proxy.forward(
-      this.questionUrl,
-      "/api/v1/questions/categories",
-      "GET",
+    const result: any = await firstValueFrom(
+      this.questionService.getCategories({} as any) as any,
     );
+    return result.items;
   }
 
   @Get("tags")
   @ApiOperation({ summary: "Get all tags" })
   async getTags() {
-    return this.proxy.forward(
-      this.questionUrl,
-      "/api/v1/questions/tags",
-      "GET",
+    const result: any = await firstValueFrom(
+      this.questionService.getTags({} as any) as any,
     );
+    return result.items;
   }
 
   @Get(":id")
   @ApiOperation({ summary: "Get question by ID" })
-  @ApiParam({ name: "id" })
   async findOne(@Param("id") id: string) {
-    return this.proxy.forward(
-      this.questionUrl,
-      `/api/v1/questions/${id}`,
-      "GET",
+    return firstValueFrom(
+      this.questionService.getQuestion({ question_id: id }) as any,
     );
   }
 
   @Post()
-  @ApiOperation({ summary: "Create question (admin)" })
-  async create(@Body() body: unknown) {
-    return this.proxy.forward(
-      this.questionUrl,
-      "/api/v1/questions",
-      "POST",
-      body,
-    );
+  @ApiOperation({ summary: "Create question" })
+  async create(@Body() body: any) {
+    return firstValueFrom(this.questionService.createQuestion(body) as any);
   }
 
   @Post("generate")
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Generate questions using AI" })
-  async generate(@Body() body: unknown) {
-    return this.proxy.forward(
-      this.questionUrl,
-      "/api/v1/questions/generate",
-      "POST",
-      body,
+  @ApiOperation({ summary: "Generate questions with AI" })
+  async generate(@Body() body: any) {
+    const result: any = await firstValueFrom(
+      this.questionService.generateQuestions({
+        field: body.field,
+        tech_stack: body.techStack || body.tech_stack || [],
+        difficulty: body.difficulty,
+        count: body.count,
+      }) as any,
     );
+    return result.questions;
   }
 
   @Post("seed")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Seed initial questions" })
   async seed() {
-    return this.proxy.forward(
-      this.questionUrl,
-      "/api/v1/questions/seed",
-      "POST",
-    );
+    return firstValueFrom(this.questionService.seedQuestions({} as any) as any);
   }
 
   @Patch(":id")
-  @ApiOperation({ summary: "Update question (admin)" })
-  @ApiParam({ name: "id" })
-  async update(@Param("id") id: string, @Body() body: unknown) {
-    return this.proxy.forward(
-      this.questionUrl,
-      `/api/v1/questions/${id}`,
-      "PATCH",
-      body,
+  @ApiOperation({ summary: "Update question" })
+  async update(@Param("id") id: string, @Body() body: any) {
+    return firstValueFrom(
+      this.questionService.updateQuestion({
+        question_id: id,
+        ...body,
+      }) as any,
     );
   }
 
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: "Delete question (admin)" })
-  @ApiParam({ name: "id" })
+  @ApiOperation({ summary: "Delete question" })
   async delete(@Param("id") id: string) {
-    return this.proxy.forward(
-      this.questionUrl,
-      `/api/v1/questions/${id}`,
-      "DELETE",
+    await firstValueFrom(
+      this.questionService.deleteQuestion({ question_id: id }) as any,
     );
   }
 }

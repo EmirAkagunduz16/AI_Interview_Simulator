@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package ai;
+
+service AiService {
+  rpc GenerateQuestions(GenerateQuestionsRequest) returns (GenerateQuestionsResponse);
+  rpc HandleVapiWebhook(VapiWebhookRequest) returns (VapiWebhookResponse);
+}
+
+message GenerateQuestionsRequest {
+  string field = 1;
+  repeated string tech_stack = 2;
+  string difficulty = 3;
+  int32 count = 4;
+}
+
+message GeneratedQuestion {
+  string question = 1;
+  int32 order = 2;
+  string expected_answer = 3;
+}
+
+message GenerateQuestionsResponse {
+  repeated GeneratedQuestion questions = 1;
+}
+
+message VapiWebhookRequest {
+  string json_body = 1;
+  optional string user_id = 2;
+}
+
+message VapiWebhookResponse {
+  string json_response = 1;
+}

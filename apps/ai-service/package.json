@@ -11,11 +11,15 @@
     "start:prod": "node dist/main"
   },
   "dependencies": {
+    "@ai-coach/grpc": "workspace:^",
     "@ai-coach/kafka-client": "workspace:^",
     "@ai-coach/shared-types": "workspace:^",
+    "@grpc/grpc-js": "^1.12.0",
+    "@grpc/proto-loader": "^0.7.0",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.0",
+    "@nestjs/microservices": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
     "@nestjs/swagger": "^11.0.0",
     "class-transformer": "^0.5.1",
