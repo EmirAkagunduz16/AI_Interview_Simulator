@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import api from "@/lib/axios";
 import {
   authApi,
   AuthResponse,
@@ -44,10 +45,34 @@ export function useAuth() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Hydrate from localStorage on mount
+  // Hydrate from localStorage on mount AND validate the token server-side
   useEffect(() => {
-    setUser(readStoredUser());
-    setIsLoading(false);
+    const storedUser = readStoredUser();
+    const accessToken = localStorage.getItem("accessToken");
+
+    if (!storedUser || !accessToken) {
+      // No stored credentials at all
+      setUser(null);
+      setIsLoading(false);
+      return;
+    }
+
+    // Set user optimistically, then validate
+    setUser(storedUser);
+
+    // Fire-and-forget server-side validation
+    api
+      .get("/users/me")
+      .then(() => {
+        // Token is valid, keep the user
+        setIsLoading(false);
+      })
+      .catch(() => {
+        // Token is expired/invalid and refresh also failed
+        clearAuthData();
+        setUser(null);
+        setIsLoading(false);
+      });
   }, []);
 
   const isAuthenticated = useMemo(() => {

@@ -19,23 +19,50 @@ export function LoginForm() {
     }
   };
 
-  const errorMessage = loginError
-    ? (loginError as Record<string, unknown> & { response?: { data?: { message?: string } } })
-        ?.response?.data?.message || loginError.message
-    : null;
+  const getErrorMessage = (error: unknown) => {
+    if (!error) return null;
+    const err = error as Error & {
+      code?: string;
+      response?: {
+        data?: {
+          message?: string | string[];
+        };
+      };
+    };
+
+    // Ağ bağlantısı hatası (Sunucu kapalıysa vs.)
+    if (err.message === "Network Error" || err.code === "ECONNREFUSED") {
+      return "Sunucuya bağlanılamadı. Lütfen daha sonra tekrar deneyin.";
+    }
+
+    const message = err.response?.data?.message;
+
+    // NestJS ValidationPipe hataları dizi olarak dönebilir
+    if (Array.isArray(message)) {
+      return message[0]; // Sadece ilk hatayı gösterelim ki çok kalabalık olmasın
+    }
+
+    // Normal string hata mesajı
+    if (typeof message === "string") {
+      return message;
+    }
+
+    // Axios veya JS genel hata mesajı
+    return (
+      err.message || "Giriş yapılamadı, lütfen bilgilerinizi kontrol edin."
+    );
+  };
+
+  const errorMessage = getErrorMessage(loginError);
 
   return (
     <div className="auth-form">
       <div className="auth-form__card">
         <div className="auth-form__logo">AI Coach</div>
         <h1 className="auth-form__title">Giriş Yap</h1>
-        <p className="auth-form__subtitle">
-          AI Coach hesabınıza giriş yapın
-        </p>
+        <p className="auth-form__subtitle">AI Coach hesabınıza giriş yapın</p>
 
-        {errorMessage && (
-          <div className="auth-form__error">{errorMessage}</div>
-        )}
+        {errorMessage && <div className="auth-form__error">{errorMessage}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="auth-form__field">

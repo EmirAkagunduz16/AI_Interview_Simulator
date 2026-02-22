@@ -56,9 +56,14 @@ export class JwtAuthGuard implements CanActivate, OnModuleInit {
         email: string;
         role: string;
       }>(
-        this.authService.validateToken({
-          access_token: token,
-        }) as any,
+        (this.authService as any).validateToken({
+          accessToken: token,
+        }),
+      );
+
+      require("fs").appendFileSync(
+        "gateway-debug.log",
+        "Validation Result Dump: " + JSON.stringify(result) + "\n",
       );
 
       if (!result.valid) {
@@ -67,7 +72,7 @@ export class JwtAuthGuard implements CanActivate, OnModuleInit {
 
       // Attach user to request for downstream use
       request.user = {
-        userId: result.user_id,
+        userId: result.user_id || (result as any).userId,
         email: result.email,
         role: result.role,
       };

@@ -10,15 +10,25 @@ export class GrpcUsersController {
 
   @GrpcMethod("UserService", "GetUserByAuthId")
   async getUserByAuthId(data: { auth_id: string }) {
-    this.logger.debug(`gRPC GetUserByAuthId: ${data.auth_id}`);
-    const user = await this.usersService.findByAuthId(data.auth_id);
-    return this.toGrpcResponse(user);
+    try {
+      const authId = data.auth_id || (data as any).authId;
+      this.logger.debug(`gRPC GetUserByAuthId: ${authId}`);
+      const user = await this.usersService.findByAuthId(authId);
+      return this.toGrpcResponse(user);
+    } catch (error: any) {
+      require("fs").appendFileSync(
+        "user-debug.log",
+        `Error in GetUserByAuthId: ${error.message}\n${error.stack}\n`,
+      );
+      throw error;
+    }
   }
 
   @GrpcMethod("UserService", "GetUserById")
   async getUserById(data: { user_id: string }) {
-    this.logger.debug(`gRPC GetUserById: ${data.user_id}`);
-    const user = await this.usersService.findById(data.user_id);
+    const userId = data.user_id || (data as any).userId;
+    this.logger.debug(`gRPC GetUserById: ${userId}`);
+    const user = await this.usersService.findById(userId);
     return this.toGrpcResponse(user);
   }
 
@@ -32,24 +42,28 @@ export class GrpcUsersController {
     experience_level?: string;
     skills?: string[];
   }) {
-    this.logger.debug(`gRPC UpdateUser: ${data.auth_id}`);
+    const authId = data.auth_id || (data as any).authId;
+    this.logger.debug(`gRPC UpdateUser: ${authId}`);
     const updateDto: Record<string, unknown> = {};
     if (data.name) updateDto.name = data.name;
     if (data.avatar) updateDto.avatar = data.avatar;
     if (data.bio) updateDto.bio = data.bio;
-    if (data.target_role) updateDto.targetRole = data.target_role;
-    if (data.experience_level)
-      updateDto.experienceLevel = data.experience_level;
+    if (data.target_role || (data as any).targetRole)
+      updateDto.targetRole = data.target_role || (data as any).targetRole;
+    if (data.experience_level || (data as any).experienceLevel)
+      updateDto.experienceLevel =
+        data.experience_level || (data as any).experienceLevel;
     if (data.skills?.length) updateDto.skills = data.skills;
 
-    const user = await this.usersService.update(data.auth_id, updateDto);
+    const user = await this.usersService.update(authId, updateDto);
     return this.toGrpcResponse(user);
   }
 
   @GrpcMethod("UserService", "GetUserStats")
   async getUserStats(data: { auth_id: string }) {
-    this.logger.debug(`gRPC GetUserStats: ${data.auth_id}`);
-    const stats = await this.usersService.getDashboardStats(data.auth_id);
+    const authId = data.auth_id || (data as any).authId;
+    this.logger.debug(`gRPC GetUserStats: ${authId}`);
+    const stats = await this.usersService.getDashboardStats(authId);
     return { json_data: JSON.stringify(stats) };
   }
 

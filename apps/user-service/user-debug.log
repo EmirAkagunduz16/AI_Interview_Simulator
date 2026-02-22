@@ -1,0 +1,21 @@
+Error in GetUserByAuthId: User with identifier undefined not found
+UserNotFoundException: User with identifier undefined not found
+    at UsersService.findByAuthId (/home/emir/Desktop/AI-Interview-Simulator/apps/user-service/src/users/users.service.ts:38:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async GrpcUsersController.getUserByAuthId (/home/emir/Desktop/AI-Interview-Simulator/apps/user-service/src/users/grpc.controller.ts:16:20)
+    at async GetUserByAuthId (/home/emir/Desktop/AI-Interview-Simulator/node_modules/.pnpm/@nestjs+microservices@11.1.13_@grpc+grpc-js@1.14.3_@nestjs+common@11.1.13_class-transformer@0_kvylphvbp5kgkf3hg4ckghhgc4/node_modules/@nestjs/microservices/context/rpc-proxy.js:11:32)
+    at async /home/emir/Desktop/AI-Interview-Simulator/node_modules/.pnpm/@nestjs+microservices@11.1.13_@grpc+grpc-js@1.14.3_@nestjs+common@11.1.13_class-transformer@0_kvylphvbp5kgkf3hg4ckghhgc4/node_modules/@nestjs/microservices/server/server-grpc.js:190:44
+Error in GetUserByAuthId: User with identifier undefined not found
+UserNotFoundException: User with identifier undefined not found
+    at UsersService.findByAuthId (/home/emir/Desktop/AI-Interview-Simulator/apps/user-service/src/users/users.service.ts:38:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async GrpcUsersController.getUserByAuthId (/home/emir/Desktop/AI-Interview-Simulator/apps/user-service/src/users/grpc.controller.ts:16:20)
+    at async GetUserByAuthId (/home/emir/Desktop/AI-Interview-Simulator/node_modules/.pnpm/@nestjs+microservices@11.1.13_@grpc+grpc-js@1.14.3_@nestjs+common@11.1.13_class-transformer@0_kvylphvbp5kgkf3hg4ckghhgc4/node_modules/@nestjs/microservices/context/rpc-proxy.js:11:32)
+    at async /home/emir/Desktop/AI-Interview-Simulator/node_modules/.pnpm/@nestjs+microservices@11.1.13_@grpc+grpc-js@1.14.3_@nestjs+common@11.1.13_class-transformer@0_kvylphvbp5kgkf3hg4ckghhgc4/node_modules/@nestjs/microservices/server/server-grpc.js:190:44
+Error in GetUserByAuthId: User with identifier undefined not found
+UserNotFoundException: User with identifier undefined not found
+    at UsersService.findByAuthId (/home/emir/Desktop/AI-Interview-Simulator/apps/user-service/src/users/users.service.ts:38:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async GrpcUsersController.getUserByAuthId (/home/emir/Desktop/AI-Interview-Simulator/apps/user-service/src/users/grpc.controller.ts:16:20)
+    at async GetUserByAuthId (/home/emir/Desktop/AI-Interview-Simulator/node_modules/.pnpm/@nestjs+microservices@11.1.13_@grpc+grpc-js@1.14.3_@nestjs+common@11.1.13_class-transformer@0_kvylphvbp5kgkf3hg4ckghhgc4/node_modules/@nestjs/microservices/context/rpc-proxy.js:11:32)
+    at async /home/emir/Desktop/AI-Interview-Simulator/node_modules/.pnpm/@nestjs+microservices@11.1.13_@grpc+grpc-js@1.14.3_@nestjs+common@11.1.13_class-transformer@0_kvylphvbp5kgkf3hg4ckghhgc4/node_modules/@nestjs/microservices/server/server-grpc.js:190:44

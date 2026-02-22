@@ -34,32 +34,44 @@ export class UsersController implements OnModuleInit {
   @ApiOperation({ summary: "Get current user profile" })
   async getMe(@Req() req: AuthenticatedRequest) {
     return firstValueFrom(
-      this.userService.getUserByAuthId({
-        auth_id: req.user.userId,
-      }) as any,
+      (this.userService as any).getUserByAuthId({
+        authId: req.user.userId,
+      }),
     );
   }
 
   @Patch("me")
   @ApiOperation({ summary: "Update current user profile" })
   async updateMe(@Req() req: AuthenticatedRequest, @Body() body: any) {
-    return firstValueFrom(
-      this.userService.updateUser({
-        auth_id: req.user.userId,
-        ...body,
-      }) as any,
+    // Convert generic body fields to what gRPC expects (camelCase)
+    const payload = {
+      authId: req.user.userId,
+      name: body.name,
+      avatar: body.avatar,
+      bio: body.bio,
+      targetRole: body.target_role || body.targetRole,
+      experienceLevel: body.experience_level || body.experienceLevel,
+      skills: body.skills,
+    };
+    // Remove undefined properties
+    Object.keys(payload).forEach(
+      (key) =>
+        payload[key as keyof typeof payload] === undefined &&
+        delete payload[key as keyof typeof payload],
     );
+
+    return firstValueFrom((this.userService as any).updateUser(payload));
   }
 
   @Get("me/stats")
   @ApiOperation({ summary: "Get user dashboard stats" })
   async getMyStats(@Req() req: AuthenticatedRequest) {
     const result: any = await firstValueFrom(
-      this.userService.getUserStats({
-        auth_id: req.user.userId,
-      }) as any,
+      (this.userService as any).getUserStats({
+        authId: req.user.userId,
+      }),
     );
-    return JSON.parse(result.json_data);
+    return JSON.parse(result.json_data || result.jsonData || "{}");
   }
 
   @Get()

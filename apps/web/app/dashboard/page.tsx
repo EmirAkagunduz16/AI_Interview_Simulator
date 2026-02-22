@@ -32,7 +32,9 @@ function DashboardContent() {
     queryKey: ["dashboard", "interviews"],
     queryFn: async () => {
       const res = await api.get("/interviews?limit=20");
-      return res.data.interviews || res.data || [];
+      // Mülakat yoksa API { total: 0, page: 1 } dönebiliyor, array kontrolü şart
+      if (Array.isArray(res.data)) return res.data;
+      return res.data?.interviews || res.data?.items || [];
     },
   });
 

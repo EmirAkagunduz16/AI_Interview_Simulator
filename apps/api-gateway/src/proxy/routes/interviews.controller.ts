@@ -41,12 +41,12 @@ export class InterviewsController implements OnModuleInit {
     @Query("status") status?: string,
   ) {
     return firstValueFrom(
-      this.interviewService.getUserInterviews({
-        user_id: req.user.userId,
+      (this.interviewService as any).getUserInterviews({
+        userId: req.user.userId,
         page,
         limit,
         status,
-      }) as any,
+      }),
     );
   }
 
@@ -54,9 +54,9 @@ export class InterviewsController implements OnModuleInit {
   @ApiOperation({ summary: "Get interview stats" })
   async getStats(@Req() req: AuthenticatedRequest) {
     return firstValueFrom(
-      this.interviewService.getInterviewStats({
-        user_id: req.user.userId,
-      }) as any,
+      (this.interviewService as any).getInterviewStats({
+        userId: req.user.userId,
+      }),
     );
   }
 
@@ -64,10 +64,10 @@ export class InterviewsController implements OnModuleInit {
   @ApiOperation({ summary: "Get interview by ID" })
   async findOne(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     return firstValueFrom(
-      this.interviewService.getInterview({
-        interview_id: id,
-        user_id: req.user.userId,
-      }) as any,
+      (this.interviewService as any).getInterview({
+        interviewId: id,
+        userId: req.user.userId,
+      }),
     );
   }
 
@@ -75,15 +75,15 @@ export class InterviewsController implements OnModuleInit {
   @ApiOperation({ summary: "Create interview" })
   async create(@Req() req: AuthenticatedRequest, @Body() body: any) {
     return firstValueFrom(
-      this.interviewService.createInterview({
-        user_id: req.user.userId,
+      (this.interviewService as any).createInterview({
+        userId: req.user.userId,
         field: body.field,
-        tech_stack: body.techStack || body.tech_stack || [],
+        techStack: body.techStack || body.tech_stack || [],
         difficulty: body.difficulty,
         title: body.title,
-        vapi_call_id: body.vapiCallId,
-        question_count: body.questionCount,
-      }) as any,
+        vapiCallId: body.vapiCallId || body.vapi_call_id,
+        questionCount: body.questionCount || body.question_count,
+      }),
     );
   }
 
@@ -91,10 +91,10 @@ export class InterviewsController implements OnModuleInit {
   @ApiOperation({ summary: "Start interview" })
   async start(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     return firstValueFrom(
-      this.interviewService.startInterview({
-        interview_id: id,
-        user_id: req.user.userId,
-      }) as any,
+      (this.interviewService as any).startInterview({
+        interviewId: id,
+        userId: req.user.userId,
+      }),
     );
   }
 
@@ -106,13 +106,13 @@ export class InterviewsController implements OnModuleInit {
     @Body() body: any,
   ) {
     return firstValueFrom(
-      this.interviewService.submitAnswer({
-        interview_id: id,
-        user_id: req.user.userId,
-        question_id: body.questionId || body.question_id,
-        question_title: body.questionTitle || body.question_title,
+      (this.interviewService as any).submitAnswer({
+        interviewId: id,
+        userId: req.user.userId,
+        questionId: body.questionId || body.question_id,
+        questionTitle: body.questionTitle || body.question_title,
         answer: body.answer,
-      }) as any,
+      }),
     );
   }
 
@@ -120,10 +120,10 @@ export class InterviewsController implements OnModuleInit {
   @ApiOperation({ summary: "Complete interview" })
   async complete(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     return firstValueFrom(
-      this.interviewService.completeInterview({
-        interview_id: id,
-        user_id: req.user.userId,
-      }) as any,
+      (this.interviewService as any).completeInterview({
+        interviewId: id,
+        userId: req.user.userId,
+      }),
     );
   }
 
@@ -131,10 +131,10 @@ export class InterviewsController implements OnModuleInit {
   @ApiOperation({ summary: "Cancel interview" })
   async cancel(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     return firstValueFrom(
-      this.interviewService.cancelInterview({
-        interview_id: id,
-        user_id: req.user.userId,
-      }) as any,
+      (this.interviewService as any).cancelInterview({
+        interviewId: id,
+        userId: req.user.userId,
+      }),
     );
   }
 }

@@ -10,10 +10,12 @@ export class GrpcInterviewsController {
 
   @GrpcMethod("InterviewService", "GetInterview")
   async getInterview(data: { interview_id: string; user_id: string }) {
-    this.logger.debug(`gRPC GetInterview: ${data.interview_id}`);
+    const interviewId = data.interview_id || (data as any).interviewId;
+    const userId = data.user_id || (data as any).userId;
+    this.logger.debug(`gRPC GetInterview: ${interviewId}`);
     const interview = await this.interviewsService.findById(
-      data.user_id,
-      data.interview_id,
+      userId,
+      interviewId,
     );
     return this.toGrpcResponse(interview);
   }
@@ -25,8 +27,9 @@ export class GrpcInterviewsController {
     limit: number;
     status?: string;
   }) {
-    this.logger.debug(`gRPC GetUserInterviews: ${data.user_id}`);
-    const result = await this.interviewsService.findByUserId(data.user_id, {
+    const userId = data.user_id || (data as any).userId;
+    this.logger.debug(`gRPC GetUserInterviews: ${userId}`);
+    const result = await this.interviewsService.findByUserId(userId, {
       page: data.page || 1,
       limit: data.limit || 10,
       status: data.status as any,
@@ -35,14 +38,22 @@ export class GrpcInterviewsController {
       interviews: result.interviews.map((i) => this.toGrpcResponse(i)),
       total: result.total,
       page: result.page,
-      total_pages: result.totalPages,
-    };
+      totalPages: result.totalPages,
+    } as any;
   }
 
   @GrpcMethod("InterviewService", "GetInterviewStats")
   async getInterviewStats(data: { user_id: string }) {
-    this.logger.debug(`gRPC GetInterviewStats: ${data.user_id}`);
-    return this.interviewsService.getStats(data.user_id);
+    const userId = data.user_id || (data as any).userId;
+    this.logger.debug(`gRPC GetInterviewStats: ${userId}`);
+    const stats = await this.interviewsService.getStats(userId);
+    return {
+      totalInterviews: stats.totalInterviews,
+      completedInterviews: stats.completedInterviews,
+      averageScore: stats.averageScore,
+      bestScore: stats.bestScore,
+      totalQuestionsAnswered: stats.totalQuestionsAnswered,
+    } as any;
   }
 
   @GrpcMethod("InterviewService", "CreateInterview")
@@ -55,25 +66,29 @@ export class GrpcInterviewsController {
     vapi_call_id?: string;
     question_count?: number;
   }) {
-    this.logger.debug(`gRPC CreateInterview: ${data.user_id}`);
-    const interview = await this.interviewsService.create(data.user_id, {
+    const userId = data.user_id || (data as any).userId;
+    this.logger.debug(`gRPC CreateInterview: ${userId}`);
+    const techStack = data.tech_stack || (data as any).techStack;
+    const vapiCallId = data.vapi_call_id || (data as any).vapiCallId;
+    const questionCount = data.question_count || (data as any).questionCount;
+
+    const interview = await this.interviewsService.create(userId, {
       field: data.field,
-      techStack: data.tech_stack,
+      techStack,
       difficulty: data.difficulty as any,
       title: data.title,
-      vapiCallId: data.vapi_call_id,
-      questionCount: data.question_count,
+      vapiCallId,
+      questionCount,
     } as any);
     return this.toGrpcResponse(interview);
   }
 
   @GrpcMethod("InterviewService", "StartInterview")
   async startInterview(data: { interview_id: string; user_id: string }) {
-    this.logger.debug(`gRPC StartInterview: ${data.interview_id}`);
-    const interview = await this.interviewsService.start(
-      data.user_id,
-      data.interview_id,
-    );
+    const interviewId = data.interview_id || (data as any).interviewId;
+    const userId = data.user_id || (data as any).userId;
+    this.logger.debug(`gRPC StartInterview: ${interviewId}`);
+    const interview = await this.interviewsService.start(userId, interviewId);
     return this.toGrpcResponse(interview);
   }
 
@@ -85,13 +100,18 @@ export class GrpcInterviewsController {
     question_title: string;
     answer: string;
   }) {
-    this.logger.debug(`gRPC SubmitAnswer: ${data.interview_id}`);
+    const interviewId = data.interview_id || (data as any).interviewId;
+    const userId = data.user_id || (data as any).userId;
+    const questionId = data.question_id || (data as any).questionId;
+    const questionTitle = data.question_title || (data as any).questionTitle;
+
+    this.logger.debug(`gRPC SubmitAnswer: ${interviewId}`);
     const interview = await this.interviewsService.submitAnswer(
-      data.user_id,
-      data.interview_id,
+      userId,
+      interviewId,
       {
-        questionId: data.question_id,
-        questionTitle: data.question_title,
+        questionId,
+        questionTitle,
         answer: data.answer,
       } as any,
     );
@@ -100,10 +120,12 @@ export class GrpcInterviewsController {
 
   @GrpcMethod("InterviewService", "CompleteInterview")
   async completeInterview(data: { interview_id: string; user_id: string }) {
-    this.logger.debug(`gRPC CompleteInterview: ${data.interview_id}`);
+    const interviewId = data.interview_id || (data as any).interviewId;
+    const userId = data.user_id || (data as any).userId;
+    this.logger.debug(`gRPC CompleteInterview: ${interviewId}`);
     const interview = await this.interviewsService.complete(
-      data.user_id,
-      data.interview_id,
+      userId,
+      interviewId,
     );
     return this.toGrpcResponse(interview);
   }
@@ -114,22 +136,24 @@ export class GrpcInterviewsController {
     report: any;
     overall_feedback: string;
   }) {
-    this.logger.debug(`gRPC CompleteWithReport: ${data.interview_id}`);
+    const interviewId = data.interview_id || (data as any).interviewId;
+    const overallFeedback =
+      data.overall_feedback || (data as any).overallFeedback;
+    this.logger.debug(`gRPC CompleteWithReport: ${interviewId}`);
     const interview = await this.interviewsService.completeWithReport(
-      data.interview_id,
+      interviewId,
       data.report,
-      data.overall_feedback,
+      overallFeedback,
     );
     return this.toGrpcResponse(interview);
   }
 
   @GrpcMethod("InterviewService", "CancelInterview")
   async cancelInterview(data: { interview_id: string; user_id: string }) {
-    this.logger.debug(`gRPC CancelInterview: ${data.interview_id}`);
-    const interview = await this.interviewsService.cancel(
-      data.user_id,
-      data.interview_id,
-    );
+    const interviewId = data.interview_id || (data as any).interviewId;
+    const userId = data.user_id || (data as any).userId;
+    this.logger.debug(`gRPC CancelInterview: ${interviewId}`);
+    const interview = await this.interviewsService.cancel(userId, interviewId);
     return this.toGrpcResponse(interview);
   }
 
@@ -137,20 +161,20 @@ export class GrpcInterviewsController {
     const json = interview.toJSON ? interview.toJSON() : interview;
     return {
       id: json._id?.toString() || json.id || "",
-      user_id: json.userId || "",
+      userId: json.userId || "",
       title: json.title || "",
       field: json.field || "",
-      tech_stack: json.techStack || [],
+      techStack: json.techStack || [],
       type: json.type || "",
       status: json.status || "",
       difficulty: json.difficulty || "",
-      duration_minutes: json.durationMinutes || 0,
-      total_score: json.totalScore ?? undefined,
-      overall_feedback: json.overallFeedback || "",
-      created_at: json.createdAt ? new Date(json.createdAt).toISOString() : "",
+      durationMinutes: json.durationMinutes || 0,
+      totalScore: json.totalScore ?? undefined,
+      overallFeedback: json.overallFeedback || "",
+      createdAt: json.createdAt ? new Date(json.createdAt).toISOString() : "",
       answers: (json.answers || []).map((a: any) => ({
-        question_id: a.questionId || "",
-        question_title: a.questionTitle || "",
+        questionId: a.questionId || "",
+        questionTitle: a.questionTitle || "",
         answer: a.answer || "",
         feedback: a.feedback || "",
         score: a.score ?? undefined,
@@ -159,14 +183,14 @@ export class GrpcInterviewsController {
       })),
       report: json.report
         ? {
-            technical_score: json.report.technicalScore || 0,
-            communication_score: json.report.communicationScore || 0,
-            diction_score: json.report.dictionScore || 0,
-            confidence_score: json.report.confidenceScore || 0,
-            overall_score: json.report.overallScore || 0,
+            technicalScore: json.report.technicalScore || 0,
+            communicationScore: json.report.communicationScore || 0,
+            dictionScore: json.report.dictionScore || 0,
+            confidenceScore: json.report.confidenceScore || 0,
+            overallScore: json.report.overallScore || 0,
             summary: json.report.summary || "",
             recommendations: json.report.recommendations || [],
-            question_evaluations: (json.report.questionEvaluations || []).map(
+            questionEvaluations: (json.report.questionEvaluations || []).map(
               (qe: any) => ({
                 question: qe.question || "",
                 answer: qe.answer || "",
@@ -178,6 +202,6 @@ export class GrpcInterviewsController {
             ),
           }
         : undefined,
-    };
+    } as any;
   }
 }

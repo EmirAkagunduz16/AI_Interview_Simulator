@@ -31,36 +31,42 @@ export class GrpcAuthController {
   constructor(private readonly authService: AuthService) {}
 
   @GrpcMethod("AuthService", "ValidateToken")
-  async validateToken(
-    data: ValidateTokenRequest,
-  ): Promise<ValidateTokenResponse> {
+  async validateToken(data: any): Promise<ValidateTokenResponse> {
     this.logger.debug("gRPC ValidateToken called");
+    require("fs").appendFileSync(
+      "auth-debug.log",
+      `Data Dump: ${JSON.stringify(data)} | acc_token: ${data.access_token} | accTo: ${data.accessToken}\n`,
+    );
 
-    const result = await this.authService.validate(data.access_token);
+    const result = await this.authService.validate(
+      data.access_token || data.accessToken,
+    );
 
     return {
       valid: result.valid,
-      user_id: result.userId,
+      userId: result.userId,
       email: result.email,
       role: result.role,
-    };
+    } as any;
   }
 
   @GrpcMethod("AuthService", "GetTokenUser")
-  async getTokenUser(data: GetTokenUserRequest): Promise<GetTokenUserResponse> {
+  async getTokenUser(data: any): Promise<GetTokenUserResponse> {
     this.logger.debug("gRPC GetTokenUser called");
 
-    const result = await this.authService.validate(data.access_token);
+    const result = await this.authService.validate(
+      data.access_token || data.accessToken,
+    );
 
     if (!result.valid) {
-      return { user_id: "", email: "", name: "", role: "" };
+      return { userId: "", email: "", name: "", role: "" } as any;
     }
 
     return {
-      user_id: result.userId,
+      userId: result.userId,
       email: result.email,
       name: "",
       role: result.role,
-    };
+    } as any;
   }
 }

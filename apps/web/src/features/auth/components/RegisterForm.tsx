@@ -29,12 +29,38 @@ export function RegisterForm() {
     }
   };
 
-  const errorMessage =
-    validationError ||
-    (registerError
-      ? (registerError as Record<string, unknown> & { response?: { data?: { message?: string } } })
-          ?.response?.data?.message || registerError.message
-      : null);
+  const getErrorMessage = (error: unknown) => {
+    if (!error) return null;
+    const err = error as Error & {
+      code?: string;
+      response?: {
+        data?: {
+          message?: string | string[];
+        };
+      };
+    };
+
+    if (err.message === "Network Error" || err.code === "ECONNREFUSED") {
+      return "Sunucuya bağlanılamadı. Lütfen daha sonra tekrar deneyin.";
+    }
+
+    const message = err.response?.data?.message;
+
+    if (Array.isArray(message)) {
+      return message[0];
+    }
+
+    if (typeof message === "string") {
+      // Eğer "already exists" gibi bir hata geliyorsa Türkçeleştirebiliriz (örnek)
+      if (message.includes("Email already exists"))
+        return "Bu email adresi zaten kullanımda.";
+      return message;
+    }
+
+    return err.message || "Kayıt işlemi başarısız oldu.";
+  };
+
+  const errorMessage = validationError || getErrorMessage(registerError);
 
   return (
     <div className="auth-form">
@@ -45,9 +71,7 @@ export function RegisterForm() {
           AI Coach&apos;a katılın ve mülakata hazırlanın
         </p>
 
-        {errorMessage && (
-          <div className="auth-form__error">{errorMessage}</div>
-        )}
+        {errorMessage && <div className="auth-form__error">{errorMessage}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="auth-form__field">

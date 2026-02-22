@@ -178,8 +178,18 @@ export class AuthService {
 
   async validate(accessToken: string): Promise<ValidateResponseDto> {
     // Check if token is blacklisted
-    const isBlacklisted = await this.redisService.get(`bl:${accessToken}`);
-    if (isBlacklisted) {
+    try {
+      const isBlacklisted = await this.redisService.get(`bl:${accessToken}`);
+      if (isBlacklisted) {
+        this.logger.debug("Token is blacklisted");
+        return { valid: false, userId: "", email: "", role: "" };
+      }
+    } catch (e: any) {
+      this.logger.error("Redis get failed during validation", e);
+      require("fs").appendFileSync(
+        "auth-debug.log",
+        `Redis error: ${e.message}\n`,
+      );
       return { valid: false, userId: "", email: "", role: "" };
     }
 
@@ -194,7 +204,12 @@ export class AuthService {
         email: payload.email,
         role: payload.role || "user",
       };
-    } catch {
+    } catch (e: any) {
+      this.logger.error("JWT verify failed", e);
+      require("fs").appendFileSync(
+        "auth-debug.log",
+        `JWT error: ${e.message}\n`,
+      );
       return { valid: false, userId: "", email: "", role: "" };
     }
   }
