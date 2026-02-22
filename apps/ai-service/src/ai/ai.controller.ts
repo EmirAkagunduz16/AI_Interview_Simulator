@@ -2,9 +2,6 @@ import {
   Controller,
   Post,
   Body,
-  Get,
-  Param,
-  Query,
   HttpCode,
   HttpStatus,
   Logger,
@@ -14,12 +11,7 @@ import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { ConfigService } from "@nestjs/config";
 import axios from "axios";
 import { GeminiService } from "./ai.service";
-import {
-  GenerateQuestionsDto,
-  GenerateQuestionsResponseDto,
-  EvaluateInterviewDto,
-  InterviewReportDto,
-} from "./dto";
+import { GenerateQuestionsDto, GenerateQuestionsResponseDto } from "./dto";
 
 @ApiTags("AI")
 @Controller("ai")
@@ -40,6 +32,10 @@ export class AiController {
       "http://localhost:3004/api/v1";
   }
 
+  // ========================================================
+  // Gemini AI — Soru Üretimi (question-service tarafından çağrılır)
+  // ========================================================
+
   @Post("generate-questions")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Generate interview questions using Gemini" })
@@ -57,23 +53,9 @@ export class AiController {
     return { questions };
   }
 
-  @Post("evaluate")
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Evaluate interview answers using Gemini" })
-  @ApiResponse({ status: 200, type: InterviewReportDto })
-  async evaluateInterview(
-    @Body() dto: EvaluateInterviewDto,
-  ): Promise<InterviewReportDto> {
-    const evaluation = await this.geminiService.evaluateInterview({
-      field: dto.field,
-      techStack: dto.techStack,
-      answers: dto.answers,
-    });
-
-    return evaluation;
-  }
-
-  // ========== VAPI Webhook ==========
+  // ========================================================
+  // VAPI Webhook — Sesli mülakat olaylarını yönetir
+  // ========================================================
 
   @Post("vapi/webhook")
   @HttpCode(HttpStatus.OK)
@@ -113,6 +95,10 @@ export class AiController {
     }
   }
 
+  // ========================================================
+  // VAPI Function Call Handler — her fonksiyon ilgili servise yönlendirilir
+  // ========================================================
+
   private async handleFunctionCall(
     message: any,
     headerUserId?: string,
@@ -122,339 +108,356 @@ export class AiController {
     this.logger.log(`Function call: ${functionCall.name}`);
 
     switch (functionCall.name) {
-      case "save_preferences": {
-        const {
-          field,
-          techStack,
-          difficulty,
-          userId: paramsUserId,
-          interviewId,
-        } = functionCall.parameters;
+      case "save_preferences":
+        return this.handleSavePreferences(functionCall, message, headerUserId);
 
-        const userId = headerUserId || paramsUserId || "anonymous";
+      case "save_answer":
+        return this.handleSaveAnswer(functionCall, headerUserId);
 
-        try {
-          // 1. Create interview via interview-service OR fetch if exists
-          let interview;
-          try {
-            if (interviewId) {
-              const res = await axios.get(
-                `${this.interviewServiceUrl}/interviews/${interviewId}`,
-                { headers: { "x-user-id": userId } },
-              );
-              interview = res.data;
-            } else {
-              const createReq = await axios.post(
-                `${this.interviewServiceUrl}/interviews`,
-                {
-                  field,
-                  techStack,
-                  difficulty,
-                  vapiCallId: message.call?.id,
-                  title: `${field} Developer Interview`,
-                  questionCount: 5,
-                },
-                {
-                  headers: { "x-user-id": userId },
-                },
-              );
-              interview = createReq.data;
-            }
-          } catch (e) {
-            this.logger.error("Failed to access interview", e);
-            throw new Error("Could not initialize interview");
-          }
-          // 2. Fetch or Generate questions
-          const questionCount = 5;
-          let questions: any[] = [];
+      case "get_next_question":
+        return this.handleGetNextQuestion(functionCall);
 
-          try {
-            // Try fetching from question-service
-            const query = new URLSearchParams();
-            if (field) query.append("category", field);
-            if (difficulty) query.append("difficulty", difficulty);
-            query.append("count", questionCount.toString());
-
-            const res = await axios.get(
-              `${this.questionServiceUrl}/questions/random?${query}`,
-            );
-            questions = res.data || [];
-          } catch (e) {
-            this.logger.warn("Failed to fetch from question-service", e);
-          }
-
-          // If not enough questions in DB, try generating via question-service
-          if (questions.length < questionCount) {
-            this.logger.log(
-              `Not enough questions in DB (${questions.length}/${questionCount}). Generating more...`,
-            );
-            try {
-              await axios.post(
-                `${this.questionServiceUrl}/questions/generate`,
-                {
-                  field: field || "fullstack",
-                  techStack: techStack || [],
-                  difficulty: difficulty || "intermediate",
-                  count: questionCount,
-                },
-              );
-
-              // Re-fetch after generating to ensure we get a completely random mix
-              const query = new URLSearchParams();
-              if (field) query.append("category", field);
-              if (difficulty) query.append("difficulty", difficulty);
-              query.append("count", questionCount.toString());
-
-              const res2 = await axios.get(
-                `${this.questionServiceUrl}/questions/random?${query}`,
-              );
-              questions = res2.data || [];
-            } catch (e) {
-              this.logger.error(
-                "Failed to generate questions. Falling back to Gemini service directly",
-                e,
-              );
-              // Last resort fallback directly via ai-service gemini integration
-              const fallbackQuestions =
-                await this.geminiService.generateInterviewQuestions({
-                  field: field || "fullstack",
-                  techStack: techStack || [],
-                  difficulty: difficulty || "intermediate",
-                  count: questionCount,
-                });
-              questions = fallbackQuestions.map((q) => ({
-                content: q.question,
-                order: q.order,
-              }));
-            }
-          }
-
-          // Map questions to the expected output format
-          const formattedQuestions = questions
-            .slice(0, questionCount)
-            .map((q: any, index: number) => ({
-              question: q.content || q.title || q.question, // Extract the question text
-              order: index + 1,
-            }));
-
-          // 3. Start the interview
-          await axios.post(
-            `${this.interviewServiceUrl}/interviews/${interview.id}/start`,
-            null,
-            { headers: { "x-user-id": userId || "anonymous" } },
-          );
-
-          return {
-            result: {
-              interviewId: interview.id,
-              firstQuestion: formattedQuestions[0]?.question,
-              totalQuestions: formattedQuestions.length,
-              questions: formattedQuestions.map((q) => ({
-                id: `q_${q.order}`,
-                question: q.question,
-                order: q.order,
-              })),
-              message: `${formattedQuestions.length} soru hazırlandı. İlk soru ile başlıyoruz.`,
-            },
-          };
-        } catch (error) {
-          this.logger.error("Failed to save preferences", error);
-          return {
-            result: {
-              error: "Mülakat oluşturulamadı, lütfen tekrar deneyin.",
-            },
-          };
-        }
-      }
-
-      case "get_next_question": {
-        const { interviewId, currentOrder, questions } =
-          functionCall.parameters;
-
-        // If questions were passed from the initial save_preferences, use them
-        if (questions && Array.isArray(questions)) {
-          const nextQ = questions.find(
-            (q: any) => q.order === (currentOrder || 0) + 1,
-          );
-
-          if (nextQ) {
-            return {
-              result: {
-                question: nextQ.question,
-                order: nextQ.order,
-                totalQuestions: questions.length,
-                remaining: questions.length - nextQ.order,
-              },
-            };
-          }
-        }
-
-        return {
-          result: {
-            finished: true,
-            message: "Tüm sorular tamamlandı. Mülakat sona erdi.",
-          },
-        };
-      }
-
-      case "save_answer": {
-        const { interviewId, questionOrder, questionText, answer, questions } =
-          functionCall.parameters;
-
-        try {
-          // Save answer via interview-service
-          await axios.post(
-            `${this.interviewServiceUrl}/interviews/${interviewId}/submit`,
-            {
-              questionId: `q_${questionOrder}`,
-              questionTitle: questionText || `Soru ${questionOrder}`,
-              answer: answer,
-            },
-            {
-              headers: { "x-user-id": headerUserId || "anonymous" },
-            },
-          );
-        } catch (error) {
-          this.logger.warn(
-            "Failed to save answer via interview-service",
-            error,
-          );
-        }
-
-        // Determine next question from the questions list
-        if (questions && Array.isArray(questions)) {
-          const currentOrder = questionOrder || 0;
-          const nextQ = questions.find(
-            (q: any) => q.order === currentOrder + 1,
-          );
-
-          if (nextQ) {
-            return {
-              result: {
-                saved: true,
-                nextQuestion: nextQ.question,
-                progress: `Soru ${nextQ.order} / ${questions.length}`,
-              },
-            };
-          }
-
-          // No more questions
-          return {
-            result: {
-              saved: true,
-              finished: true,
-              message:
-                "Tüm sorular tamamlandı. Mülakatı bitirmek için end_interview çağır.",
-            },
-          };
-        }
-
-        return { result: { saved: true } };
-      }
-
-      case "end_interview": {
-        const { interviewId, answers } = functionCall.parameters;
-
-        try {
-          // Get interview data
-          let interviewData: any;
-          try {
-            const res = await axios.get(
-              `${this.interviewServiceUrl}/interviews/${interviewId}`,
-              { headers: { "x-user-id": headerUserId || "anonymous" } },
-            );
-            interviewData = res.data;
-          } catch {
-            interviewData = { field: "fullstack", techStack: [] };
-          }
-
-          // Build answers array from function call params or interview data
-          const answersForEval =
-            answers ||
-            interviewData?.answers?.map((a: any) => ({
-              question: a.questionTitle,
-              answer: a.answer,
-              order: 1,
-            })) ||
-            [];
-
-          if (answersForEval.length > 0) {
-            // Evaluate with Gemini
-            const evaluation = await this.geminiService.evaluateInterview({
-              field: interviewData.field || "fullstack",
-              techStack: interviewData.techStack || [],
-              answers: answersForEval,
-            });
-
-            // Complete interview with report via interview-service
-            try {
-              await axios.post(
-                `${this.interviewServiceUrl}/interviews/${interviewId}/complete-with-report`,
-                {
-                  report: {
-                    technicalScore: evaluation.technicalScore,
-                    communicationScore: evaluation.communicationScore,
-                    dictionScore: evaluation.dictionScore,
-                    confidenceScore: evaluation.confidenceScore,
-                    overallScore: evaluation.overallScore,
-                    summary: evaluation.summary,
-                    recommendations: evaluation.recommendations,
-                  },
-                  overallFeedback: evaluation.summary,
-                },
-                { headers: { "x-user-id": headerUserId || "anonymous" } },
-              );
-            } catch (e) {
-              this.logger.warn("Failed to complete interview", e);
-            }
-
-            return {
-              result: {
-                completed: true,
-                overallScore: evaluation.overallScore,
-                summary: evaluation.summary,
-              },
-            };
-          }
-
-          // Complete with empty report if no answers were given
-          try {
-            await axios.post(
-              `${this.interviewServiceUrl}/interviews/${interviewId}/complete-with-report`,
-              {
-                report: {
-                  technicalScore: 0,
-                  communicationScore: 0,
-                  dictionScore: 0,
-                  confidenceScore: 0,
-                  overallScore: 0,
-                  summary:
-                    "Mülakat erken sonlandırıldı veya hiç cevap verilmedi.",
-                  recommendations: ["Mülakat pratiği yapmaya devam edin."],
-                },
-                overallFeedback:
-                  "Mülakat erken sonlandırıldığı için değerlendirme yapılamadı.",
-              },
-              { headers: { "x-user-id": headerUserId || "anonymous" } },
-            );
-          } catch (e) {
-            this.logger.warn("Failed to complete empty interview", e);
-          }
-
-          return {
-            result: { completed: true, message: "Mülakat tamamlandı." },
-          };
-        } catch (error) {
-          this.logger.error("Failed to end interview", error);
-          return {
-            result: { completed: true, message: "Mülakat tamamlandı." },
-          };
-        }
-      }
+      case "end_interview":
+        return this.handleEndInterview(functionCall, headerUserId);
 
       default:
         this.logger.warn(`Unknown function call: ${functionCall.name}`);
         return { result: { error: "Unknown function" } };
+    }
+  }
+
+  /**
+   * save_preferences:
+   * 1. Interview zaten frontend'de oluşturuldu, varsa fetch et
+   * 2. question-service'ten soruları çek/üret
+   * 3. interview-service'te mülakatı başlat
+   */
+  private async handleSavePreferences(
+    functionCall: any,
+    message: any,
+    headerUserId?: string,
+  ): Promise<any> {
+    const {
+      field,
+      techStack,
+      difficulty,
+      userId: paramsUserId,
+      interviewId,
+    } = functionCall.parameters;
+
+    const userId = headerUserId || paramsUserId || "anonymous";
+    const questionCount = 5;
+
+    try {
+      // 1. Interview'ı al veya oluştur (interview-service'e delege et)
+      let interview: any;
+      if (interviewId) {
+        const res = await axios.get(
+          `${this.interviewServiceUrl}/interviews/${interviewId}`,
+          { headers: { "x-user-id": userId } },
+        );
+        interview = res.data;
+      } else {
+        const res = await axios.post(
+          `${this.interviewServiceUrl}/interviews`,
+          {
+            field,
+            techStack,
+            difficulty,
+            vapiCallId: message.call?.id,
+            title: `${field} Developer Interview`,
+            questionCount,
+          },
+          { headers: { "x-user-id": userId } },
+        );
+        interview = res.data;
+      }
+
+      // 2. Soruları question-service'ten çek
+      let questions: any[] = [];
+      try {
+        const query = new URLSearchParams();
+        if (field) query.append("category", field);
+        if (difficulty) query.append("difficulty", difficulty);
+        query.append("count", questionCount.toString());
+
+        const res = await axios.get(
+          `${this.questionServiceUrl}/questions/random?${query}`,
+        );
+        questions = res.data || [];
+      } catch (e) {
+        this.logger.warn(
+          "question-service'ten soru çekilemedi, generate ediliyor...",
+          e,
+        );
+      }
+
+      // 3. Yetersizse question-service'e ürettir (o da ai-service'in Gemini'sini çağırır)
+      if (questions.length < questionCount) {
+        try {
+          await axios.post(`${this.questionServiceUrl}/questions/generate`, {
+            field: field || "fullstack",
+            techStack: techStack || [],
+            difficulty: difficulty || "intermediate",
+            count: questionCount,
+          });
+
+          // Üretildikten sonra tekrar çek
+          const query = new URLSearchParams();
+          if (field) query.append("category", field);
+          if (difficulty) query.append("difficulty", difficulty);
+          query.append("count", questionCount.toString());
+
+          const res = await axios.get(
+            `${this.questionServiceUrl}/questions/random?${query}`,
+          );
+          questions = res.data || [];
+        } catch (e) {
+          this.logger.error(
+            "question-service soru üretemedi, Gemini fallback",
+            e,
+          );
+          // Son çare: doğrudan Gemini ile üret (DB'ye kaydedilmez)
+          const fallback = await this.geminiService.generateInterviewQuestions({
+            field: field || "fullstack",
+            techStack: techStack || [],
+            difficulty: difficulty || "intermediate",
+            count: questionCount,
+          });
+          questions = fallback.map((q) => ({
+            content: q.question,
+            order: q.order,
+          }));
+        }
+      }
+
+      // 4. Soruları VAPI'nin beklediği formata dönüştür
+      const formattedQuestions = questions
+        .slice(0, questionCount)
+        .map((q: any, index: number) => ({
+          question: q.content || q.title || q.question,
+          order: index + 1,
+        }));
+
+      // 5. Mülakatı başlat (interview-service)
+      await axios.post(
+        `${this.interviewServiceUrl}/interviews/${interview.id}/start`,
+        null,
+        { headers: { "x-user-id": userId } },
+      );
+
+      return {
+        result: {
+          interviewId: interview.id,
+          firstQuestion: formattedQuestions[0]?.question,
+          totalQuestions: formattedQuestions.length,
+          questions: formattedQuestions.map((q) => ({
+            id: `q_${q.order}`,
+            question: q.question,
+            order: q.order,
+          })),
+          message: `${formattedQuestions.length} soru hazırlandı. İlk soru ile başlıyoruz.`,
+        },
+      };
+    } catch (error) {
+      this.logger.error("save_preferences başarısız", error);
+      return {
+        result: {
+          error: "Mülakat oluşturulamadı, lütfen tekrar deneyin.",
+        },
+      };
+    }
+  }
+
+  /**
+   * save_answer:
+   * Cevabı interview-service'e kaydet, sıradaki soruyu döndür
+   */
+  private async handleSaveAnswer(
+    functionCall: any,
+    headerUserId?: string,
+  ): Promise<any> {
+    const { interviewId, questionOrder, questionText, answer, questions } =
+      functionCall.parameters;
+
+    // Cevabı interview-service'e kaydet
+    try {
+      await axios.post(
+        `${this.interviewServiceUrl}/interviews/${interviewId}/submit`,
+        {
+          questionId: `q_${questionOrder}`,
+          questionTitle: questionText || `Soru ${questionOrder}`,
+          answer,
+        },
+        { headers: { "x-user-id": headerUserId || "anonymous" } },
+      );
+    } catch (error) {
+      this.logger.warn("Cevap kaydedilemedi (interview-service)", error);
+    }
+
+    // Sıradaki soruyu questions listesinden bul
+    if (questions && Array.isArray(questions)) {
+      const currentOrder = questionOrder || 0;
+      const nextQ = questions.find((q: any) => q.order === currentOrder + 1);
+
+      if (nextQ) {
+        return {
+          result: {
+            saved: true,
+            nextQuestion: nextQ.question,
+            progress: `Soru ${nextQ.order} / ${questions.length}`,
+          },
+        };
+      }
+
+      return {
+        result: {
+          saved: true,
+          finished: true,
+          message:
+            "Tüm sorular tamamlandı. Mülakatı bitirmek için end_interview çağır.",
+        },
+      };
+    }
+
+    return { result: { saved: true } };
+  }
+
+  /**
+   * get_next_question:
+   * Questions listesinden sıradaki soruyu döndür
+   */
+  private async handleGetNextQuestion(functionCall: any): Promise<any> {
+    const { currentOrder, questions } = functionCall.parameters;
+
+    if (questions && Array.isArray(questions)) {
+      const nextQ = questions.find(
+        (q: any) => q.order === (currentOrder || 0) + 1,
+      );
+
+      if (nextQ) {
+        return {
+          result: {
+            question: nextQ.question,
+            order: nextQ.order,
+            totalQuestions: questions.length,
+            remaining: questions.length - nextQ.order,
+          },
+        };
+      }
+    }
+
+    return {
+      result: {
+        finished: true,
+        message: "Tüm sorular tamamlandı. Mülakat sona erdi.",
+      },
+    };
+  }
+
+  /**
+   * end_interview:
+   * Gemini ile değerlendir + interview-service'e report gönder
+   */
+  private async handleEndInterview(
+    functionCall: any,
+    headerUserId?: string,
+  ): Promise<any> {
+    const { interviewId, answers } = functionCall.parameters;
+
+    try {
+      // Interview verisini al
+      let interviewData: any;
+      try {
+        const res = await axios.get(
+          `${this.interviewServiceUrl}/interviews/${interviewId}`,
+          { headers: { "x-user-id": headerUserId || "anonymous" } },
+        );
+        interviewData = res.data;
+      } catch {
+        interviewData = { field: "fullstack", techStack: [] };
+      }
+
+      // Değerlendirme için cevapları hazırla
+      const answersForEval =
+        answers ||
+        interviewData?.answers?.map((a: any) => ({
+          question: a.questionTitle,
+          answer: a.answer,
+          order: 1,
+        })) ||
+        [];
+
+      if (answersForEval.length > 0) {
+        // Gemini ile değerlendir (ai-service'in tek gerçek sorumluluğu)
+        const evaluation = await this.geminiService.evaluateInterview({
+          field: interviewData.field || "fullstack",
+          techStack: interviewData.techStack || [],
+          answers: answersForEval,
+        });
+
+        // Interview-service'e raporu gönder
+        try {
+          await axios.post(
+            `${this.interviewServiceUrl}/interviews/${interviewId}/complete-with-report`,
+            {
+              report: {
+                technicalScore: evaluation.technicalScore,
+                communicationScore: evaluation.communicationScore,
+                dictionScore: evaluation.dictionScore,
+                confidenceScore: evaluation.confidenceScore,
+                overallScore: evaluation.overallScore,
+                summary: evaluation.summary,
+                recommendations: evaluation.recommendations,
+              },
+              overallFeedback: evaluation.summary,
+            },
+            { headers: { "x-user-id": headerUserId || "anonymous" } },
+          );
+        } catch (e) {
+          this.logger.warn("Interview complete-with-report başarısız", e);
+        }
+
+        return {
+          result: {
+            completed: true,
+            overallScore: evaluation.overallScore,
+            summary: evaluation.summary,
+          },
+        };
+      }
+
+      // Cevap yoksa boş rapor gönder
+      try {
+        await axios.post(
+          `${this.interviewServiceUrl}/interviews/${interviewId}/complete-with-report`,
+          {
+            report: {
+              technicalScore: 0,
+              communicationScore: 0,
+              dictionScore: 0,
+              confidenceScore: 0,
+              overallScore: 0,
+              summary: "Mülakat erken sonlandırıldı veya hiç cevap verilmedi.",
+              recommendations: ["Mülakat pratiği yapmaya devam edin."],
+            },
+            overallFeedback:
+              "Mülakat erken sonlandırıldığı için değerlendirme yapılamadı.",
+          },
+          { headers: { "x-user-id": headerUserId || "anonymous" } },
+        );
+      } catch (e) {
+        this.logger.warn("Boş interview tamamlanamadı", e);
+      }
+
+      return {
+        result: { completed: true, message: "Mülakat tamamlandı." },
+      };
+    } catch (error) {
+      this.logger.error("end_interview başarısız", error);
+      return {
+        result: { completed: true, message: "Mülakat tamamlandı." },
+      };
     }
   }
 

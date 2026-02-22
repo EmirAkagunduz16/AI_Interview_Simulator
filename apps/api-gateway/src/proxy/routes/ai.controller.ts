@@ -27,13 +27,6 @@ export class AiController {
     );
   }
 
-  @Post("evaluate")
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Evaluate interview answers" })
-  async evaluate(@Body() body: unknown) {
-    return this.proxy.forward(this.aiUrl, "/api/v1/ai/evaluate", "POST", body);
-  }
-
   @Post("vapi/webhook")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "VAPI webhook endpoint" })

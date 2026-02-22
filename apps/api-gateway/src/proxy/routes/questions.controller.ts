@@ -113,6 +113,18 @@ export class QuestionsController {
     );
   }
 
+  @Post("generate")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Generate questions using AI" })
+  async generate(@Body() body: unknown) {
+    return this.proxy.forward(
+      this.questionUrl,
+      "/api/v1/questions/generate",
+      "POST",
+      body,
+    );
+  }
+
   @Post("seed")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Seed initial questions" })

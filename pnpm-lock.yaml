@@ -20,18 +20,9 @@ importers:
 
   apps/ai-service:
     dependencies:
-      '@ai-coach/kafka-client':
-        specifier: workspace:^
-        version: link:../../packages/kafka-client
-      '@ai-coach/shared-types':
-        specifier: workspace:^
-        version: link:../../packages/shared-types
       '@google/generative-ai':
         specifier: ^0.24.0
         version: 0.24.1
-      '@nestjs/cache-manager':
-        specifier: ^3.1.0
-        version: 3.1.0(@nestjs/common@11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.13(@nestjs/common@11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/microservices@11.1.13)(@nestjs/platform-express@11.1.13)(@nestjs/websockets@11.1.13)(reflect-metadata@0.2.2)(rxjs@7.8.2))(cache-manager@7.2.8)(keyv@5.6.0)(rxjs@7.8.2)
       '@nestjs/common':
         specifier: ^11.0.0
         version: 11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -41,9 +32,6 @@ importers:
       '@nestjs/core':
         specifier: ^11.0.0
         version: 11.1.13(@nestjs/common@11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/microservices@11.1.13)(@nestjs/platform-express@11.1.13)(@nestjs/websockets@11.1.13)(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      '@nestjs/microservices':
-        specifier: ^11.1.13
-        version: 11.1.13(@nestjs/common@11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.13)(@nestjs/websockets@11.1.13)(cache-manager@7.2.8)(ioredis@5.9.2)(kafkajs@2.2.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/platform-express':
         specifier: ^11.0.0
         version: 11.1.13(@nestjs/common@11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.13)
@@ -53,33 +41,18 @@ importers:
       axios:
         specifier: ^1.7.0
         version: 1.13.5
-      cache-manager:
-        specifier: ^7.2.8
-        version: 7.2.8
-      cache-manager-ioredis-yet:
-        specifier: ^2.1.2
-        version: 2.1.2
       class-transformer:
         specifier: ^0.5.1
         version: 0.5.1
       class-validator:
         specifier: ^0.14.1
         version: 0.14.3
-      ioredis:
-        specifier: ^5.9.2
-        version: 5.9.2
-      kafkajs:
-        specifier: ^2.2.4
-        version: 2.2.4
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
       rxjs:
         specifier: ^7.8.1
         version: 7.8.2
-      uuid:
-        specifier: ^13.0.0
-        version: 13.0.0
     devDependencies:
       '@nestjs/cli':
         specifier: ^11.0.0
