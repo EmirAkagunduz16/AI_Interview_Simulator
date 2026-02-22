@@ -1,22 +1,11 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
+import { QuestionType, Difficulty } from "@ai-coach/shared-types";
 
 export type QuestionDocument = Question & Document;
 
-export enum QuestionType {
-  BEHAVIORAL = 'behavioral',
-  TECHNICAL = 'technical',
-  CODING = 'coding',
-  SYSTEM_DESIGN = 'system_design',
-  SITUATIONAL = 'situational',
-  MCQ = 'mcq',
-}
-
-export enum Difficulty {
-  EASY = 'easy',
-  MEDIUM = 'medium',
-  HARD = 'hard',
-}
+// Re-export for convenience (so existing imports from this file still work)
+export { QuestionType, Difficulty };
 
 @Schema({ _id: false })
 export class McqOption {
@@ -28,7 +17,7 @@ export const McqOptionSchema = SchemaFactory.createForClass(McqOption);
 
 @Schema({
   timestamps: true,
-  collection: 'questions',
+  collection: "questions",
   toJSON: {
     transform: (_, ret: Record<string, unknown>) => {
       ret.id = (ret._id as { toString(): string }).toString();

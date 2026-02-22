@@ -1,15 +1,8 @@
-export interface InterviewStats {
-  totalInterviews: number;
-  completedInterviews: number;
-  averageScore: number;
-  bestScore: number;
-}
+import type {
+  IInterviewStats,
+  IInterviewListItem,
+} from "@ai-coach/shared-types";
 
-export interface InterviewListItem {
-  id: string;
-  field: string;
-  techStack: string[];
-  status: string;
-  score?: number;
-  createdAt: string;
-}
+// Re-export with local aliases for backwards compatibility
+export type InterviewStats = IInterviewStats;
+export type InterviewListItem = IInterviewListItem;

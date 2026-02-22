@@ -1,28 +1,17 @@
+import type {
+  IInterviewReport,
+  IQuestionEvaluation,
+} from "@ai-coach/shared-types";
+
+// Re-export with local aliases for backwards compatibility
+export type InterviewReport = IInterviewReport;
+export type QuestionEvaluation = IQuestionEvaluation;
+
 export interface CategoryScore {
   label: string;
   icon: string;
   score: number;
   color: string;
-}
-
-export interface QuestionEvaluation {
-  question: string;
-  answer: string;
-  score: number;
-  feedback: string;
-  strengths: string[];
-  improvements: string[];
-}
-
-export interface InterviewReport {
-  overallScore: number;
-  technicalScore: number;
-  communicationScore: number;
-  dictionScore: number;
-  confidenceScore: number;
-  summary: string;
-  recommendations: string[];
-  questionEvaluations: QuestionEvaluation[];
 }
 
 export interface InterviewResult {

@@ -1,4 +1,7 @@
+// ===========================
 // User Types
+// ===========================
+
 export interface IUser {
   _id: string;
   email: string;
@@ -45,39 +48,17 @@ export enum SubscriptionPlan {
   ENTERPRISE = "enterprise",
 }
 
+// ===========================
 // Question Types
-export interface IQuestion {
-  _id: string;
-  text: string;
-  type: QuestionType;
-  category: string;
-  difficulty: Difficulty;
-  tags: string[];
-  options?: IMcqOption[];
-  correctAnswer?: string;
-  codeTemplate?: string;
-  language?: string;
-  expectedTime: number;
-  aiPrompt?: string;
-  hint?: string;
-  explanation?: string;
-  isActive: boolean;
-  usageCount: number;
-  createdAt: Date;
-}
-
-export interface IMcqOption {
-  id: string;
-  text: string;
-  isCorrect: boolean;
-}
+// ===========================
 
 export enum QuestionType {
-  AUDIO = "audio",
-  VIDEO = "video",
-  MCQ = "mcq",
-  CODING = "coding",
   BEHAVIORAL = "behavioral",
+  TECHNICAL = "technical",
+  CODING = "coding",
+  SYSTEM_DESIGN = "system_design",
+  SITUATIONAL = "situational",
+  MCQ = "mcq",
 }
 
 export enum Difficulty {
@@ -86,38 +67,31 @@ export enum Difficulty {
   HARD = "hard",
 }
 
-// Interview Types
-export interface IInterview {
+export interface IQuestion {
   _id: string;
-  userId: string;
-  field: string;
-  status: InterviewStatus;
-  answers: IInterviewAnswer[];
-  questionIds: string[];
-  currentQuestionIndex: number;
-  totalScore?: number;
-  aiFeedback?: string;
-  overallStrengths?: string[];
-  overallImprovements?: string[];
-  startedAt?: Date;
-  completedAt?: Date;
-  totalTimeSpent: number;
+  title: string;
+  content: string;
+  hints?: string;
+  sampleAnswer?: string;
+  type: QuestionType;
+  difficulty: Difficulty;
+  category: string;
+  tags: string[];
+  mcqOptions?: IMcqOption[];
+  usageCount: number;
+  isActive: boolean;
   createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface IInterviewAnswer {
-  questionId: string;
-  answer?: string;
-  audioUrl?: string;
-  videoUrl?: string;
-  codeSubmission?: string;
-  score?: number;
-  feedback?: string;
-  strengths?: string[];
-  improvements?: string[];
-  answeredAt?: Date;
-  timeSpent: number;
+export interface IMcqOption {
+  text: string;
+  isCorrect: boolean;
 }
+
+// ===========================
+// Interview Types
+// ===========================
 
 export enum InterviewStatus {
   PENDING = "pending",
@@ -126,7 +100,92 @@ export enum InterviewStatus {
   CANCELLED = "cancelled",
 }
 
+export enum InterviewType {
+  BEHAVIORAL = "behavioral",
+  TECHNICAL = "technical",
+  MIXED = "mixed",
+  SYSTEM_DESIGN = "system_design",
+}
+
+export interface IInterview {
+  _id: string;
+  userId: string;
+  title?: string;
+  field: string;
+  techStack: string[];
+  type: InterviewType;
+  status: InterviewStatus;
+  difficulty: string;
+  vapiCallId?: string;
+  questionIds: string[];
+  answers: IInterviewAnswer[];
+  report?: IInterviewReport;
+  targetRole?: string;
+  durationMinutes: number;
+  totalScore?: number;
+  overallFeedback?: string;
+  startedAt?: Date;
+  completedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IInterviewAnswer {
+  questionId: string;
+  questionTitle: string;
+  answer: string;
+  feedback?: string;
+  score?: number;
+  strengths?: string[];
+  improvements?: string[];
+  answeredAt?: Date;
+  evaluatedAt?: Date;
+}
+
+export interface IInterviewReport {
+  technicalScore: number;
+  communicationScore: number;
+  dictionScore: number;
+  confidenceScore: number;
+  overallScore: number;
+  summary?: string;
+  recommendations: string[];
+  questionEvaluations?: IQuestionEvaluation[];
+}
+
+export interface IQuestionEvaluation {
+  question: string;
+  answer: string;
+  score: number;
+  feedback: string;
+  strengths: string[];
+  improvements: string[];
+}
+
+// ===========================
+// Interview Field & Config
+// ===========================
+
+export enum InterviewField {
+  BACKEND = "backend",
+  FRONTEND = "frontend",
+  FULLSTACK = "fullstack",
+  MOBILE = "mobile",
+  DEVOPS = "devops",
+  DATA_SCIENCE = "data_science",
+}
+
+export interface IVapiInterviewConfig {
+  field: InterviewField | string;
+  techStack: string[];
+  difficulty: Difficulty | string;
+  userId?: string;
+}
+
+// ===========================
 // Auth Types
+// ===========================
+
 export interface ITokenPayload {
   sub: string;
   email: string;
@@ -145,25 +204,17 @@ export interface ITokenResponse {
   };
 }
 
-// Interview Field & Config Types
-export enum InterviewField {
-  BACKEND = "backend",
-  FRONTEND = "frontend",
-  FULLSTACK = "fullstack",
-  MOBILE = "mobile",
-  DEVOPS = "devops",
-  DATA_SCIENCE = "data_science",
+// ===========================
+// AI Types
+// ===========================
+
+export interface IGeneratedQuestion {
+  question: string;
+  category: string;
+  order: number;
 }
 
-export interface IVapiInterviewConfig {
-  field: InterviewField | string;
-  techStack: string[];
-  difficulty: Difficulty | string;
-  userId?: string;
-}
-
-// Interview Report Types
-export interface IInterviewReport {
+export interface IInterviewEvaluation {
   technicalScore: number;
   communicationScore: number;
   dictionScore: number;
@@ -174,16 +225,6 @@ export interface IInterviewReport {
   questionEvaluations: IQuestionEvaluation[];
 }
 
-export interface IQuestionEvaluation {
-  question: string;
-  answer: string;
-  score: number;
-  feedback: string;
-  strengths: string[];
-  improvements: string[];
-}
-
-// AI Types
 export interface IEvaluationResult {
   score: number;
   feedback: string;
@@ -196,7 +237,10 @@ export interface IChatMessage {
   content: string;
 }
 
+// ===========================
 // API Response Types
+// ===========================
+
 export interface IApiResponse<T> {
   success: boolean;
   data?: T;
@@ -211,11 +255,31 @@ export interface IPaginatedResponse<T> {
   totalPages: number;
 }
 
+// ===========================
+// Dashboard Types
+// ===========================
+
+export interface IInterviewStats {
+  totalInterviews: number;
+  completedInterviews: number;
+  averageScore: number;
+  bestScore: number;
+  totalQuestionsAnswered?: number;
+}
+
+export interface IInterviewListItem {
+  id: string;
+  field: string;
+  techStack: string[];
+  status: string;
+  score?: number;
+  createdAt: string;
+}
+
 // ===========================================
 // Kafka Event Types - Event-Driven Architecture
 // ===========================================
 
-// Kafka Topics
 export enum KafkaTopics {
   // Auth Events
   USER_REGISTERED = "user.registered",

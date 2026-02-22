@@ -14,7 +14,7 @@ import {
   RefreshTokenDto,
   TokenResponseDto,
   ValidateResponseDto,
-} from "./dto/auth.dto";
+} from "./dto";
 
 @ApiTags("Auth")
 @Controller("auth")

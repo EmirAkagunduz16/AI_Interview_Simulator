@@ -1,21 +1,11 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document, Types } from "mongoose";
+import { InterviewStatus, InterviewType } from "@ai-coach/shared-types";
 
 export type InterviewDocument = Interview & Document;
 
-export enum InterviewStatus {
-  PENDING = "pending",
-  IN_PROGRESS = "in_progress",
-  COMPLETED = "completed",
-  CANCELLED = "cancelled",
-}
-
-export enum InterviewType {
-  BEHAVIORAL = "behavioral",
-  TECHNICAL = "technical",
-  MIXED = "mixed",
-  SYSTEM_DESIGN = "system_design",
-}
+// Re-export for convenience (so existing imports from this file still work)
+export { InterviewStatus, InterviewType };
 
 @Schema({ _id: false })
 export class InterviewAnswer {

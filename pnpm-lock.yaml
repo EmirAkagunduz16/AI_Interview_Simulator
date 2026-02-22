@@ -20,6 +20,9 @@ importers:
 
   apps/ai-service:
     dependencies:
+      '@ai-coach/shared-types':
+        specifier: workspace:^
+        version: link:../../packages/shared-types
       '@google/generative-ai':
         specifier: ^0.24.0
         version: 0.24.1
@@ -437,6 +440,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@ai-coach/shared-types':
+        specifier: workspace:^
+        version: link:../../packages/shared-types
       '@emotion/react':
         specifier: ^11.14.0
         version: 11.14.0(@types/react@19.2.2)(react@19.2.0)

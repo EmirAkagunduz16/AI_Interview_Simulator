@@ -1,30 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
-
-interface GeneratedQuestion {
-  question: string;
-  category: string;
-  order: number;
-}
-
-interface InterviewEvaluation {
-  technicalScore: number;
-  communicationScore: number;
-  dictionScore: number;
-  confidenceScore: number;
-  overallScore: number;
-  summary: string;
-  recommendations: string[];
-  questionEvaluations: {
-    question: string;
-    answer: string;
-    score: number;
-    feedback: string;
-    strengths: string[];
-    improvements: string[];
-  }[];
-}
+import {
+  IGeneratedQuestion,
+  IInterviewEvaluation,
+} from "@ai-coach/shared-types";
 
 @Injectable()
 export class GeminiService {
@@ -52,7 +32,7 @@ export class GeminiService {
     techStack: string[];
     difficulty?: string;
     count?: number;
-  }): Promise<GeneratedQuestion[]> {
+  }): Promise<IGeneratedQuestion[]> {
     const count = params.count || 5;
     const difficulty = params.difficulty || "intermediate";
 
@@ -84,7 +64,7 @@ Sadece JSON dizisi döndür, başka hiçbir şey yazma.`;
         .replace(/```json\n?/g, "")
         .replace(/```\n?/g, "")
         .trim();
-      const questions: GeneratedQuestion[] = JSON.parse(cleaned);
+      const questions: IGeneratedQuestion[] = JSON.parse(cleaned);
       this.logger.log(
         `Generated ${questions.length} questions for ${params.field}`,
       );
@@ -103,7 +83,7 @@ Sadece JSON dizisi döndür, başka hiçbir şey yazma.`;
     field: string;
     techStack: string[];
     answers: { question: string; answer: string; order: number }[];
-  }): Promise<InterviewEvaluation> {
+  }): Promise<IInterviewEvaluation> {
     const answersText = params.answers
       .map((a) => `Soru ${a.order}: ${a.question}\nCevap: ${a.answer}`)
       .join("\n\n---\n\n");
@@ -152,7 +132,7 @@ Sadece JSON döndür.`;
         .replace(/```json\n?/g, "")
         .replace(/```\n?/g, "")
         .trim();
-      const evaluation: InterviewEvaluation = JSON.parse(cleaned);
+      const evaluation: IInterviewEvaluation = JSON.parse(cleaned);
       this.logger.log(
         `Interview evaluated. Overall score: ${evaluation.overallScore}`,
       );

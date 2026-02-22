@@ -17,7 +17,7 @@ import {
   LoginDto,
   TokenResponseDto,
   ValidateResponseDto,
-} from "./dto/auth.dto";
+} from "./dto";
 import { RedisService } from "../common/redis/redis.service";
 
 @Injectable()
