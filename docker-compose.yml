@@ -1,13 +1,15 @@
+version: "3.8"
+
 services:
   # ==================== DATABASES ====================
 
-  # MongoDB - Shared instance with separate databases per service
+  # MongoDB - Her mikroservis kendi ayrı veritabanını oluşturur
   mongodb:
     image: mongo:7
     container_name: ai-coach-mongodb
     restart: unless-stopped
     ports:
-      - "27018:27017"
+      - "27018:27017" # Compass ve uygulamalar üzerinden doğrudan erişim için standart port.
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: admin123
@@ -21,7 +23,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis - Caching & Session Store
+  # Redis - Caching, Throttling ve Session Store
   redis:
     image: redis:7-alpine
     container_name: ai-coach-redis
@@ -41,7 +43,7 @@ services:
 
   # ==================== MESSAGE BROKER ====================
 
-  # Zookeeper - Required for Kafka
+  # Zookeeper - Kafka'nın koordine edilebilmesi için zorunludur
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: ai-coach-zookeeper
@@ -61,7 +63,7 @@ services:
       retries: 5
       start_period: 30s
 
-  # Kafka - Event Streaming Platform
+  # Kafka - Events ve Asenkron Servis İletişimi (Ai Değerlendirmeleri vb.)
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: ai-coach-kafka
@@ -93,248 +95,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-
-  # ==================== MICROSERVICES ====================
-
-  # Auth Service - Port 3002
-  auth-service:
-    build:
-      context: .
-      dockerfile: apps/auth-service/Dockerfile
-    container_name: ai-coach-auth-service
-    restart: unless-stopped
-    ports:
-      - "3002:3002"
-      - "50051:50051"
-    environment:
-      - PORT=3002
-      - NODE_ENV=production
-      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/auth_db?authSource=admin
-      - KAFKA_BROKERS=kafka:29092
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=redis123
-      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-ai-coach-access-secret-prod}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-ai-coach-refresh-secret-prod}
-      - JWT_ACCESS_EXPIRES_IN=15m
-      - JWT_REFRESH_EXPIRES_IN=7d
-    depends_on:
-      mongodb:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - ai-coach-network
-
-  # API Gateway - Port 3001
-  api-gateway:
-    build:
-      context: .
-      dockerfile: apps/api-gateway/Dockerfile
-    container_name: ai-coach-api-gateway
-    restart: unless-stopped
-    ports:
-      - "3001:3001"
-    environment:
-      - PORT=3001
-      - NODE_ENV=production
-      - AUTH_SERVICE_URL=http://auth-service:3002
-      - AUTH_GRPC_URL=auth-service:50051
-      - USER_SERVICE_URL=http://user-service:3003
-      - USER_GRPC_URL=user-service:50052
-      - QUESTION_SERVICE_URL=http://question-service:3004
-      - QUESTION_GRPC_URL=question-service:50054
-      - INTERVIEW_SERVICE_URL=http://interview-service:3005
-      - INTERVIEW_GRPC_URL=interview-service:50053
-      - AI_SERVICE_URL=http://ai-service:3006
-      - AI_GRPC_URL=ai-service:50055
-      - CORS_ORIGIN=http://localhost:3000
-    depends_on:
-      auth-service:
-        condition: service_started
-      user-service:
-        condition: service_started
-      question-service:
-        condition: service_started
-      interview-service:
-        condition: service_started
-      ai-service:
-        condition: service_started
-      redis:
-        condition: service_healthy
-    networks:
-      - ai-coach-network
-
-  # User Service - Port 3003
-  user-service:
-    build:
-      context: .
-      dockerfile: apps/user-service/Dockerfile
-    container_name: ai-coach-user-service
-    restart: unless-stopped
-    ports:
-      - "3003:3003"
-      - "50052:50052"
-    environment:
-      - PORT=3003
-      - NODE_ENV=production
-      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/user_db?authSource=admin
-      - KAFKA_BROKERS=kafka:29092
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=redis123
-    depends_on:
-      mongodb:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - ai-coach-network
-
-  # Question Service - Port 3004
-  question-service:
-    build:
-      context: .
-      dockerfile: apps/question-service/Dockerfile
-    container_name: ai-coach-question-service
-    restart: unless-stopped
-    ports:
-      - "3004:3004"
-      - "50054:50054"
-    environment:
-      - PORT=3004
-      - NODE_ENV=production
-      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/question_db?authSource=admin
-      - KAFKA_BROKERS=kafka:29092
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=redis123
-    depends_on:
-      mongodb:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - ai-coach-network
-
-  # Interview Service - Port 3005
-  interview-service:
-    build:
-      context: .
-      dockerfile: apps/interview-service/Dockerfile
-    container_name: ai-coach-interview-service
-    restart: unless-stopped
-    ports:
-      - "3005:3005"
-      - "50053:50053"
-    environment:
-      - PORT=3005
-      - NODE_ENV=production
-      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/interview_db?authSource=admin
-      - KAFKA_BROKERS=kafka:29092
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=redis123
-    depends_on:
-      mongodb:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - ai-coach-network
-
-  # AI Service - Port 3006
-  ai-service:
-    build:
-      context: .
-      dockerfile: apps/ai-service/Dockerfile
-    container_name: ai-coach-ai-service
-    restart: unless-stopped
-    ports:
-      - "3006:3006"
-      - "50055:50055"
-    environment:
-      - PORT=3006
-      - NODE_ENV=production
-      - INTERVIEW_GRPC_URL=interview-service:50053
-      - QUESTION_GRPC_URL=question-service:50054
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - OPENAI_MODEL=gpt-4o
-      - OPENAI_TTS_VOICE=nova
-      - KAFKA_BROKERS=kafka:29092
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=redis123
-    depends_on:
-      kafka:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - ai-coach-network
-
-  # ==================== ADMIN TOOLS (Development) ====================
-
-  mongo-express:
-    image: mongo-express
-    container_name: ai-coach-mongo-express
-    restart: unless-stopped
-    ports:
-      - "8081:8081"
-    environment:
-      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
-      ME_CONFIG_MONGODB_ADMINPASSWORD: admin123
-      ME_CONFIG_MONGODB_URL: mongodb://admin:admin123@mongodb:27017/?authSource=admin
-      ME_CONFIG_BASICAUTH_USERNAME: admin
-      ME_CONFIG_BASICAUTH_PASSWORD: admin123
-    depends_on:
-      - mongodb
-    networks:
-      - ai-coach-network
-    profiles:
-      - dev
-
-  redis-commander:
-    image: rediscommander/redis-commander:latest
-    container_name: ai-coach-redis-commander
-    restart: unless-stopped
-    ports:
-      - "8082:8081"
-    environment:
-      REDIS_HOSTS: local:redis:6379:0:redis123
-    depends_on:
-      - redis
-    networks:
-      - ai-coach-network
-    profiles:
-      - dev
-
-  # Kafdrop - Kafka Web UI
-  kafdrop:
-    image: obsidiandynamics/kafdrop:latest
-    container_name: ai-coach-kafdrop
-    restart: unless-stopped
-    ports:
-      - "9000:9000"
-    environment:
-      KAFKA_BROKERCONNECT: kafka:29092
-      JVM_OPTS: "-Xms32M -Xmx64M"
-      SERVER_SERVLET_CONTEXTPATH: "/"
-    depends_on:
-      kafka:
-        condition: service_healthy
-    networks:
-      - ai-coach-network
-    profiles:
-      - dev
 
 volumes:
   mongodb_data:
