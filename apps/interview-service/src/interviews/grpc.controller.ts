@@ -12,11 +12,18 @@ export class GrpcInterviewsController {
   async getInterview(data: { interview_id: string; user_id: string }) {
     const interviewId = data.interview_id || (data as any).interviewId;
     const userId = data.user_id || (data as any).userId;
-    this.logger.debug(`gRPC GetInterview: ${interviewId}`);
-    const interview = await this.interviewsService.findById(
-      userId,
-      interviewId,
+    this.logger.debug(
+      `gRPC GetInterview: ${interviewId} (user: ${userId || "none"})`,
     );
+
+    // userId boşsa (ör. VAPI webhook @Public() endpoint'ten geliyorsa)
+    // doğrudan interviewId ile çek
+    let interview;
+    if (userId) {
+      interview = await this.interviewsService.findById(userId, interviewId);
+    } else {
+      interview = await this.interviewsService.findByIdInternal(interviewId);
+    }
     return this.toGrpcResponse(interview);
   }
 

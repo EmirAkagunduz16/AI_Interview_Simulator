@@ -75,5 +75,23 @@ export async function handleVapiFunctionCall(
     });
   } catch (err) {
     console.error("Error handling VAPI function call:", err);
+    // Send fallback response to VAPI so it doesn't hang waiting for a tool result
+    try {
+      vapiInstance.send({
+        type: "add-message",
+        message: {
+          role: "tool" as const,
+          toolCallId: functionCall.toolCallId || msg.toolCallId,
+          name: functionCall.name,
+          content: JSON.stringify({
+            error: true,
+            message:
+              "İşlem sırasında bir teknik sorun oluştu ama mülakat devam edebilir. Lütfen devam edin.",
+          }),
+        },
+      });
+    } catch (sendErr) {
+      console.error("Failed to send error response to VAPI:", sendErr);
+    }
   }
 }

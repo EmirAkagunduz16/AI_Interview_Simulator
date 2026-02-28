@@ -83,63 +83,65 @@ export default function ResultsPage() {
           <>
             <ScoreGauge score={report.overallScore} />
             <CategoryScores report={report} />
-
-            <div className="tabs">
-              <button
-                className={`tab ${activeTab === "overview" ? "active" : ""}`}
-                onClick={() => setActiveTab("overview")}
-              >
-                Genel Bakış
-              </button>
-              <button
-                className={`tab ${activeTab === "history" ? "active" : ""}`}
-                onClick={() => setActiveTab("history")}
-              >
-                Sohbet Geçmişi
-              </button>
-              <button
-                className={`tab ${activeTab === "questions" ? "active" : ""}`}
-                onClick={() => setActiveTab("questions")}
-              >
-                Soru Detayları
-              </button>
-            </div>
-
-            {activeTab === "overview" ? (
-              <>
-                <div className="summary-card">
-                  <h3>📝 Özet</h3>
-                  <p>{report.summary}</p>
-                </div>
-
-                {report.recommendations?.length > 0 && (
-                  <div className="recommendations-card">
-                    <h3>💡 Öneriler</h3>
-                    <ul>
-                      {report.recommendations.map((r, i) => (
-                        <li key={i}>{r}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </>
-            ) : activeTab === "history" ? (
-              <ChatHistory messages={data.messages || []} />
-            ) : (
-              <QuestionDetails evaluations={report.questionEvaluations || []} />
-            )}
           </>
         )}
 
-        {!report && (
-          <div className="summary-card">
-            <h3>⏳ Sonuçlar Hazırlanıyor</h3>
-            <p>
-              Değerlendirme henüz tamamlanmadı. Lütfen birkaç dakika sonra
-              tekrar kontrol edin.
-            </p>
-          </div>
-        )}
+        <div className="tabs">
+          <button
+            className={`tab ${activeTab === "overview" ? "active" : ""}`}
+            onClick={() => setActiveTab("overview")}
+          >
+            Genel Bakış
+          </button>
+          <button
+            className={`tab ${activeTab === "history" ? "active" : ""}`}
+            onClick={() => setActiveTab("history")}
+          >
+            Sohbet Geçmişi
+          </button>
+          {report && (
+            <button
+              className={`tab ${activeTab === "questions" ? "active" : ""}`}
+              onClick={() => setActiveTab("questions")}
+            >
+              Soru Detayları
+            </button>
+          )}
+        </div>
+
+        {activeTab === "overview" ? (
+          report ? (
+            <>
+              <div className="summary-card">
+                <h3>📝 Özet</h3>
+                <p>{report.summary}</p>
+              </div>
+
+              {report.recommendations?.length > 0 && (
+                <div className="recommendations-card">
+                  <h3>💡 Öneriler</h3>
+                  <ul>
+                    {report.recommendations.map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="summary-card">
+              <h3>⏳ Sonuçlar Hazırlanıyor</h3>
+              <p>
+                Değerlendirme henüz tamamlanmadı. Lütfen birkaç dakika sonra
+                tekrar kontrol edin.
+              </p>
+            </div>
+          )
+        ) : activeTab === "history" ? (
+          <ChatHistory messages={data.messages || []} />
+        ) : report ? (
+          <QuestionDetails evaluations={report.questionEvaluations || []} />
+        ) : null}
 
         <div className="results-actions">
           <Link href="/interview" className="retry-btn">

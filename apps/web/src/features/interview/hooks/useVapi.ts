@@ -170,6 +170,25 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
       },
       firstMessage: buildFirstMessage(cfg),
       firstMessageInterruptionsEnabled: false,
+      silenceTimeoutSeconds: 120,
+      maxDurationSeconds: 2400,
+      endCallMessage:
+        "Mülakat sona erdi. Sonuçlarınız hazırlanıyor, teşekkür ederim!",
+      clientMessages: [
+        "transcript",
+        "function-call",
+        "hang",
+        "speech-update",
+        "metadata",
+        "conversation-update",
+      ],
+      serverMessages: [
+        "end-of-call-report",
+        "function-call",
+        "transcript",
+        "status-update",
+        "speech-update",
+      ],
     } as any);
   }, []);
 

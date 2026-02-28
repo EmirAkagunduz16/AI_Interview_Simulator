@@ -339,6 +339,7 @@ export class AiController implements OnModuleInit {
             saved: true,
             nextQuestion: nextQ.question,
             progress: `Soru ${nextQ.order} / ${questions.length}`,
+            feedback: `Cevap kaydedildi. Şimdi ${nextQ.order}. soruya geçebilirsin. Cevabı değerlendirdikten sonra doğal bir geçişle bu soruyu sor.`,
           },
         };
       }
@@ -400,33 +401,46 @@ export class AiController implements OnModuleInit {
 
     try {
       // Interview verisini al (gRPC)
+      // Not: VAPI webhook @Public() olduğu için headerUserId boş olabilir.
+      // Bu yüzden interviewId ile doğrudan interview verisini çekiyoruz.
       let interviewData: any;
       try {
         interviewData = await firstValueFrom(
           this.interviewService.getInterview({
             interview_id: interviewId,
-            user_id: headerUserId || "anonymous",
+            // Birden fazla userId formatı dene — "anonymous" geçersizse bile veri çekilsin
+            user_id: headerUserId || "",
           }) as any,
         );
       } catch {
-        interviewData = { field: "fullstack", tech_stack: [] };
+        // userId eşleşmezse, cevapları doğrudan parametrelerden almayı dene
+        this.logger.warn(
+          `getInterview başarısız (userId: ${headerUserId || "anonymous"}), ` +
+            `parametrelerden cevap aranacak`,
+        );
+        interviewData = null;
       }
 
       // Değerlendirme için cevapları hazırla
       const answersForEval =
         answers ||
         interviewData?.answers?.map((a: any) => ({
-          question: a.question_title,
+          question: a.questionTitle || a.question_title || `Soru`,
           answer: a.answer,
           order: 1,
         })) ||
         [];
 
+      // Interview alanları — gRPC camelCase döner
+      const interviewField = interviewData?.field || "fullstack";
+      const interviewTechStack =
+        interviewData?.techStack || interviewData?.tech_stack || [];
+
       if (answersForEval.length > 0) {
         // Gemini ile değerlendir
         const evaluation = await this.geminiService.evaluateInterview({
-          field: interviewData.field || "fullstack",
-          techStack: interviewData.tech_stack || [],
+          field: interviewField,
+          techStack: interviewTechStack,
           answers: answersForEval,
         });
 
