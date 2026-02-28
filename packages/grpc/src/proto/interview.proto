@@ -12,11 +12,17 @@ service InterviewService {
   rpc CompleteInterview(CompleteInterviewRequest) returns (InterviewResponse);
   rpc CompleteWithReport(CompleteWithReportRequest) returns (InterviewResponse);
   rpc CancelInterview(CancelInterviewRequest) returns (InterviewResponse);
+  rpc AddInterviewMessage(AddInterviewMessageRequest) returns (InterviewResponse);
+  rpc GetInterviewByVapiCallId(GetInterviewByVapiCallIdRequest) returns (InterviewResponse);
 }
 
 message GetInterviewRequest {
   string interview_id = 1;
   string user_id = 2;
+}
+
+message GetInterviewByVapiCallIdRequest {
+  string vapi_call_id = 1;
 }
 
 message GetUserInterviewsRequest {
@@ -58,6 +64,13 @@ message CompleteInterviewRequest {
   string user_id = 2;
 }
 
+message AddInterviewMessageRequest {
+  string interview_id = 1;
+  string user_id = 2;
+  string role = 3;
+  string content = 4;
+}
+
 message CompleteWithReportRequest {
   string interview_id = 1;
   InterviewReportData report = 2;
@@ -84,6 +97,13 @@ message InterviewResponse {
   repeated InterviewAnswerResponse answers = 12;
   optional InterviewReportResponse report = 13;
   string created_at = 14;
+  repeated InterviewMessageResponse messages = 15;
+}
+
+message InterviewMessageResponse {
+  string role = 1;
+  string content = 2;
+  string created_at = 3;
 }
 
 message InterviewAnswerResponse {

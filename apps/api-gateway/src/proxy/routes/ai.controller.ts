@@ -8,11 +8,13 @@ import {
   HttpCode,
   HttpStatus,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { ClientGrpc } from "@nestjs/microservices";
 import { firstValueFrom } from "rxjs";
 import { GRPC_AI_SERVICE, IGrpcAiService } from "@ai-coach/grpc";
 import { Public } from "../../common/decorators/public.decorator";
+import { ProxyService } from "../proxy.service";
 
 interface AuthenticatedRequest {
   user: { userId: string; email: string; role: string };
@@ -25,6 +27,8 @@ export class AiController implements OnModuleInit {
 
   constructor(
     @Inject(GRPC_AI_SERVICE) private readonly grpcClient: ClientGrpc,
+    private readonly proxyService: ProxyService,
+    private readonly configService: ConfigService,
   ) {}
 
   onModuleInit() {
@@ -50,12 +54,19 @@ export class AiController implements OnModuleInit {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "VAPI webhook" })
   async handleVapiWebhook(@Body() body: any, @Req() req: AuthenticatedRequest) {
-    const result: any = await firstValueFrom(
-      this.aiService.handleVapiWebhook({
-        json_body: JSON.stringify(body),
-        user_id: req.user?.userId,
-      }) as any,
+    const aiServiceUrl = this.configService.get<string>(
+      "microservices.ai",
+      "http://localhost:3006",
     );
-    return JSON.parse(result.json_response);
+
+    return this.proxyService.forward(
+      aiServiceUrl,
+      "/api/v1/ai/vapi/webhook",
+      "POST",
+      body,
+      {
+        headers: req.user?.userId ? { "x-user-id": req.user.userId } : {},
+      },
+    );
   }
 }

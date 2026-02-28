@@ -98,6 +98,29 @@ export class AiController implements OnModuleInit {
         this.logger.debug(
           `Transcript [${message.role}]: ${message.transcript}`,
         );
+        // Dispatch to interview service to save transcript message
+        if (message.transcript && message.call?.id) {
+          try {
+            const interview: any = await firstValueFrom(
+              this.interviewService.getInterviewByVapiCallId({
+                vapi_call_id: message.call.id,
+              }) as any,
+            );
+
+            if (interview && interview.id) {
+              await firstValueFrom(
+                this.interviewService.addInterviewMessage({
+                  interview_id: interview.id,
+                  user_id: interview.user_id || interview.userId || "anonymous",
+                  role: message.role === "assistant" ? "agent" : "user",
+                  content: message.transcript,
+                }) as any,
+              );
+            }
+          } catch (e) {
+            this.logger.warn("Failed to dispatch transcript", e);
+          }
+        }
         return { received: true };
 
       default:

@@ -81,6 +81,20 @@ export class InterviewRepository extends BaseRepository<InterviewDocument> {
       .exec();
   }
 
+  async addMessage(
+    id: string,
+    role: "user" | "agent",
+    content: string,
+  ): Promise<InterviewDocument | null> {
+    return this.interviewModel
+      .findByIdAndUpdate(
+        id,
+        { $push: { messages: { role, content, createdAt: new Date() } } },
+        { new: true },
+      )
+      .exec();
+  }
+
   async updateAnswer(
     id: string,
     questionId: string,

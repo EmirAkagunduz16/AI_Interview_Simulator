@@ -20,6 +20,17 @@ export class GrpcInterviewsController {
     return this.toGrpcResponse(interview);
   }
 
+  @GrpcMethod("InterviewService", "GetInterviewByVapiCallId")
+  async getInterviewByVapiCallId(data: { vapi_call_id: string }) {
+    const vapiCallId = data.vapi_call_id || (data as any).vapiCallId;
+    this.logger.debug(`gRPC GetInterviewByVapiCallId: ${vapiCallId}`);
+    const interview = await this.interviewsService.findByVapiCallId(vapiCallId);
+    if (!interview) {
+      throw new Error(`Interview not found for VAPI Call ID: ${vapiCallId}`);
+    }
+    return this.toGrpcResponse(interview);
+  }
+
   @GrpcMethod("InterviewService", "GetUserInterviews")
   async getUserInterviews(data: {
     user_id: string;
@@ -157,6 +168,28 @@ export class GrpcInterviewsController {
     return this.toGrpcResponse(interview);
   }
 
+  @GrpcMethod("InterviewService", "AddInterviewMessage")
+  async addInterviewMessage(data: {
+    interview_id: string;
+    user_id: string;
+    role: string;
+    content: string;
+  }) {
+    const interviewId = data.interview_id || (data as any).interviewId;
+    const userId = data.user_id || (data as any).userId;
+    const role = data.role as "user" | "agent";
+    const content = data.content;
+
+    this.logger.debug(`gRPC AddInterviewMessage: ${interviewId} [${role}]`);
+    const interview = await this.interviewsService.addMessage(
+      interviewId,
+      userId,
+      role,
+      content,
+    );
+    return this.toGrpcResponse(interview);
+  }
+
   private toGrpcResponse(interview: any) {
     const json = interview.toJSON ? interview.toJSON() : interview;
     return {
@@ -202,6 +235,11 @@ export class GrpcInterviewsController {
             ),
           }
         : undefined,
+      messages: (json.messages || []).map((m: any) => ({
+        role: m.role || "",
+        content: m.content || "",
+        created_at: m.createdAt ? new Date(m.createdAt).toISOString() : "",
+      })),
     } as any;
   }
 }

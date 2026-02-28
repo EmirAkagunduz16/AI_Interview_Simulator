@@ -113,6 +113,10 @@ export interface IGrpcInterviewService {
     user_id: string;
   }): Promise<IGrpcInterviewResponse>;
 
+  getInterviewByVapiCallId(data: {
+    vapi_call_id: string;
+  }): Promise<IGrpcInterviewResponse>;
+
   getUserInterviews(data: {
     user_id: string;
     page: number;
@@ -171,6 +175,13 @@ export interface IGrpcInterviewService {
     interview_id: string;
     user_id: string;
   }): Promise<IGrpcInterviewResponse>;
+
+  addInterviewMessage(data: {
+    interview_id: string;
+    user_id: string;
+    role: string;
+    content: string;
+  }): Promise<IGrpcInterviewResponse>;
 }
 
 export interface IGrpcInterviewReportData {
@@ -222,6 +233,11 @@ export interface IGrpcInterviewResponse {
       improvements: string[];
     }[];
   };
+  messages?: {
+    role: string;
+    content: string;
+    created_at: string;
+  }[];
 }
 
 // ===========================

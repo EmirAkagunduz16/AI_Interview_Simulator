@@ -8,6 +8,7 @@ import {
   ScoreGauge,
   CategoryScores,
   QuestionDetails,
+  ChatHistory,
 } from "@/features/results/components";
 import type { InterviewResult } from "@/features/results/types";
 import api from "@/lib/axios";
@@ -17,9 +18,9 @@ export default function ResultsPage() {
   const params = useParams();
   const id = params.id as string;
 
-  const [activeTab, setActiveTab] = useState<"overview" | "questions">(
-    "overview",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "questions" | "history"
+  >("overview");
 
   const {
     data,
@@ -83,13 +84,18 @@ export default function ResultsPage() {
             <ScoreGauge score={report.overallScore} />
             <CategoryScores report={report} />
 
-            {/* Tabs */}
             <div className="tabs">
               <button
                 className={`tab ${activeTab === "overview" ? "active" : ""}`}
                 onClick={() => setActiveTab("overview")}
               >
                 Genel Bakış
+              </button>
+              <button
+                className={`tab ${activeTab === "history" ? "active" : ""}`}
+                onClick={() => setActiveTab("history")}
+              >
+                Sohbet Geçmişi
               </button>
               <button
                 className={`tab ${activeTab === "questions" ? "active" : ""}`}
@@ -117,6 +123,8 @@ export default function ResultsPage() {
                   </div>
                 )}
               </>
+            ) : activeTab === "history" ? (
+              <ChatHistory messages={data.messages || []} />
             ) : (
               <QuestionDetails evaluations={report.questionEvaluations || []} />
             )}

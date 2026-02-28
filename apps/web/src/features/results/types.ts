@@ -21,6 +21,11 @@ export interface InterviewResult {
   status: string;
   report?: InterviewReport;
   createdAt: string;
+  messages?: {
+    role: "user" | "agent";
+    content: string;
+    createdAt: string;
+  }[];
 }
 
 /**

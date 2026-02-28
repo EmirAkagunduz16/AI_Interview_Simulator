@@ -197,6 +197,28 @@ export class InterviewsService {
     return updated!;
   }
 
+  async addMessage(
+    interviewId: string,
+    userId: string | undefined, // Not strictly checked for internal webhooks if not available easily
+    role: "user" | "agent",
+    content: string,
+  ): Promise<InterviewDocument> {
+    let interview;
+    if (userId && userId !== "anonymous") {
+      interview = await this.findById(userId, interviewId);
+    } else {
+      interview = await this.findByIdInternal(interviewId);
+    }
+
+    const updated = await this.interviewRepository.addMessage(
+      interview._id.toString(),
+      role,
+      content,
+    );
+
+    return updated!;
+  }
+
   async complete(userId: string, id: string): Promise<InterviewDocument> {
     const interview = await this.findById(userId, id);
 

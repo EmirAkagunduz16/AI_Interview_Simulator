@@ -24,6 +24,16 @@ export const InterviewAnswerSchema =
   SchemaFactory.createForClass(InterviewAnswer);
 
 @Schema({ _id: false })
+export class InterviewMessage {
+  @Prop({ required: true, enum: ["user", "agent"] }) role: string;
+  @Prop({ required: true }) content: string;
+  @Prop({ default: Date.now }) createdAt: Date;
+}
+
+export const InterviewMessageSchema =
+  SchemaFactory.createForClass(InterviewMessage);
+
+@Schema({ _id: false })
 export class InterviewReport {
   @Prop({ default: 0 }) technicalScore: number;
   @Prop({ default: 0 }) communicationScore: number;
@@ -76,6 +86,9 @@ export class Interview {
   @Prop({ type: [String], default: [] }) questionIds: string[];
   @Prop({ type: [InterviewAnswerSchema], default: [] })
   answers: InterviewAnswer[];
+
+  @Prop({ type: [InterviewMessageSchema], default: [] })
+  messages: InterviewMessage[];
 
   // Report
   @Prop({ type: InterviewReportSchema }) report?: InterviewReport;

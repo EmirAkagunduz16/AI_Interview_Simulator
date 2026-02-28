@@ -39,6 +39,13 @@ export interface IInterview {
   completedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+  messages?: IInterviewMessage[];
+}
+
+export interface IInterviewMessage {
+  role: "user" | "agent";
+  content: string;
+  createdAt: Date;
 }
 
 export interface IInterviewAnswer {
