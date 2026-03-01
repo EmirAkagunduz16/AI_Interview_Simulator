@@ -1,4 +1,6 @@
-import React from "react";
+"use client";
+
+import { Bot, User } from "lucide-react";
 import "./ChatHistory.scss";
 
 interface Message {
@@ -30,7 +32,7 @@ export default function ChatHistory({ messages }: ChatHistoryProps) {
           }`}
         >
           <div className="message-avatar">
-            {msg.role === "agent" ? "🤖" : "👤"}
+            {msg.role === "agent" ? <Bot size={18} /> : <User size={18} />}
           </div>
           <div className="message-content">
             <div className="message-header">

@@ -18,12 +18,21 @@
     margin-bottom: 2.5rem;
 
     h1 {
-      font-size: 2.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      font-size: 2rem;
       font-weight: 700;
       background: linear-gradient(135deg, #a78bfa, #60a5fa);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       margin-bottom: 0.5rem;
+
+      svg {
+        flex-shrink: 0;
+        -webkit-text-fill-color: #a78bfa;
+      }
     }
 
     p {
@@ -192,8 +201,8 @@
     transform: none;
   }
 
-  .start-icon {
-    font-size: 1.3rem;
+  svg {
+    flex-shrink: 0;
   }
 }
 
@@ -320,8 +329,11 @@
   }
 
   .orb-core {
-    font-size: 2.5rem;
     z-index: 1;
+    color: #c4b5fd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 
@@ -377,6 +389,9 @@
 
 /* Error Banner */
 .error-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.25);
   border-radius: 10px;
@@ -456,6 +471,10 @@
 }
 
 .end-call-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   padding: 0.9rem 2rem;
   background: rgba(239, 68, 68, 0.15);
   border: 1px solid rgba(239, 68, 68, 0.3);
@@ -473,6 +492,10 @@
 }
 
 .start-call-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   padding: 0.9rem 2rem;
   background: rgba(52, 211, 153, 0.15);
   border: 1px solid rgba(52, 211, 153, 0.3);
@@ -555,10 +578,21 @@
   gap: 0.75rem;
 }
 
+.completed-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4ade80;
+  margin-top: 1rem;
+}
+
 .view-results-btn,
 .dashboard-btn,
 .retry-btn {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   padding: 0.9rem;
   border-radius: 12px;
   font-size: 1rem;

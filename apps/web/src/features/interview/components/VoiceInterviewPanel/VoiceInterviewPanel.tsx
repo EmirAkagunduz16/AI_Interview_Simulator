@@ -1,5 +1,6 @@
 "use client";
 
+import { Mic, MicOff, PhoneOff, Phone, AlertCircle } from "lucide-react";
 import { FIELDS } from "../../data/interviewConfig";
 
 interface VoiceInterviewPanelProps {
@@ -60,7 +61,13 @@ export default function VoiceInterviewPanel({
           >
             <div className="orb-pulse" />
             <div className="orb-core">
-              {isSpeaking ? "🗣️" : isCallActive ? "🎤" : "⏳"}
+              {isSpeaking ? (
+                <Mic size={36} />
+              ) : isCallActive ? (
+                <MicOff size={36} />
+              ) : (
+                <Mic size={36} />
+              )}
             </div>
           </div>
         </div>
@@ -91,7 +98,8 @@ export default function VoiceInterviewPanel({
       {/* Error Display */}
       {error && (
         <div className="error-banner">
-          <span>⚠️ {error}</span>
+          <AlertCircle size={16} />
+          <span>{error}</span>
         </div>
       )}
 
@@ -99,11 +107,13 @@ export default function VoiceInterviewPanel({
       <div className="interview-controls">
         {!isCallActive && (
           <button className="start-call-btn" onClick={onStartCall}>
-            🎙️ Yeniden Bağlan
+            <Phone size={18} />
+            Yeniden Bağlan
           </button>
         )}
         <button className="end-call-btn" onClick={onEndCall}>
-          🚪 Mülakatı Bitir & Sonuçları Gör
+          <PhoneOff size={18} />
+          Mülakatı Bitir & Sonuçları Gör
         </button>
       </div>
     </div>

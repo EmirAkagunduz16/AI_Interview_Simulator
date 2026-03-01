@@ -5,6 +5,17 @@ import { useParams } from "next/navigation";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
+  ArrowLeft,
+  Mic,
+  LayoutDashboard,
+  FileText,
+  MessageSquare,
+  HelpCircle,
+  Lightbulb,
+  Loader2,
+  AlertTriangle,
+} from "lucide-react";
+import {
   ScoreGauge,
   CategoryScores,
   QuestionDetails,
@@ -45,7 +56,7 @@ export default function ResultsPage() {
     return (
       <div className="results-page">
         <div className="loading-state">
-          <div className="loader" />
+          <Loader2 size={32} className="loader-icon" />
           <p>Sonuçlar yükleniyor...</p>
         </div>
       </div>
@@ -56,7 +67,8 @@ export default function ResultsPage() {
     return (
       <div className="results-page">
         <div className="error-state">
-          <p>⚠️ {error || "Sonuçlar bulunamadı"}</p>
+          <AlertTriangle size={32} />
+          <p>{error || "Sonuçlar bulunamadı"}</p>
           <Link href="/dashboard">Dashboard&apos;a dön</Link>
         </div>
       </div>
@@ -65,16 +77,39 @@ export default function ResultsPage() {
 
   const report = data.report;
 
+  const tabs = [
+    {
+      id: "overview" as const,
+      label: "Genel Bakış",
+      icon: <FileText size={15} />,
+    },
+    {
+      id: "history" as const,
+      label: "Sohbet Geçmişi",
+      icon: <MessageSquare size={15} />,
+    },
+    ...(report
+      ? [
+          {
+            id: "questions" as const,
+            label: "Soru Detayları",
+            icon: <HelpCircle size={15} />,
+          },
+        ]
+      : []),
+  ];
+
   return (
     <div className="results-page">
       <div className="results-container">
         <div className="results-header">
           <Link href="/dashboard" className="back-link">
-            ← Dashboard
+            <ArrowLeft size={16} />
+            Dashboard
           </Link>
           <h1>Mülakat Sonuçları</h1>
           <p className="result-meta">
-            {data.field} • {data.techStack.join(", ")} •{" "}
+            {data.field} • {data.techStack?.join(", ") || "—"} •{" "}
             {new Date(data.createdAt).toLocaleDateString("tr-TR")}
           </p>
         </div>
@@ -87,39 +122,35 @@ export default function ResultsPage() {
         )}
 
         <div className="tabs">
-          <button
-            className={`tab ${activeTab === "overview" ? "active" : ""}`}
-            onClick={() => setActiveTab("overview")}
-          >
-            Genel Bakış
-          </button>
-          <button
-            className={`tab ${activeTab === "history" ? "active" : ""}`}
-            onClick={() => setActiveTab("history")}
-          >
-            Sohbet Geçmişi
-          </button>
-          {report && (
+          {tabs.map((tab) => (
             <button
-              className={`tab ${activeTab === "questions" ? "active" : ""}`}
-              onClick={() => setActiveTab("questions")}
+              key={tab.id}
+              className={`tab ${activeTab === tab.id ? "active" : ""}`}
+              onClick={() => setActiveTab(tab.id)}
             >
-              Soru Detayları
+              {tab.icon}
+              {tab.label}
             </button>
-          )}
+          ))}
         </div>
 
         {activeTab === "overview" ? (
           report ? (
             <>
               <div className="summary-card">
-                <h3>📝 Özet</h3>
+                <h3>
+                  <FileText size={16} />
+                  Özet
+                </h3>
                 <p>{report.summary}</p>
               </div>
 
               {report.recommendations?.length > 0 && (
                 <div className="recommendations-card">
-                  <h3>💡 Öneriler</h3>
+                  <h3>
+                    <Lightbulb size={16} />
+                    Öneriler
+                  </h3>
                   <ul>
                     {report.recommendations.map((r, i) => (
                       <li key={i}>{r}</li>
@@ -130,7 +161,10 @@ export default function ResultsPage() {
             </>
           ) : (
             <div className="summary-card">
-              <h3>⏳ Sonuçlar Hazırlanıyor</h3>
+              <h3>
+                <Loader2 size={16} className="loader-icon" />
+                Sonuçlar Hazırlanıyor
+              </h3>
               <p>
                 Değerlendirme henüz tamamlanmadı. Lütfen birkaç dakika sonra
                 tekrar kontrol edin.
@@ -145,10 +179,12 @@ export default function ResultsPage() {
 
         <div className="results-actions">
           <Link href="/interview" className="retry-btn">
-            🔄 Yeni Mülakat
+            <Mic size={16} />
+            Yeni Mülakat
           </Link>
           <Link href="/dashboard" className="dashboard-btn">
-            📋 Dashboard
+            <LayoutDashboard size={16} />
+            Dashboard
           </Link>
         </div>
       </div>

@@ -15,11 +15,14 @@
   margin-bottom: 2rem;
 
   .back-link {
-    display: inline-block;
-    color: #8888aa;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: #64748b;
     text-decoration: none;
     font-size: 0.85rem;
     margin-bottom: 0.75rem;
+    transition: color 0.2s;
     &:hover {
       color: #a78bfa;
     }
@@ -48,16 +51,12 @@
   justify-content: center;
   min-height: 60vh;
   gap: 1rem;
-  color: #888;
+  color: #64748b;
   text-align: center;
 
-  .loader {
-    width: 32px;
-    height: 32px;
-    border: 3px solid rgba(167, 139, 250, 0.2);
-    border-top-color: #a78bfa;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
+  .loader-icon {
+    animation: spin 1s linear infinite;
+    color: #8b5cf6;
   }
 
   a {
@@ -187,6 +186,9 @@
   margin-bottom: 1rem;
 
   h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
     font-size: 1rem;
     font-weight: 600;
     color: #c4b5fd;
@@ -227,21 +229,25 @@
 }
 
 .tab {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   padding: 0.5rem 1rem;
   background: transparent;
   border: none;
-  color: #7777aa;
-  font-size: 0.9rem;
+  color: #64748b;
+  font-size: 0.85rem;
   cursor: pointer;
   border-radius: 8px;
   transition: all 0.2s;
 
   &:hover {
-    color: #ccc;
+    color: #e2e8f0;
+    background: rgba(255, 255, 255, 0.03);
   }
   &.active {
-    background: rgba(167, 139, 250, 0.12);
-    color: #a78bfa;
+    background: rgba(139, 92, 246, 0.1);
+    color: #c4b5fd;
     font-weight: 500;
   }
 }
@@ -348,6 +354,10 @@
 }
 
 .retry-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
   background: linear-gradient(135deg, #a78bfa, #60a5fa);
   color: #fff;
   &:hover {
@@ -356,10 +366,14 @@
   }
 }
 
-.dashboard-btn {
+.results-actions .dashboard-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #ccc;
+  color: #94a3b8;
   &:hover {
     background: rgba(255, 255, 255, 0.08);
   }

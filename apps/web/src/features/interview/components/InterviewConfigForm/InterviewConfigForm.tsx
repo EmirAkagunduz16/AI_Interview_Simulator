@@ -1,6 +1,24 @@
 "use client";
 
+import {
+  Mic,
+  Code2,
+  Server,
+  Smartphone,
+  Container,
+  Database,
+  Zap,
+} from "lucide-react";
 import { FIELDS, TECH_OPTIONS, DIFFICULTIES } from "../../data/interviewConfig";
+
+const FIELD_ICONS: Record<string, React.ReactNode> = {
+  backend: <Server size={22} />,
+  frontend: <Code2 size={22} />,
+  fullstack: <Zap size={22} />,
+  mobile: <Smartphone size={22} />,
+  devops: <Container size={22} />,
+  data_science: <Database size={22} />,
+};
 
 interface InterviewConfigFormProps {
   field: string;
@@ -26,13 +44,16 @@ export default function InterviewConfigForm({
   return (
     <div className="config-container">
       <div className="config-header">
-        <h1>🎤 AI Mülakat Simülatörü</h1>
+        <h1>
+          <Mic size={28} />
+          AI Mülakat Simülatörü
+        </h1>
         <p>Mülakat tercihlerinizi belirleyin ve sesli mülakatınıza başlayın</p>
       </div>
 
       {/* Field Selection */}
       <div className="config-section">
-        <h2>📋 Mülakat Alanı</h2>
+        <h2>Mülakat Alanı</h2>
         <div className="field-grid">
           {FIELDS.map((f) => (
             <button
@@ -40,7 +61,7 @@ export default function InterviewConfigForm({
               className={`field-card ${field === f.id ? "active" : ""}`}
               onClick={() => onFieldChange(f.id)}
             >
-              <span className="field-icon">{f.icon}</span>
+              <span className="field-icon">{FIELD_ICONS[f.id] || f.icon}</span>
               <span className="field-label">{f.label}</span>
             </button>
           ))}
@@ -50,7 +71,7 @@ export default function InterviewConfigForm({
       {/* Tech Stack */}
       {field && (
         <div className="config-section">
-          <h2>🛠️ Teknoloji Stack</h2>
+          <h2>Teknoloji Stack</h2>
           <p className="hint">
             Mülakatta sorulmasını istediğiniz teknolojileri seçin
           </p>
@@ -71,7 +92,7 @@ export default function InterviewConfigForm({
       {/* Difficulty */}
       {field && (
         <div className="config-section">
-          <h2>📊 Zorluk Seviyesi</h2>
+          <h2>Zorluk Seviyesi</h2>
           <div className="difficulty-grid">
             {DIFFICULTIES.map((d) => (
               <button
@@ -90,7 +111,7 @@ export default function InterviewConfigForm({
       {/* Start Button */}
       {field && (
         <button className="start-button" onClick={onStart} disabled={!field}>
-          <span className="start-icon">🎙️</span>
+          <Mic size={20} />
           Mülakata Başla
         </button>
       )}
