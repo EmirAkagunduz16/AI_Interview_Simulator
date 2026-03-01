@@ -402,37 +402,62 @@ export class AiController implements OnModuleInit {
   ): Promise<any> {
     const { interviewId, answers } = functionCall.parameters;
 
+    this.logger.log(
+      `end_interview called — interviewId: ${interviewId}, headerUserId: ${headerUserId || "(empty)"}, ` +
+        `answers from params: ${answers?.length ?? 0}`,
+    );
+
     try {
       // Interview verisini al (gRPC)
       // Not: VAPI webhook @Public() olduğu için headerUserId boş olabilir.
-      // Bu yüzden interviewId ile doğrudan interview verisini çekiyoruz.
+      // gRPC controller boş userId gördüğünde findByIdInternal kullanır (userId check yok).
       let interviewData: any;
       try {
         interviewData = await firstValueFrom(
           this.interviewService.getInterview({
             interviewId,
-            // Birden fazla userId formatı dene — "anonymous" geçersizse bile veri çekilsin
-            userId: headerUserId || "",
+            userId: "", // boş gönder → gRPC controller findByIdInternal kulansın
           }) as any,
         );
-      } catch {
-        // userId eşleşmezse, cevapları doğrudan parametrelerden almayı dene
+        this.logger.log(
+          `Interview loaded — answers in DB: ${interviewData?.answers?.length ?? 0}, ` +
+            `field: ${interviewData?.field}, status: ${interviewData?.status}`,
+        );
+      } catch (e) {
         this.logger.warn(
-          `getInterview başarısız (userId: ${headerUserId || "anonymous"}), ` +
-            `parametrelerden cevap aranacak`,
+          `getInterview başarısız (interviewId: ${interviewId}): ${(e as any)?.message || e}`,
         );
         interviewData = null;
       }
 
       // Değerlendirme için cevapları hazırla
-      const answersForEval =
-        answers ||
-        interviewData?.answers?.map((a: any) => ({
-          question: a.questionTitle || a.question_title || `Soru`,
-          answer: a.answer,
-          order: 1,
-        })) ||
-        [];
+      // Öncelik: 1. interview document'taki kaydedilmiş cevaplar  2. function parametrelerinden gelen cevaplar
+      let answersForEval: {
+        question: string;
+        answer: string;
+        order: number;
+      }[] = [];
+
+      // DB'deki cevaplar (save_answer ile kaydedilen)
+      if (interviewData?.answers?.length > 0) {
+        answersForEval = interviewData.answers.map((a: any, idx: number) => ({
+          question: a.questionTitle || a.question_title || `Soru ${idx + 1}`,
+          answer: a.answer || "",
+          order: idx + 1,
+        }));
+        this.logger.log(`${answersForEval.length} cevap DB'den alındı`);
+      }
+      // Eğer DB'de yoksa, function parametrelerinden al
+      else if (answers?.length > 0) {
+        answersForEval = answers.map((a: any, idx: number) => ({
+          question: a.question || a.questionText || `Soru ${idx + 1}`,
+          answer: a.answer || "",
+          order: a.order || idx + 1,
+        }));
+        this.logger.log(
+          `${answersForEval.length} cevap parametrelerden alındı`,
+        );
+      }
 
       // Interview alanları — gRPC camelCase döner
       const interviewField = interviewData?.field || "fullstack";
@@ -440,12 +465,20 @@ export class AiController implements OnModuleInit {
         interviewData?.techStack || interviewData?.tech_stack || [];
 
       if (answersForEval.length > 0) {
+        this.logger.log(
+          `Gemini değerlendirmesi başlatılıyor — ${answersForEval.length} cevap, alan: ${interviewField}`,
+        );
+
         // Gemini ile değerlendir
         const evaluation = await this.geminiService.evaluateInterview({
           field: interviewField,
           techStack: interviewTechStack,
           answers: answersForEval,
         });
+
+        this.logger.log(
+          `Gemini değerlendirmesi tamamlandı — overallScore: ${evaluation.overallScore}`,
+        );
 
         // Interview-service'e raporu gönder (gRPC)
         try {
@@ -464,6 +497,7 @@ export class AiController implements OnModuleInit {
               overallFeedback: evaluation.summary,
             }) as any,
           );
+          this.logger.log(`Interview ${interviewId} report kaydedildi`);
         } catch (e) {
           this.logger.warn("Interview complete-with-report başarısız", e);
         }
@@ -476,6 +510,10 @@ export class AiController implements OnModuleInit {
           },
         };
       }
+
+      this.logger.warn(
+        `Interview ${interviewId} — hiç cevap bulunamadı, boş rapor gönderiliyor`,
+      );
 
       // Cevap yoksa boş rapor gönder (gRPC)
       try {

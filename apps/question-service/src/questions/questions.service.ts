@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import axios from "axios";
 import {
@@ -20,13 +20,24 @@ import {
 import { QuestionNotFoundException } from "../common/exceptions";
 
 @Injectable()
-export class QuestionsService {
+export class QuestionsService implements OnModuleInit {
   private readonly logger = new Logger(QuestionsService.name);
 
   constructor(
     private readonly questionRepository: QuestionRepository,
     private readonly configService: ConfigService,
   ) {}
+
+  async onModuleInit() {
+    try {
+      const result = await this.seed();
+      if (result.created > 0) {
+        this.logger.log(`Auto-seeded ${result.created} questions on startup`);
+      }
+    } catch (error) {
+      this.logger.warn("Auto-seed failed (non-fatal):", error);
+    }
+  }
 
   async create(dto: CreateQuestionDto): Promise<QuestionDocument> {
     const question = await this.questionRepository.create({
@@ -127,7 +138,7 @@ export class QuestionsService {
 
     try {
       const { data } = await axios.post(
-        `${aiServiceUrl}/ai/generate-questions`,
+        `${aiServiceUrl}/api/v1/ai/generate-questions`,
         {
           field: dto.field,
           techStack: dto.techStack,

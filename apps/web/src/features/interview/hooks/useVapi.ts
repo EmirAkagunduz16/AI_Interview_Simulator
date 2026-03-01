@@ -95,6 +95,24 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
       if (msg.type === "function-call") {
         handleVapiFunctionCall(msg, vapi, settersRef.current);
       }
+      // Save transcript messages (final only) to backend for chat history
+      if (
+        msg.type === "transcript" &&
+        msg.transcriptType === "final" &&
+        msg.transcript
+      ) {
+        const currentId = interviewIdRef.current;
+        if (currentId) {
+          api
+            .post(`/interviews/${currentId}/messages`, {
+              role: msg.role === "assistant" ? "agent" : "user",
+              content: msg.transcript,
+            })
+            .catch((err: unknown) =>
+              console.warn("Failed to save transcript message:", err),
+            );
+        }
+      }
     });
 
     vapi.on("error", (err: any) => {

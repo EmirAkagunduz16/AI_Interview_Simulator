@@ -3,6 +3,9 @@ import axios from "axios";
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/v1";
 
+/** Custom event name fired when auth session is invalidated */
+export const AUTH_LOGOUT_EVENT = "auth:logout";
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -10,6 +13,14 @@ const api = axios.create({
   },
   timeout: 30000,
 });
+
+// ── Helper: clear local storage + dispatch event (no hard refresh) ──
+function forceLogout() {
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("authUser");
+  window.dispatchEvent(new Event(AUTH_LOGOUT_EVENT));
+}
 
 // ── Request interceptor: Authorization header ────────────────────
 api.interceptors.request.use(
@@ -67,10 +78,7 @@ api.interceptors.response.use(
 
       if (!refreshToken) {
         isRefreshing = false;
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-        localStorage.removeItem("authUser");
-        window.location.href = "/login";
+        forceLogout();
         return Promise.reject(error);
       }
 
@@ -91,10 +99,7 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-        localStorage.removeItem("authUser");
-        window.location.href = "/login";
+        forceLogout();
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

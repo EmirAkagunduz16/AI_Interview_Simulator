@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import api from "@/lib/axios";
+import { AUTH_LOGOUT_EVENT } from "@/lib/axios";
 import {
   authApi,
   AuthResponse,
@@ -36,14 +37,34 @@ function readStoredUser(): AuthUser | null {
   }
 }
 
+/** Auth-related public pages that should NOT trigger redirect on 401 */
+const PUBLIC_AUTH_PATHS = ["/login", "/register"];
+
 /* ── Hook ─────────────────────────────────────────────────────── */
 
 export function useAuth() {
   const queryClient = useQueryClient();
   const router = useRouter();
+  const pathname = usePathname();
 
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // ── Listen for forced-logout event from axios interceptor ──
+  useEffect(() => {
+    const handleForceLogout = () => {
+      setUser(null);
+      queryClient.clear();
+      // Only navigate if NOT already on a public auth page
+      if (!PUBLIC_AUTH_PATHS.includes(pathname)) {
+        router.push("/login");
+      }
+    };
+
+    window.addEventListener(AUTH_LOGOUT_EVENT, handleForceLogout);
+    return () =>
+      window.removeEventListener(AUTH_LOGOUT_EVENT, handleForceLogout);
+  }, [pathname, queryClient, router]);
 
   // Hydrate from localStorage on mount AND validate the token server-side
   useEffect(() => {
@@ -69,6 +90,8 @@ export function useAuth() {
       })
       .catch(() => {
         // Token is expired/invalid and refresh also failed
+        // Just clear state quietly — the AUTH_LOGOUT_EVENT from
+        // the interceptor will handle navigation if needed
         clearAuthData();
         setUser(null);
         setIsLoading(false);

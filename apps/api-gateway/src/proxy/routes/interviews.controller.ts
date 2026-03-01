@@ -137,4 +137,21 @@ export class InterviewsController implements OnModuleInit {
       }),
     );
   }
+
+  @Post(":id/messages")
+  @ApiOperation({ summary: "Add message to interview (transcript)" })
+  async addMessage(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Body() body: { role: string; content: string },
+  ) {
+    return firstValueFrom(
+      (this.interviewService as any).addInterviewMessage({
+        interviewId: id,
+        userId: req.user.userId,
+        role: body.role,
+        content: body.content,
+      }),
+    );
+  }
 }

@@ -108,7 +108,7 @@ export class QuestionsController implements OnModuleInit {
     const result: any = await firstValueFrom(
       this.questionService.generateQuestions({
         field: body.field,
-        tech_stack: body.techStack || body.tech_stack || [],
+        techStack: body.techStack || body.tech_stack || [],
         difficulty: body.difficulty,
         count: body.count,
       }) as any,
