@@ -88,7 +88,7 @@ export default function ResultsPage() {
       label: "Sohbet Geçmişi",
       icon: <MessageSquare size={15} />,
     },
-    ...(report
+    ...(report?.questionEvaluations?.length
       ? [
           {
             id: "questions" as const,

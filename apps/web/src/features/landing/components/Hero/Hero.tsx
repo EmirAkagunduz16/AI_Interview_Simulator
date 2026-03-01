@@ -26,11 +26,6 @@ const Hero = () => {
       </div>
 
       <div className="hero__content">
-        <div className="hero__badge">
-          <span className="hero__badge-icon">&#x1F916;</span>
-          <span>Yapay Zeka Destekli</span>
-        </div>
-
         <h1 className="hero__title">
           Mülakat Hazırlığında
           <span className="hero__title-highlight"> Yeni Nesil</span>
@@ -66,23 +61,8 @@ const Hero = () => {
             className="hero__btn hero__btn--secondary"
             onClick={handleHowItWorks}
           >
-            Nasil Calisir?
+            Nasıl Çalışır ?
           </button>
-        </div>
-
-        <div className="hero__stats">
-          <div className="hero__stat">
-            <span className="hero__stat-number">10K+</span>
-            <span className="hero__stat-label">Başarılı Mülakat</span>
-          </div>
-          <div className="hero__stat">
-            <span className="hero__stat-number">95%</span>
-            <span className="hero__stat-label">Memnuniyet Orani</span>
-          </div>
-          <div className="hero__stat">
-            <span className="hero__stat-number">50+</span>
-            <span className="hero__stat-label">Teknoloji Alani</span>
-          </div>
         </div>
       </div>
 

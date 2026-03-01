@@ -1,6 +1,16 @@
 "use client";
 
-import { Mic, MicOff, PhoneOff, Phone, AlertCircle } from "lucide-react";
+import {
+  Mic,
+  MicOff,
+  PhoneOff,
+  Phone,
+  AlertCircle,
+  Radio,
+  Clock,
+  MessageSquare,
+} from "lucide-react";
+import { useState, useEffect } from "react";
 import { FIELDS } from "../../data/interviewConfig";
 
 interface VoiceInterviewPanelProps {
@@ -29,91 +39,144 @@ export default function VoiceInterviewPanel({
   onEndCall,
 }: VoiceInterviewPanelProps) {
   const fieldInfo = FIELDS.find((f) => f.id === field);
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!isCallActive) return;
+    const interval = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(interval);
+  }, [isCallActive]);
+
+  const formatTime = (s: number) => {
+    const min = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${min.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
+  };
+
+  const statusText = isSpeaking
+    ? "AI Konuşuyor..."
+    : isCallActive
+      ? "Dinliyor — Konuşabilirsiniz"
+      : "Bağlantı bekleniyor...";
 
   return (
-    <div className="interview-container">
-      {/* Header */}
-      <div className="interview-header">
-        <div className="interview-info">
-          <span className="field-badge">
-            {fieldInfo?.icon} {fieldInfo?.label}
-          </span>
-          <span className="tech-list">
-            {techStack.join(" • ") || "General"}
-          </span>
+    <div className="voice-panel">
+      {/* Top Bar */}
+      <div className="voice-topbar">
+        <div className="topbar-left">
+          <div className="topbar-badge">
+            <Radio size={14} />
+            <span>Canlı Mülakat</span>
+          </div>
+          <div className="topbar-field">
+            {fieldInfo?.label} • {techStack.join(", ") || "General"}
+          </div>
         </div>
-        <div className="call-status">
-          <span
-            className={`status-dot ${isConnected ? "connected" : "disconnected"}`}
-          />
-          {isConnected ? "Bağlı" : "Bağlanıyor..."}
+        <div className="topbar-right">
+          <div className="topbar-timer">
+            <Clock size={14} />
+            <span>{formatTime(elapsed)}</span>
+          </div>
+          <div
+            className={`topbar-connection ${isConnected ? "connected" : ""}`}
+          >
+            <span className="conn-dot" />
+            {isConnected ? "Bağlı" : "Bağlanıyor..."}
+          </div>
         </div>
       </div>
 
-      {/* Voice Visualizer */}
-      <div className="voice-area">
-        <div
-          className={`voice-orb ${isSpeaking ? "speaking" : ""} ${isCallActive ? "active" : ""}`}
-        >
+      {/* Main Area */}
+      <div className="voice-main">
+        {/* Orb */}
+        <div className="voice-center">
           <div
-            className="orb-inner"
-            style={{ transform: `scale(${1 + volumeLevel * 0.3})` }}
+            className={`orb-wrapper ${isSpeaking ? "speaking" : ""} ${isCallActive ? "active" : ""}`}
           >
-            <div className="orb-pulse" />
-            <div className="orb-core">
+            {/* Animated rings */}
+            <div
+              className="orb-ring ring-1"
+              style={{ transform: `scale(${1 + volumeLevel * 0.5})` }}
+            />
+            <div
+              className="orb-ring ring-2"
+              style={{ transform: `scale(${1 + volumeLevel * 0.35})` }}
+            />
+            <div
+              className="orb-ring ring-3"
+              style={{ transform: `scale(${1 + volumeLevel * 0.2})` }}
+            />
+
+            <div
+              className="orb-core"
+              style={{ transform: `scale(${1 + volumeLevel * 0.15})` }}
+            >
               {isSpeaking ? (
-                <Mic size={36} />
+                <Mic size={32} strokeWidth={1.5} />
               ) : isCallActive ? (
-                <MicOff size={36} />
+                <MicOff size={32} strokeWidth={1.5} />
               ) : (
-                <Mic size={36} />
+                <Mic size={32} strokeWidth={1.5} />
               )}
             </div>
           </div>
+
+          {/* Status text */}
+          <div className="voice-status">
+            <span className={`status-text ${isSpeaking ? "speaking" : ""}`}>
+              {statusText}
+            </span>
+          </div>
+
+          {/* Volume visualizer */}
+          <div className="voice-visualizer">
+            {Array.from({ length: 24 }).map((_, i) => (
+              <div
+                key={i}
+                className="viz-bar"
+                style={{
+                  height: `${Math.max(3, volumeLevel * 50 * Math.sin((i / 24) * Math.PI))}px`,
+                  opacity:
+                    volumeLevel > 0.05
+                      ? 0.7 + Math.sin((i / 24) * Math.PI) * 0.3
+                      : 0.15,
+                }}
+              />
+            ))}
+          </div>
         </div>
 
-        {/* Volume Bars */}
-        <div className="volume-bars">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div
-              key={i}
-              className="volume-bar"
-              style={{
-                height: `${Math.max(4, volumeLevel * 60 * Math.sin((i / 12) * Math.PI))}px`,
-                opacity: volumeLevel > 0.05 ? 0.8 : 0.2,
-              }}
-            />
-          ))}
-        </div>
+        {/* Question panel */}
+        {currentQuestion && (
+          <div className="question-panel">
+            <div className="question-header">
+              <MessageSquare size={14} />
+              <span>Güncel Soru</span>
+            </div>
+            <p className="question-content">{currentQuestion}</p>
+          </div>
+        )}
       </div>
 
-      {/* Current Question */}
-      {currentQuestion && (
-        <div className="question-display">
-          <span className="question-label">Güncel Soru</span>
-          <p className="question-text">{currentQuestion}</p>
-        </div>
-      )}
-
-      {/* Error Display */}
+      {/* Error */}
       {error && (
-        <div className="error-banner">
+        <div className="voice-error">
           <AlertCircle size={16} />
           <span>{error}</span>
         </div>
       )}
 
-      {/* Controls */}
-      <div className="interview-controls">
+      {/* Bottom Controls */}
+      <div className="voice-controls">
         {!isCallActive && (
-          <button className="start-call-btn" onClick={onStartCall}>
+          <button className="ctrl-btn ctrl-reconnect" onClick={onStartCall}>
             <Phone size={18} />
-            Yeniden Bağlan
+            <span>Yeniden Bağlan</span>
           </button>
         )}
-        <button className="end-call-btn" onClick={onEndCall}>
+        <button className="ctrl-btn ctrl-end" onClick={onEndCall}>
           <PhoneOff size={18} />
-          Mülakatı Bitir & Sonuçları Gör
+          <span>Mülakatı Bitir</span>
         </button>
       </div>
     </div>

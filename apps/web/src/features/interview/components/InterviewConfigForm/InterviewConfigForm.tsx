@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import {
+  ArrowLeft,
   Mic,
   Code2,
   Server,
@@ -43,6 +45,13 @@ export default function InterviewConfigForm({
 
   return (
     <div className="config-container">
+      <div className="config-back">
+        <Link href="/dashboard" className="back-link">
+          <ArrowLeft size={18} />
+          <span>Dashboard&apos;a Dön</span>
+        </Link>
+      </div>
+
       <div className="config-header">
         <h1>
           <Mic size={28} />
