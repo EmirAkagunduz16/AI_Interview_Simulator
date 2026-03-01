@@ -213,6 +213,7 @@ export class AiController implements OnModuleInit {
             count: questionCount,
             category: field,
             difficulty,
+            tags: (techStack || []).join(","),
           }) as any,
         );
         questions = result.questions || [];
@@ -241,6 +242,7 @@ export class AiController implements OnModuleInit {
               count: questionCount,
               category: field,
               difficulty,
+              tags: (techStack || []).join(","),
             }) as any,
           );
           questions = retryResult.questions || genResult.questions || [];

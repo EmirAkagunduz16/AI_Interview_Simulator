@@ -168,7 +168,7 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
     vapiRef.current.start({
       transcriber: {
         provider: "deepgram",
-        model: "nova-2",
+        model: "nova-3",
         language: "tr",
         keywords: [
           "NestJS:5",

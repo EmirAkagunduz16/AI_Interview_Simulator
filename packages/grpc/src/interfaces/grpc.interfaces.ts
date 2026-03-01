@@ -265,6 +265,7 @@ export interface IGrpcQuestionService {
     type?: string;
     difficulty?: string;
     category?: string;
+    tags?: string;
   }): Promise<{ questions: IGrpcQuestionResponse[] }>;
 
   getCategories(data: Record<string, never>): Promise<{ items: string[] }>;

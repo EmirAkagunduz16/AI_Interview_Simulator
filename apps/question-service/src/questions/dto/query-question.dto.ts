@@ -1,7 +1,7 @@
-import { IsString, IsEnum, IsOptional, IsNumber, Min } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { QuestionType, Difficulty } from '../entities/question.entity';
+import { IsString, IsEnum, IsOptional, IsNumber, Min } from "class-validator";
+import { ApiPropertyOptional } from "@nestjs/swagger";
+import { Type } from "class-transformer";
+import { QuestionType, Difficulty } from "../entities/question.entity";
 
 export class QueryQuestionsDto {
   @ApiPropertyOptional({ enum: QuestionType })
@@ -19,7 +19,7 @@ export class QueryQuestionsDto {
   @IsOptional()
   category?: string;
 
-  @ApiPropertyOptional({ type: String, description: 'Comma-separated tags' })
+  @ApiPropertyOptional({ type: String, description: "Comma-separated tags" })
   @IsString()
   @IsOptional()
   tags?: string;
@@ -54,6 +54,14 @@ export class RandomQuestionsDto {
   @IsString()
   @IsOptional()
   category?: string;
+
+  @ApiPropertyOptional({
+    type: String,
+    description: "Comma-separated tags (tech stack)",
+  })
+  @IsString()
+  @IsOptional()
+  tags?: string;
 
   @ApiPropertyOptional({ default: 5 })
   @Type(() => Number)

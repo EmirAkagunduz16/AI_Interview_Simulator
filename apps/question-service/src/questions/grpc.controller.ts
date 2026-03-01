@@ -45,6 +45,7 @@ export class GrpcQuestionsController {
     type?: string;
     difficulty?: string;
     category?: string;
+    tags?: string;
   }) {
     this.logger.debug(`gRPC GetRandomQuestions count=${data.count}`);
     const questions = await this.questionsService.findRandom(data as any);

@@ -18,6 +18,7 @@ import {
   Difficulty,
 } from "./entities/question.entity";
 import { QuestionNotFoundException } from "../common/exceptions";
+import { getSeedQuestions } from "./data/seed-questions";
 
 @Injectable()
 export class QuestionsService implements OnModuleInit {
@@ -89,6 +90,9 @@ export class QuestionsService implements OnModuleInit {
         type: query.type,
         difficulty: query.difficulty,
         category: query.category,
+        tags: query.tags
+          ? query.tags.split(",").map((t) => t.trim())
+          : undefined,
       },
       query.count || 5,
     );
@@ -174,109 +178,42 @@ export class QuestionsService implements OnModuleInit {
   }
 
   async seed(): Promise<{ created: number }> {
-    const count = await this.questionRepository.countQuestions();
-    if (count > 0) {
-      this.logger.log("Questions already seeded, skipping...");
-      return { created: 0 };
+    const seedQuestions = getSeedQuestions();
+    const categories = [...new Set(seedQuestions.map((q) => q.category))];
+    let totalCreated = 0;
+
+    for (const category of categories) {
+      const existingCount = await this.questionRepository.countQuestions({
+        category,
+      });
+
+      if (existingCount >= 5) {
+        continue; // This category already has enough questions
+      }
+
+      const questionsForCategory = seedQuestions.filter(
+        (q) => q.category === category,
+      );
+
+      // Only add questions that don't already exist (by title)
+      for (const q of questionsForCategory) {
+        const existing = await this.questionRepository.findAllQuestions(
+          { category: q.category },
+          { page: 1, limit: 100 },
+        );
+        const alreadyExists = existing.questions.some(
+          (eq) => eq.title === q.title,
+        );
+        if (!alreadyExists) {
+          await this.questionRepository.create(q as any);
+          totalCreated++;
+        }
+      }
     }
 
-    const seedQuestions = this.getSeedQuestions();
-    await this.questionRepository.createMany(seedQuestions);
-    this.logger.log(`Seeded ${seedQuestions.length} questions`);
-    return { created: seedQuestions.length };
-  }
-
-  private getSeedQuestions(): Partial<QuestionDocument>[] {
-    return [
-      {
-        title: "Tell me about yourself",
-        content:
-          "Give a brief introduction about your background, experience, and what you are looking for.",
-        hints:
-          "Keep it professional, focus on relevant experience, and show enthusiasm.",
-        sampleAnswer: "I am a software engineer with 3 years of experience...",
-        type: QuestionType.BEHAVIORAL,
-        difficulty: Difficulty.EASY,
-        category: "Introduction",
-        tags: ["common", "introduction", "general"],
-      },
-      {
-        title: "Describe a challenging project",
-        content:
-          "Tell me about a project where you faced significant challenges and how you overcame them.",
-        hints: "Use the STAR method: Situation, Task, Action, Result.",
-        type: QuestionType.BEHAVIORAL,
-        difficulty: Difficulty.MEDIUM,
-        category: "Problem Solving",
-        tags: ["problem-solving", "experience", "challenges"],
-      },
-      {
-        title: "What is the difference between REST and GraphQL?",
-        content:
-          "Explain the key differences between REST APIs and GraphQL, including their pros and cons.",
-        sampleAnswer:
-          "REST uses multiple endpoints with fixed data structures, while GraphQL uses a single endpoint with flexible queries...",
-        type: QuestionType.TECHNICAL,
-        difficulty: Difficulty.MEDIUM,
-        category: "Backend Development",
-        tags: ["api", "rest", "graphql", "backend"],
-      },
-      {
-        title: "Explain Big O Notation",
-        content:
-          "What is Big O notation and why is it important in algorithm analysis?",
-        hints: "Discuss time and space complexity with examples.",
-        type: QuestionType.TECHNICAL,
-        difficulty: Difficulty.EASY,
-        category: "Algorithms",
-        tags: ["algorithms", "complexity", "fundamentals"],
-      },
-      {
-        title: "Reverse a Linked List",
-        content:
-          "Write a function to reverse a singly linked list. Explain your approach and analyze the complexity.",
-        hints: "Consider both iterative and recursive approaches.",
-        type: QuestionType.CODING,
-        difficulty: Difficulty.MEDIUM,
-        category: "Data Structures",
-        tags: ["linked-list", "coding", "data-structures"],
-      },
-      {
-        title: "Design a URL Shortener",
-        content:
-          "Design a system like bit.ly that shortens URLs. Consider scalability, storage, and collision handling.",
-        hints: "Think about encoding schemes, database design, and caching.",
-        type: QuestionType.SYSTEM_DESIGN,
-        difficulty: Difficulty.HARD,
-        category: "System Design",
-        tags: ["system-design", "scalability", "database"],
-      },
-      {
-        title: "How do you handle conflict with a coworker?",
-        content:
-          "Describe a situation where you had a disagreement with a colleague and how you resolved it.",
-        hints:
-          "Focus on communication, understanding different perspectives, and finding common ground.",
-        type: QuestionType.SITUATIONAL,
-        difficulty: Difficulty.MEDIUM,
-        category: "Teamwork",
-        tags: ["teamwork", "conflict-resolution", "communication"],
-      },
-      {
-        title: "Which HTTP method is idempotent?",
-        content:
-          "Which of the following HTTP methods are considered idempotent?",
-        type: QuestionType.MCQ,
-        difficulty: Difficulty.EASY,
-        category: "Web Development",
-        tags: ["http", "web", "api"],
-        mcqOptions: [
-          { text: "GET", isCorrect: true },
-          { text: "POST", isCorrect: false },
-          { text: "PUT", isCorrect: true },
-          { text: "DELETE", isCorrect: true },
-        ],
-      },
-    ];
+    if (totalCreated > 0) {
+      this.logger.log(`Seeded ${totalCreated} new questions`);
+    }
+    return { created: totalCreated };
   }
 }
