@@ -16,10 +16,10 @@ export class GrpcInterviewsController {
       `gRPC GetInterview: ${interviewId} (user: ${userId || "none"})`,
     );
 
-    // userId boşsa (ör. VAPI webhook @Public() endpoint'ten geliyorsa)
-    // doğrudan interviewId ile çek
+    // userId boşsa veya "anonymous" ise (ör. VAPI webhook @Public() endpoint'ten geliyorsa)
+    // doğrudan interviewId ile çek — userId eşleştirme yapma
     let interview;
-    if (userId) {
+    if (userId && userId !== "anonymous") {
       interview = await this.interviewsService.findById(userId, interviewId);
     } else {
       interview = await this.interviewsService.findByIdInternal(interviewId);
@@ -105,8 +105,19 @@ export class GrpcInterviewsController {
   async startInterview(data: { interview_id: string; user_id: string }) {
     const interviewId = data.interview_id || (data as any).interviewId;
     const userId = data.user_id || (data as any).userId;
-    this.logger.debug(`gRPC StartInterview: ${interviewId}`);
-    const interview = await this.interviewsService.start(userId, interviewId);
+    this.logger.debug(
+      `gRPC StartInterview: ${interviewId} (user: ${userId || "none"})`,
+    );
+
+    // "anonymous" veya boş userId → internal start (userId check yok)
+    let interview;
+    if (userId && userId !== "anonymous") {
+      interview = await this.interviewsService.start(userId, interviewId);
+    } else {
+      // Internal: sadece interviewId ile bul ve başlat
+      const found = await this.interviewsService.findByIdInternal(interviewId);
+      interview = await this.interviewsService.start(found.userId, interviewId);
+    }
     return this.toGrpcResponse(interview);
   }
 
@@ -123,16 +134,24 @@ export class GrpcInterviewsController {
     const questionId = data.question_id || (data as any).questionId;
     const questionTitle = data.question_title || (data as any).questionTitle;
 
-    this.logger.debug(`gRPC SubmitAnswer: ${interviewId}`);
-    const interview = await this.interviewsService.submitAnswer(
-      userId,
-      interviewId,
-      {
-        questionId,
-        questionTitle,
-        answer: data.answer,
-      } as any,
+    this.logger.debug(
+      `gRPC SubmitAnswer: ${interviewId} (user: ${userId || "none"})`,
     );
+
+    // "anonymous" veya boş userId → internal submit (userId check yok)
+    let interview;
+    if (userId && userId !== "anonymous") {
+      interview = await this.interviewsService.submitAnswer(
+        userId,
+        interviewId,
+        { questionId, questionTitle, answer: data.answer } as any,
+      );
+    } else {
+      interview = await this.interviewsService.submitAnswerInternal(
+        interviewId,
+        { questionId, questionTitle, answer: data.answer } as any,
+      );
+    }
     return this.toGrpcResponse(interview);
   }
 

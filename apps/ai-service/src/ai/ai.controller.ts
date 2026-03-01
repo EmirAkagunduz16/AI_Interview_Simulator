@@ -103,15 +103,15 @@ export class AiController implements OnModuleInit {
           try {
             const interview: any = await firstValueFrom(
               this.interviewService.getInterviewByVapiCallId({
-                vapi_call_id: message.call.id,
+                vapiCallId: message.call.id,
               }) as any,
             );
 
             if (interview && interview.id) {
               await firstValueFrom(
                 this.interviewService.addInterviewMessage({
-                  interview_id: interview.id,
-                  user_id: interview.user_id || interview.userId || "anonymous",
+                  interviewId: interview.id,
+                  userId: interview.userId || interview.user_id || "anonymous",
                   role: message.role === "assistant" ? "agent" : "user",
                   content: message.transcript,
                 }) as any,
@@ -187,20 +187,20 @@ export class AiController implements OnModuleInit {
       if (interviewId) {
         interview = await firstValueFrom(
           this.interviewService.getInterview({
-            interview_id: interviewId,
-            user_id: userId,
+            interviewId,
+            userId,
           }) as any,
         );
       } else {
         interview = await firstValueFrom(
           this.interviewService.createInterview({
-            user_id: userId,
+            userId,
             field,
-            tech_stack: techStack || [],
+            techStack: techStack || [],
             difficulty: difficulty || "intermediate",
             title: `${field} Developer Interview`,
-            question_count: questionCount,
-            vapi_call_id: message.call?.id,
+            questionCount,
+            vapiCallId: message.call?.id,
           }) as any,
         );
       }
@@ -229,7 +229,7 @@ export class AiController implements OnModuleInit {
           const genResult: any = await firstValueFrom(
             this.questionService.generateQuestions({
               field: field || "fullstack",
-              tech_stack: techStack || [],
+              techStack: techStack || [],
               difficulty: difficulty || "intermediate",
               count: questionCount,
             }) as any,
@@ -274,8 +274,8 @@ export class AiController implements OnModuleInit {
       // 5. Mülakatı başlat (gRPC)
       await firstValueFrom(
         this.interviewService.startInterview({
-          interview_id: interview.id,
-          user_id: userId,
+          interviewId: interview.id,
+          userId,
         }) as any,
       );
 
@@ -293,7 +293,10 @@ export class AiController implements OnModuleInit {
         },
       };
     } catch (error) {
-      this.logger.error("save_preferences başarısız", error);
+      this.logger.error(
+        `save_preferences başarısız: ${(error as any)?.message || error}`,
+        (error as any)?.stack || "",
+      );
       return {
         result: {
           error: "Mülakat oluşturulamadı, lütfen tekrar deneyin.",
@@ -317,10 +320,10 @@ export class AiController implements OnModuleInit {
     try {
       await firstValueFrom(
         this.interviewService.submitAnswer({
-          interview_id: interviewId,
-          user_id: headerUserId || "anonymous",
-          question_id: `q_${questionOrder}`,
-          question_title: questionText || `Soru ${questionOrder}`,
+          interviewId,
+          userId: headerUserId || "anonymous",
+          questionId: `q_${questionOrder}`,
+          questionTitle: questionText || `Soru ${questionOrder}`,
           answer,
         }) as any,
       );
@@ -407,9 +410,9 @@ export class AiController implements OnModuleInit {
       try {
         interviewData = await firstValueFrom(
           this.interviewService.getInterview({
-            interview_id: interviewId,
+            interviewId,
             // Birden fazla userId formatı dene — "anonymous" geçersizse bile veri çekilsin
-            user_id: headerUserId || "",
+            userId: headerUserId || "",
           }) as any,
         );
       } catch {
@@ -448,17 +451,17 @@ export class AiController implements OnModuleInit {
         try {
           await firstValueFrom(
             this.interviewService.completeWithReport({
-              interview_id: interviewId,
+              interviewId,
               report: {
-                technical_score: evaluation.technicalScore,
-                communication_score: evaluation.communicationScore,
-                diction_score: evaluation.dictionScore,
-                confidence_score: evaluation.confidenceScore,
-                overall_score: evaluation.overallScore,
+                technicalScore: evaluation.technicalScore,
+                communicationScore: evaluation.communicationScore,
+                dictionScore: evaluation.dictionScore,
+                confidenceScore: evaluation.confidenceScore,
+                overallScore: evaluation.overallScore,
                 summary: evaluation.summary,
                 recommendations: evaluation.recommendations,
               },
-              overall_feedback: evaluation.summary,
+              overallFeedback: evaluation.summary,
             }) as any,
           );
         } catch (e) {
@@ -478,17 +481,17 @@ export class AiController implements OnModuleInit {
       try {
         await firstValueFrom(
           this.interviewService.completeWithReport({
-            interview_id: interviewId,
+            interviewId,
             report: {
-              technical_score: 0,
-              communication_score: 0,
-              diction_score: 0,
-              confidence_score: 0,
-              overall_score: 0,
+              technicalScore: 0,
+              communicationScore: 0,
+              dictionScore: 0,
+              confidenceScore: 0,
+              overallScore: 0,
               summary: "Mülakat erken sonlandırıldı veya hiç cevap verilmedi.",
               recommendations: ["Mülakat pratiği yapmaya devam edin."],
             },
-            overall_feedback:
+            overallFeedback:
               "Mülakat erken sonlandırıldığı için değerlendirme yapılamadı.",
           }) as any,
         );

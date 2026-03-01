@@ -109,16 +109,16 @@ export interface IGrpcUserResponse {
 
 export interface IGrpcInterviewService {
   getInterview(data: {
-    interview_id: string;
-    user_id: string;
+    interviewId: string;
+    userId: string;
   }): Promise<IGrpcInterviewResponse>;
 
   getInterviewByVapiCallId(data: {
-    vapi_call_id: string;
+    vapiCallId: string;
   }): Promise<IGrpcInterviewResponse>;
 
   getUserInterviews(data: {
-    user_id: string;
+    userId: string;
     page: number;
     limit: number;
     status?: string;
@@ -126,70 +126,70 @@ export interface IGrpcInterviewService {
     interviews: IGrpcInterviewResponse[];
     total: number;
     page: number;
-    total_pages: number;
+    totalPages: number;
   }>;
 
-  getInterviewStats(data: { user_id: string }): Promise<{
-    total_interviews: number;
-    completed_interviews: number;
-    average_score: number;
-    best_score: number;
-    total_questions_answered: number;
+  getInterviewStats(data: { userId: string }): Promise<{
+    totalInterviews: number;
+    completedInterviews: number;
+    averageScore: number;
+    bestScore: number;
+    totalQuestionsAnswered: number;
   }>;
 
   createInterview(data: {
-    user_id: string;
+    userId: string;
     field: string;
-    tech_stack: string[];
+    techStack: string[];
     difficulty: string;
     title?: string;
-    vapi_call_id?: string;
-    question_count?: number;
+    vapiCallId?: string;
+    questionCount?: number;
   }): Promise<IGrpcInterviewResponse>;
 
   startInterview(data: {
-    interview_id: string;
-    user_id: string;
+    interviewId: string;
+    userId: string;
   }): Promise<IGrpcInterviewResponse>;
 
   submitAnswer(data: {
-    interview_id: string;
-    user_id: string;
-    question_id: string;
-    question_title: string;
+    interviewId: string;
+    userId: string;
+    questionId: string;
+    questionTitle: string;
     answer: string;
   }): Promise<IGrpcInterviewResponse>;
 
   completeInterview(data: {
-    interview_id: string;
-    user_id: string;
+    interviewId: string;
+    userId: string;
   }): Promise<IGrpcInterviewResponse>;
 
   completeWithReport(data: {
-    interview_id: string;
+    interviewId: string;
     report: IGrpcInterviewReportData;
-    overall_feedback: string;
+    overallFeedback: string;
   }): Promise<IGrpcInterviewResponse>;
 
   cancelInterview(data: {
-    interview_id: string;
-    user_id: string;
+    interviewId: string;
+    userId: string;
   }): Promise<IGrpcInterviewResponse>;
 
   addInterviewMessage(data: {
-    interview_id: string;
-    user_id: string;
+    interviewId: string;
+    userId: string;
     role: string;
     content: string;
   }): Promise<IGrpcInterviewResponse>;
 }
 
 export interface IGrpcInterviewReportData {
-  technical_score: number;
-  communication_score: number;
-  diction_score: number;
-  confidence_score: number;
-  overall_score: number;
+  technicalScore: number;
+  communicationScore: number;
+  dictionScore: number;
+  confidenceScore: number;
+  overallScore: number;
   summary: string;
   recommendations: string[];
 }
@@ -284,7 +284,7 @@ export interface IGrpcQuestionService {
 
   generateQuestions(data: {
     field: string;
-    tech_stack: string[];
+    techStack: string[];
     difficulty: string;
     count: number;
   }): Promise<{ questions: IGrpcQuestionResponse[] }>;
