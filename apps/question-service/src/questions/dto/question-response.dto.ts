@@ -1,31 +1,30 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { QuestionType, Difficulty } from '../entities/question.entity';
+import { QuestionType, Difficulty } from "../entities/question.entity";
 
 export class McqOptionResponseDto {
-  @ApiProperty() text: string;
-  @ApiProperty() isCorrect: boolean;
+  text: string;
+  isCorrect: boolean;
 }
 
 export class QuestionResponseDto {
-  @ApiProperty() id: string;
-  @ApiProperty() title: string;
-  @ApiProperty() content: string;
-  @ApiPropertyOptional() hints?: string;
-  @ApiPropertyOptional() sampleAnswer?: string;
-  @ApiProperty({ enum: QuestionType }) type: QuestionType;
-  @ApiProperty({ enum: Difficulty }) difficulty: Difficulty;
-  @ApiProperty() category: string;
-  @ApiProperty({ type: [String] }) tags: string[];
-  @ApiProperty({ type: [McqOptionResponseDto] }) mcqOptions: McqOptionResponseDto[];
-  @ApiProperty() usageCount: number;
-  @ApiProperty() isActive: boolean;
-  @ApiProperty() createdAt: Date;
-  @ApiProperty() updatedAt: Date;
+  id: string;
+  title: string;
+  content: string;
+  hints?: string;
+  sampleAnswer?: string;
+  type: QuestionType;
+  difficulty: Difficulty;
+  category: string;
+  tags: string[];
+  mcqOptions: McqOptionResponseDto[];
+  usageCount: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export class PaginatedQuestionsResponseDto {
-  @ApiProperty({ type: [QuestionResponseDto] }) questions: QuestionResponseDto[];
-  @ApiProperty() total: number;
-  @ApiProperty() page: number;
-  @ApiProperty() totalPages: number;
+  questions: QuestionResponseDto[];
+  total: number;
+  page: number;
+  totalPages: number;
 }

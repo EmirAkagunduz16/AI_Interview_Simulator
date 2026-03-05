@@ -1,7 +1,6 @@
 import { NestFactory } from "@nestjs/core";
 import { ValidationPipe, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 import { GlobalExceptionFilter } from "./common/filters";
 import { LoggingInterceptor } from "./common/interceptors";
@@ -31,31 +30,11 @@ async function bootstrap() {
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.useGlobalInterceptors(new LoggingInterceptor());
 
-  // Swagger documentation
-  if (nodeEnv !== "production") {
-    const swaggerConfig = new DocumentBuilder()
-      .setTitle("AI Coach API")
-      .setDescription("AI Coach - Mock Interview Platform API Gateway")
-      .setVersion("1.0")
-      .addTag("Users", "User profile endpoints")
-      .addTag("Questions", "Question bank endpoints")
-      .addTag("Interviews", "Interview session endpoints")
-      .addTag("AI", "AI-powered endpoints")
-      .addTag("Health", "Health check endpoints")
-      .build();
-
-    const document = SwaggerModule.createDocument(app, swaggerConfig);
-    SwaggerModule.setup("docs", app, document);
-  }
-
   app.enableShutdownHooks();
   await app.listen(port);
 
   logger.log(`API Gateway running on port ${port}`);
   logger.log(`Environment: ${nodeEnv}`);
-  if (nodeEnv !== "production") {
-    logger.log(`Swagger docs: http://localhost:${port}/docs`);
-  }
 }
 
 bootstrap().catch((error) => {

@@ -7,7 +7,6 @@ import {
   Inject,
   OnModuleInit,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { ClientGrpc } from "@nestjs/microservices";
 import { firstValueFrom } from "rxjs";
 import { GRPC_USER_SERVICE, IGrpcUserService } from "@ai-coach/grpc";
@@ -16,7 +15,6 @@ interface AuthenticatedRequest {
   user: { userId: string; email: string; role: string };
 }
 
-@ApiTags("Users")
 @Controller("users")
 export class UsersController implements OnModuleInit {
   private userService!: IGrpcUserService;
@@ -31,7 +29,6 @@ export class UsersController implements OnModuleInit {
   }
 
   @Get("me")
-  @ApiOperation({ summary: "Get current user profile" })
   async getMe(@Req() req: AuthenticatedRequest) {
     return firstValueFrom(
       (this.userService as any).getUserByAuthId({
@@ -41,7 +38,6 @@ export class UsersController implements OnModuleInit {
   }
 
   @Patch("me")
-  @ApiOperation({ summary: "Update current user profile" })
   async updateMe(@Req() req: AuthenticatedRequest, @Body() body: any) {
     // Convert generic body fields to what gRPC expects (camelCase)
     const payload = {
@@ -64,7 +60,6 @@ export class UsersController implements OnModuleInit {
   }
 
   @Get("me/stats")
-  @ApiOperation({ summary: "Get user dashboard stats" })
   async getMyStats(@Req() req: AuthenticatedRequest) {
     const result: any = await firstValueFrom(
       (this.userService as any).getUserStats({
@@ -75,7 +70,6 @@ export class UsersController implements OnModuleInit {
   }
 
   @Get()
-  @ApiOperation({ summary: "List all users" })
   async getUsers() {
     return firstValueFrom(
       this.userService.getUsers({ page: 1, limit: 50 }) as any,

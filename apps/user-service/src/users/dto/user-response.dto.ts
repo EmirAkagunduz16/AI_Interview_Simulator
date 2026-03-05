@@ -1,26 +1,24 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-
 export class UserResponseDto {
-  @ApiProperty() id: string;
-  @ApiProperty() authId: string;
-  @ApiProperty() email: string;
-  @ApiPropertyOptional() name?: string;
-  @ApiPropertyOptional() phone?: string;
-  @ApiProperty() isActive: boolean;
-  @ApiProperty() createdAt: Date;
-  @ApiProperty() updatedAt: Date;
+  id: string;
+  authId: string;
+  email: string;
+  name?: string;
+  phone?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export class DashboardStatsDto {
-  @ApiProperty() interviewCount: number;
-  @ApiProperty() totalScore: number;
-  @ApiProperty() averageScore: number;
-  @ApiPropertyOptional() lastInterviewAt?: Date;
+  interviewCount: number;
+  totalScore: number;
+  averageScore: number;
+  lastInterviewAt?: Date;
 }
 
 export class PaginatedUsersResponseDto {
-  @ApiProperty({ type: [UserResponseDto] }) users: UserResponseDto[];
-  @ApiProperty() total: number;
-  @ApiProperty() page: number;
-  @ApiProperty() totalPages: number;
+  users: UserResponseDto[];
+  total: number;
+  page: number;
+  totalPages: number;
 }

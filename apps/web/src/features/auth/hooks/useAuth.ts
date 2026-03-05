@@ -38,7 +38,7 @@ function readStoredUser(): AuthUser | null {
 }
 
 /** Auth-related public pages that should NOT trigger redirect on 401 */
-const PUBLIC_AUTH_PATHS = ["/login", "/register"];
+const PUBLIC_AUTH_PATHS = ["/login", "/register", "/"];
 
 /* ── Hook ─────────────────────────────────────────────────────── */
 

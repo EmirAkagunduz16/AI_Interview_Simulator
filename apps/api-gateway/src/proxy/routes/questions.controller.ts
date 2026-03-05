@@ -12,12 +12,10 @@ import {
   HttpCode,
   HttpStatus,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { ClientGrpc } from "@nestjs/microservices";
 import { firstValueFrom } from "rxjs";
 import { GRPC_QUESTION_SERVICE, IGrpcQuestionService } from "@ai-coach/grpc";
 
-@ApiTags("Questions")
 @Controller("questions")
 export class QuestionsController implements OnModuleInit {
   private questionService!: IGrpcQuestionService;
@@ -32,7 +30,6 @@ export class QuestionsController implements OnModuleInit {
   }
 
   @Get()
-  @ApiOperation({ summary: "Get paginated questions" })
   async findAll(
     @Query("page") page = 1,
     @Query("limit") limit = 10,
@@ -52,7 +49,6 @@ export class QuestionsController implements OnModuleInit {
   }
 
   @Get("random")
-  @ApiOperation({ summary: "Get random questions" })
   async getRandom(
     @Query("count") count = 5,
     @Query("type") type?: string,
@@ -71,7 +67,6 @@ export class QuestionsController implements OnModuleInit {
   }
 
   @Get("categories")
-  @ApiOperation({ summary: "Get all categories" })
   async getCategories() {
     const result: any = await firstValueFrom(
       this.questionService.getCategories({} as any) as any,
@@ -80,7 +75,6 @@ export class QuestionsController implements OnModuleInit {
   }
 
   @Get("tags")
-  @ApiOperation({ summary: "Get all tags" })
   async getTags() {
     const result: any = await firstValueFrom(
       this.questionService.getTags({} as any) as any,
@@ -89,7 +83,6 @@ export class QuestionsController implements OnModuleInit {
   }
 
   @Get(":id")
-  @ApiOperation({ summary: "Get question by ID" })
   async findOne(@Param("id") id: string) {
     return firstValueFrom(
       this.questionService.getQuestion({ question_id: id }) as any,
@@ -97,13 +90,11 @@ export class QuestionsController implements OnModuleInit {
   }
 
   @Post()
-  @ApiOperation({ summary: "Create question" })
   async create(@Body() body: any) {
     return firstValueFrom(this.questionService.createQuestion(body) as any);
   }
 
   @Post("generate")
-  @ApiOperation({ summary: "Generate questions with AI" })
   async generate(@Body() body: any) {
     const result: any = await firstValueFrom(
       this.questionService.generateQuestions({
@@ -118,13 +109,11 @@ export class QuestionsController implements OnModuleInit {
 
   @Post("seed")
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Seed initial questions" })
   async seed() {
     return firstValueFrom(this.questionService.seedQuestions({} as any) as any);
   }
 
   @Patch(":id")
-  @ApiOperation({ summary: "Update question" })
   async update(@Param("id") id: string, @Body() body: any) {
     return firstValueFrom(
       this.questionService.updateQuestion({
@@ -136,7 +125,6 @@ export class QuestionsController implements OnModuleInit {
 
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: "Delete question" })
   async delete(@Param("id") id: string) {
     await firstValueFrom(
       this.questionService.deleteQuestion({ question_id: id }) as any,

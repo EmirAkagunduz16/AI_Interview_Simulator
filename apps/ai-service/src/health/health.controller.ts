@@ -1,8 +1,6 @@
 import { Controller, Get } from "@nestjs/common";
-import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { ConfigService } from "@nestjs/config";
 
-@ApiTags("Health")
 @Controller("health")
 export class HealthController {
   private startTime = Date.now();
@@ -10,7 +8,6 @@ export class HealthController {
   constructor(private readonly configService: ConfigService) {}
 
   @Get()
-  @ApiOperation({ summary: "Health check endpoint" })
   getHealth() {
     const hasApiKey = !!this.configService.get("openai.apiKey");
     return {

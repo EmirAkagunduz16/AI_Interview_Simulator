@@ -1,5 +1,4 @@
 import { Controller, Get } from "@nestjs/common";
-import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { ConfigService } from "@nestjs/config";
 import axios from "axios";
 import { Public } from "../common/decorators/public.decorator";
@@ -11,7 +10,6 @@ interface ServiceHealth {
   responseTime?: number;
 }
 
-@ApiTags("Health")
 @Controller("health")
 @Public()
 export class HealthController {
@@ -34,7 +32,6 @@ export class HealthController {
   }
 
   @Get()
-  @ApiOperation({ summary: "Gateway health check" })
   getHealth() {
     return {
       status: "ok",
@@ -45,7 +42,6 @@ export class HealthController {
   }
 
   @Get("services")
-  @ApiOperation({ summary: "Check all services health" })
   async getServicesHealth(): Promise<{
     services: ServiceHealth[];
     healthy: number;
@@ -82,13 +78,11 @@ export class HealthController {
   }
 
   @Get("live")
-  @ApiOperation({ summary: "Liveness probe" })
   getLiveness() {
     return { status: "ok" };
   }
 
   @Get("ready")
-  @ApiOperation({ summary: "Readiness probe" })
   getReadiness() {
     return { status: "ok", ready: true };
   }

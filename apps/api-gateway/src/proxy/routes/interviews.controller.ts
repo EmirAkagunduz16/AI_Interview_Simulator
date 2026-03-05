@@ -9,7 +9,6 @@ import {
   Inject,
   OnModuleInit,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { ClientGrpc } from "@nestjs/microservices";
 import { firstValueFrom } from "rxjs";
 import { GRPC_INTERVIEW_SERVICE, IGrpcInterviewService } from "@ai-coach/grpc";
@@ -18,7 +17,6 @@ interface AuthenticatedRequest {
   user: { userId: string; email: string; role: string };
 }
 
-@ApiTags("Interviews")
 @Controller("interviews")
 export class InterviewsController implements OnModuleInit {
   private interviewService!: IGrpcInterviewService;
@@ -33,7 +31,6 @@ export class InterviewsController implements OnModuleInit {
   }
 
   @Get()
-  @ApiOperation({ summary: "Get user interviews" })
   async findAll(
     @Req() req: AuthenticatedRequest,
     @Query("page") page = 1,
@@ -51,7 +48,6 @@ export class InterviewsController implements OnModuleInit {
   }
 
   @Get("stats")
-  @ApiOperation({ summary: "Get interview stats" })
   async getStats(@Req() req: AuthenticatedRequest) {
     return firstValueFrom(
       (this.interviewService as any).getInterviewStats({
@@ -61,7 +57,6 @@ export class InterviewsController implements OnModuleInit {
   }
 
   @Get(":id")
-  @ApiOperation({ summary: "Get interview by ID" })
   async findOne(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     return firstValueFrom(
       (this.interviewService as any).getInterview({
@@ -72,7 +67,6 @@ export class InterviewsController implements OnModuleInit {
   }
 
   @Post()
-  @ApiOperation({ summary: "Create interview" })
   async create(@Req() req: AuthenticatedRequest, @Body() body: any) {
     return firstValueFrom(
       (this.interviewService as any).createInterview({
@@ -88,7 +82,6 @@ export class InterviewsController implements OnModuleInit {
   }
 
   @Post(":id/start")
-  @ApiOperation({ summary: "Start interview" })
   async start(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     return firstValueFrom(
       (this.interviewService as any).startInterview({
@@ -99,7 +92,6 @@ export class InterviewsController implements OnModuleInit {
   }
 
   @Post(":id/submit")
-  @ApiOperation({ summary: "Submit answer" })
   async submit(
     @Req() req: AuthenticatedRequest,
     @Param("id") id: string,
@@ -117,7 +109,6 @@ export class InterviewsController implements OnModuleInit {
   }
 
   @Post(":id/complete")
-  @ApiOperation({ summary: "Complete interview" })
   async complete(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     return firstValueFrom(
       (this.interviewService as any).completeInterview({
@@ -128,7 +119,6 @@ export class InterviewsController implements OnModuleInit {
   }
 
   @Post(":id/cancel")
-  @ApiOperation({ summary: "Cancel interview" })
   async cancel(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     return firstValueFrom(
       (this.interviewService as any).cancelInterview({
@@ -139,7 +129,6 @@ export class InterviewsController implements OnModuleInit {
   }
 
   @Post(":id/messages")
-  @ApiOperation({ summary: "Add message to interview (transcript)" })
   async addMessage(
     @Req() req: AuthenticatedRequest,
     @Param("id") id: string,

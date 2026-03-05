@@ -6,6 +6,7 @@ import { InterviewConfigForm } from "@/features/interview/components/InterviewCo
 import { VoiceInterviewPanel } from "@/features/interview/components/VoiceInterviewPanel";
 import { CompletedScreen } from "@/features/interview/components/CompletedScreen";
 import { AuthGuard } from "@/features/auth/components";
+import { interviewConfigSchema } from "@/lib/validation";
 import "./interview.scss";
 
 export default function InterviewPage() {
@@ -47,7 +48,12 @@ export default function InterviewPage() {
   };
 
   const handleStartInterview = () => {
-    if (!field) return;
+    const result = interviewConfigSchema.safeParse({
+      field,
+      techStack,
+      difficulty,
+    });
+    if (!result.success) return;
     shouldStartRef.current = true;
     setStep("interview");
   };

@@ -1,7 +1,6 @@
 import { NestFactory } from "@nestjs/core";
 import { ValidationPipe, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { MicroserviceOptions, Transport } from "@nestjs/microservices";
 import { join } from "path";
 import { AppModule } from "./app.module";
@@ -47,20 +46,6 @@ async function bootstrap() {
     }),
   );
 
-  if (nodeEnv !== "production") {
-    const swaggerConfig = new DocumentBuilder()
-      .setTitle("Auth Service API")
-      .setDescription("AI Coach Auth Service - Authentication & Authorization")
-      .setVersion("1.0")
-      .addTag("Auth", "Authentication endpoints")
-      .addTag("Health", "Health check endpoints")
-      .addBearerAuth()
-      .build();
-
-    const document = SwaggerModule.createDocument(app, swaggerConfig);
-    SwaggerModule.setup("docs", app, document);
-  }
-
   app.enableShutdownHooks();
 
   // Start both transports
@@ -70,9 +55,6 @@ async function bootstrap() {
   logger.log(`Auth Service HTTP running on port ${port}`);
   logger.log(`Auth Service gRPC running on port ${grpcPort}`);
   logger.log(`Environment: ${nodeEnv}`);
-  if (nodeEnv !== "production") {
-    logger.log(`Swagger docs: http://localhost:${port}/docs`);
-  }
 }
 
 bootstrap().catch((error) => {

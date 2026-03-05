@@ -1,9 +1,7 @@
 import { Controller, Get } from "@nestjs/common";
-import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { InjectConnection } from "@nestjs/mongoose";
 import { Connection } from "mongoose";
 
-@ApiTags("Health")
 @Controller("health")
 export class HealthController {
   private readonly startTime = Date.now();
@@ -11,7 +9,6 @@ export class HealthController {
   constructor(@InjectConnection() private readonly connection: Connection) {}
 
   @Get()
-  @ApiOperation({ summary: "Health check endpoint" })
   getHealth() {
     const dbState = this.connection.readyState;
     return {
@@ -24,13 +21,11 @@ export class HealthController {
   }
 
   @Get("live")
-  @ApiOperation({ summary: "Liveness probe" })
   getLiveness() {
     return { status: "ok" };
   }
 
   @Get("ready")
-  @ApiOperation({ summary: "Readiness probe" })
   getReadiness() {
     const isReady = this.connection.readyState === 1;
     return { status: isReady ? "ok" : "error", ready: isReady };

@@ -1,7 +1,6 @@
 import { NestFactory } from "@nestjs/core";
 import { Logger, ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { MicroserviceOptions, Transport } from "@nestjs/microservices";
 import { join } from "path";
 import { AppModule } from "./app.module";
@@ -41,28 +40,12 @@ async function bootstrap() {
     }),
   );
 
-  if (nodeEnv !== "production") {
-    const swaggerConfig = new DocumentBuilder()
-      .setTitle("AI Service API")
-      .setDescription("AI Coach AI Service - Gemini Integration")
-      .setVersion("1.0")
-      .addTag("AI", "AI-powered endpoints")
-      .addTag("Health", "Health check endpoints")
-      .build();
-
-    const document = SwaggerModule.createDocument(app, swaggerConfig);
-    SwaggerModule.setup("docs", app, document);
-  }
-
   app.enableShutdownHooks();
   await app.startAllMicroservices();
   await app.listen(port);
 
   logger.log(`AI Service HTTP running on port ${port}`);
   logger.log(`AI Service gRPC running on port ${grpcPort}`);
-  if (nodeEnv !== "production") {
-    logger.log(`Swagger docs: http://localhost:${port}/docs`);
-  }
 }
 
 bootstrap().catch((error) => {

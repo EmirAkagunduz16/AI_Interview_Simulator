@@ -10,13 +10,6 @@ import {
   HttpCode,
   HttpStatus,
 } from "@nestjs/common";
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiQuery,
-  ApiParam,
-} from "@nestjs/swagger";
 import { QuestionsService } from "./questions.service";
 import {
   CreateQuestionDto,
@@ -28,14 +21,11 @@ import {
   GenerateQuestionsDto,
 } from "./dto";
 
-@ApiTags("Questions")
 @Controller("questions")
 export class QuestionsController {
   constructor(private readonly questionsService: QuestionsService) {}
 
   @Get()
-  @ApiOperation({ summary: "Get paginated questions with filters" })
-  @ApiResponse({ status: 200, type: PaginatedQuestionsResponseDto })
   async findAll(
     @Query() query: QueryQuestionsDto,
   ): Promise<PaginatedQuestionsResponseDto> {
@@ -51,8 +41,6 @@ export class QuestionsController {
   }
 
   @Get("random")
-  @ApiOperation({ summary: "Get random questions for interview" })
-  @ApiResponse({ status: 200, type: [QuestionResponseDto] })
   async findRandom(
     @Query() query: RandomQuestionsDto,
   ): Promise<QuestionResponseDto[]> {
@@ -67,40 +55,28 @@ export class QuestionsController {
   }
 
   @Get("categories")
-  @ApiOperation({ summary: "Get all unique categories" })
-  @ApiResponse({ status: 200, type: [String] })
   async getCategories(): Promise<string[]> {
     return this.questionsService.getCategories();
   }
 
   @Get("tags")
-  @ApiOperation({ summary: "Get all unique tags" })
-  @ApiResponse({ status: 200, type: [String] })
   async getTags(): Promise<string[]> {
     return this.questionsService.getTags();
   }
 
   @Get(":id")
-  @ApiOperation({ summary: "Get question by ID" })
-  @ApiParam({ name: "id", description: "Question ID" })
-  @ApiResponse({ status: 200, type: QuestionResponseDto })
-  @ApiResponse({ status: 404, description: "Question not found" })
   async findOne(@Param("id") id: string): Promise<QuestionResponseDto> {
     const question = await this.questionsService.findById(id);
     return question.toJSON() as unknown as QuestionResponseDto;
   }
 
   @Post()
-  @ApiOperation({ summary: "Create new question" })
-  @ApiResponse({ status: 201, type: QuestionResponseDto })
   async create(@Body() dto: CreateQuestionDto): Promise<QuestionResponseDto> {
     const question = await this.questionsService.create(dto);
     return question.toJSON() as unknown as QuestionResponseDto;
   }
 
   @Post("generate")
-  @ApiOperation({ summary: "Generate questions using AI and save to DB" })
-  @ApiResponse({ status: 201, type: [QuestionResponseDto] })
   async generate(
     @Body() dto: GenerateQuestionsDto,
   ): Promise<QuestionResponseDto[]> {
@@ -110,26 +86,17 @@ export class QuestionsController {
 
   @Post("seed")
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Seed initial questions" })
-  @ApiResponse({ status: 200 })
   async seed(): Promise<{ created: number }> {
     return this.questionsService.seed();
   }
 
   @Post(":id/increment-usage")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: "[Internal] Increment question usage count" })
-  @ApiParam({ name: "id", description: "Question ID" })
-  @ApiResponse({ status: 204 })
   async incrementUsage(@Param("id") id: string): Promise<void> {
     await this.questionsService.incrementUsage(id);
   }
 
   @Patch(":id")
-  @ApiOperation({ summary: "Update question" })
-  @ApiParam({ name: "id", description: "Question ID" })
-  @ApiResponse({ status: 200, type: QuestionResponseDto })
-  @ApiResponse({ status: 404, description: "Question not found" })
   async update(
     @Param("id") id: string,
     @Body() dto: UpdateQuestionDto,
@@ -140,10 +107,6 @@ export class QuestionsController {
 
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: "Delete question" })
-  @ApiParam({ name: "id", description: "Question ID" })
-  @ApiResponse({ status: 204 })
-  @ApiResponse({ status: 404, description: "Question not found" })
   async delete(@Param("id") id: string): Promise<void> {
     await this.questionsService.delete(id);
   }

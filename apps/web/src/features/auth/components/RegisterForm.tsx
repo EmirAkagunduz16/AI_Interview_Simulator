@@ -3,27 +3,57 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../hooks/useAuth";
+import { registerSchema } from "@/lib/validation";
 import "./auth.styles.scss";
+
+type FormFields = {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+};
 
 export function RegisterForm() {
   const { register, isRegistering, registerError } = useAuth();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [validationError, setValidationError] = useState("");
+  const [formData, setFormData] = useState<FormFields>({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<Record<keyof FormFields, string>>
+  >({});
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (fieldErrors[name as keyof FormFields]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setValidationError("");
+    setFieldErrors({});
 
-    if (password !== confirmPassword) {
-      setValidationError("Şifreler eşleşmiyor");
+    const result = registerSchema.safeParse(formData);
+    if (!result.success) {
+      const errors: Partial<Record<keyof FormFields, string>> = {};
+      result.error.issues.forEach((issue) => {
+        const field = issue.path[0] as keyof FormFields;
+        if (!errors[field]) errors[field] = issue.message;
+      });
+      setFieldErrors(errors);
       return;
     }
 
     try {
-      await register({ email, password, name: name || undefined });
+      await register({
+        email: result.data.email,
+        password: result.data.password,
+        name: result.data.name || undefined,
+      });
     } catch {
       // Hata mutation state'inde tutuluyor
     }
@@ -51,7 +81,6 @@ export function RegisterForm() {
     }
 
     if (typeof message === "string") {
-      // Eğer "already exists" gibi bir hata geliyorsa Türkçeleştirebiliriz (örnek)
       if (message.includes("Email already exists"))
         return "Bu email adresi zaten kullanımda.";
       return message;
@@ -60,7 +89,7 @@ export function RegisterForm() {
     return err.message || "Kayıt işlemi başarısız oldu.";
   };
 
-  const errorMessage = validationError || getErrorMessage(registerError);
+  const serverError = getErrorMessage(registerError);
 
   return (
     <div className="auth-form">
@@ -71,60 +100,77 @@ export function RegisterForm() {
           AI Coach&apos;a katılın ve mülakata hazırlanın
         </p>
 
-        {errorMessage && <div className="auth-form__error">{errorMessage}</div>}
+        {serverError && <div className="auth-form__error">{serverError}</div>}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="auth-form__field">
             <label htmlFor="name">Ad Soyad</label>
             <input
               id="name"
+              name="name"
               type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={formData.name}
+              onChange={handleChange}
               placeholder="John Doe"
               autoComplete="name"
             />
+            {fieldErrors.name && (
+              <span className="auth-form__field-error">{fieldErrors.name}</span>
+            )}
           </div>
 
           <div className="auth-form__field">
             <label htmlFor="email">Email</label>
             <input
               id="email"
+              name="email"
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={formData.email}
+              onChange={handleChange}
               placeholder="ornek@email.com"
-              required
               autoComplete="email"
             />
+            {fieldErrors.email && (
+              <span className="auth-form__field-error">
+                {fieldErrors.email}
+              </span>
+            )}
           </div>
 
           <div className="auth-form__field">
             <label htmlFor="password">Şifre</label>
             <input
               id="password"
+              name="password"
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={formData.password}
+              onChange={handleChange}
               placeholder="En az 6 karakter"
-              required
-              minLength={6}
               autoComplete="new-password"
             />
+            {fieldErrors.password && (
+              <span className="auth-form__field-error">
+                {fieldErrors.password}
+              </span>
+            )}
           </div>
 
           <div className="auth-form__field">
             <label htmlFor="confirmPassword">Şifre Tekrar</label>
             <input
               id="confirmPassword"
+              name="confirmPassword"
               type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              value={formData.confirmPassword}
+              onChange={handleChange}
               placeholder="Şifrenizi tekrar girin"
-              required
-              minLength={6}
               autoComplete="new-password"
             />
+            {fieldErrors.confirmPassword && (
+              <span className="auth-form__field-error">
+                {fieldErrors.confirmPassword}
+              </span>
+            )}
           </div>
 
           <button

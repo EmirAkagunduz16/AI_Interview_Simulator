@@ -9,7 +9,6 @@ import {
   Inject,
   OnModuleInit,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { ClientGrpc } from "@nestjs/microservices";
 import { firstValueFrom } from "rxjs";
 import {
@@ -21,7 +20,6 @@ import {
 import { GeminiService } from "./ai.service";
 import { GenerateQuestionsDto, GenerateQuestionsResponseDto } from "./dto";
 
-@ApiTags("AI")
 @Controller("ai")
 export class AiController implements OnModuleInit {
   private readonly logger = new Logger(AiController.name);
@@ -48,8 +46,6 @@ export class AiController implements OnModuleInit {
 
   @Post("generate-questions")
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Generate interview questions using Gemini" })
-  @ApiResponse({ status: 200, type: GenerateQuestionsResponseDto })
   async generateQuestions(
     @Body() dto: GenerateQuestionsDto,
   ): Promise<GenerateQuestionsResponseDto> {
@@ -69,7 +65,6 @@ export class AiController implements OnModuleInit {
 
   @Post("vapi/webhook")
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "VAPI voice agent webhook handler" })
   async handleVapiWebhook(
     @Body() body: any,
     @Headers("x-user-id") userId?: string,
