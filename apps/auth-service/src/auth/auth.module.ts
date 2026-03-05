@@ -1,7 +1,6 @@
 import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { JwtModule } from "@nestjs/jwt";
-import { AuthController } from "./auth.controller";
 import { GrpcAuthController } from "./grpc.controller";
 import { AuthService } from "./auth.service";
 import { AuthUser, AuthUserSchema } from "./entities/auth-user.entity";
@@ -15,7 +14,7 @@ import { RedisModule } from "../common/redis/redis.module";
     JwtModule.register({}),
     RedisModule,
   ],
-  controllers: [AuthController, GrpcAuthController],
+  controllers: [GrpcAuthController],
   providers: [AuthService],
   exports: [AuthService],
 })

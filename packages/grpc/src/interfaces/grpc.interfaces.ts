@@ -47,6 +47,17 @@ export const PROTO_PACKAGES = {
 // Auth Service
 // ===========================
 
+export interface IGrpcAuthTokenResponse {
+  access_token: string;
+  refresh_token: string;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+  };
+}
+
 export interface IGrpcAuthService {
   validateToken(data: {
     access_token: string;
@@ -55,6 +66,21 @@ export interface IGrpcAuthService {
   getTokenUser(data: {
     access_token: string;
   }): Promise<{ user_id: string; email: string; name: string; role: string }>;
+
+  register(data: {
+    email: string;
+    password: string;
+    name: string;
+  }): Promise<IGrpcAuthTokenResponse>;
+
+  login(data: {
+    email: string;
+    password: string;
+  }): Promise<IGrpcAuthTokenResponse>;
+
+  refresh(data: { refresh_token: string }): Promise<IGrpcAuthTokenResponse>;
+
+  logout(data: { access_token: string }): Promise<{ message: string }>;
 }
 
 // ===========================

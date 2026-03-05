@@ -9,7 +9,6 @@ import {
 } from "@ai-coach/grpc";
 import configuration from "./config/configuration";
 import { AiModule } from "./ai/ai.module";
-import { HealthModule } from "./health/health.module";
 import { KafkaHandlersModule } from "./kafka/kafka-handlers.module";
 
 const interviewClient = GrpcModule.forClientAsync({
@@ -52,7 +51,6 @@ const questionClient = GrpcModule.forClientAsync({
     questionClient,
 
     AiModule,
-    HealthModule,
     KafkaHandlersModule,
   ],
   exports: [interviewClient, questionClient],

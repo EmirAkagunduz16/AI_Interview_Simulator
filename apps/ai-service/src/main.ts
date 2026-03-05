@@ -1,5 +1,5 @@
 import { NestFactory } from "@nestjs/core";
-import { Logger, ValidationPipe } from "@nestjs/common";
+import { Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { MicroserviceOptions, Transport } from "@nestjs/microservices";
 import { join } from "path";
@@ -7,45 +7,39 @@ import { AppModule } from "./app.module";
 
 async function bootstrap() {
   const logger = new Logger("AIService");
-  const app = await NestFactory.create(AppModule);
-  const configService = app.get(ConfigService);
 
-  const port = configService.get<number>("service.port", 3006);
+  const appContext = await NestFactory.createApplicationContext(AppModule, {
+    logger: ["error", "warn", "log", "debug"],
+  });
+  const configService = appContext.get(ConfigService);
   const grpcPort = configService.get<number>("service.grpcPort", 50055);
   const nodeEnv = configService.get<string>("service.nodeEnv", "development");
+  await appContext.close();
 
-  app.connectMicroservice<MicroserviceOptions>({
-    transport: Transport.GRPC,
-    options: {
-      package: "ai",
-      protoPath: join(
-        require.resolve("@ai-coach/grpc/package.json"),
-        "..",
-        "dist",
-        "proto",
-        "ai.proto",
-      ),
-      url: `0.0.0.0:${grpcPort}`,
+  const app = await NestFactory.createMicroservice<MicroserviceOptions>(
+    AppModule,
+    {
+      transport: Transport.GRPC,
+      options: {
+        package: "ai",
+        protoPath: join(
+          require.resolve("@ai-coach/grpc/package.json"),
+          "..",
+          "dist",
+          "proto",
+          "ai.proto",
+        ),
+        url: `0.0.0.0:${grpcPort}`,
+      },
+      logger: ["error", "warn", "log", "debug"],
     },
-  });
-
-  app.setGlobalPrefix("api/v1");
-  app.enableCors({ origin: true, credentials: true });
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: { enableImplicitConversion: true },
-    }),
   );
 
   app.enableShutdownHooks();
-  await app.startAllMicroservices();
-  await app.listen(port);
+  await app.listen();
 
-  logger.log(`AI Service HTTP running on port ${port}`);
   logger.log(`AI Service gRPC running on port ${grpcPort}`);
+  logger.log(`Environment: ${nodeEnv}`);
 }
 
 bootstrap().catch((error) => {

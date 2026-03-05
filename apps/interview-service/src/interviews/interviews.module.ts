@@ -1,6 +1,5 @@
 import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
-import { InterviewsController } from "./interviews.controller";
 import { GrpcInterviewsController } from "./grpc.controller";
 import { InterviewsService } from "./interviews.service";
 import { Interview, InterviewSchema } from "./entities/interview.entity";
@@ -12,7 +11,7 @@ import { InterviewRepository } from "./repositories/interview.repository";
       { name: Interview.name, schema: InterviewSchema },
     ]),
   ],
-  controllers: [InterviewsController, GrpcInterviewsController],
+  controllers: [GrpcInterviewsController],
   providers: [InterviewsService, InterviewRepository],
   exports: [InterviewsService],
 })

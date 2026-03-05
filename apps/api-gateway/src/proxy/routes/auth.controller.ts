@@ -1,58 +1,86 @@
-import { Controller, Post, Body, Req } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import { Request } from "express";
-import { ProxyService } from "../proxy.service";
+import {
+  Controller,
+  Post,
+  Body,
+  Req,
+  Inject,
+  OnModuleInit,
+} from "@nestjs/common";
+import { ClientGrpc } from "@nestjs/microservices";
+import { firstValueFrom } from "rxjs";
+import { GRPC_AUTH_SERVICE, IGrpcAuthService } from "@ai-coach/grpc";
 import { Public } from "../../common/decorators/public.decorator";
 
 @Controller("auth")
-export class AuthController {
-  private readonly authUrl: string;
+export class AuthController implements OnModuleInit {
+  private authService!: IGrpcAuthService;
 
   constructor(
-    private readonly proxy: ProxyService,
-    private readonly config: ConfigService,
-  ) {
-    this.authUrl = this.config.get<string>("microservices.auth")!;
+    @Inject(GRPC_AUTH_SERVICE) private readonly grpcClient: ClientGrpc,
+  ) {}
+
+  onModuleInit() {
+    this.authService =
+      this.grpcClient.getService<IGrpcAuthService>("AuthService");
   }
 
   @Post("register")
   @Public()
-  async register(@Body() body: unknown) {
-    return this.proxy.forward(
-      this.authUrl,
-      "/api/v1/auth/register",
-      "POST",
-      body,
+  async register(
+    @Body() body: { email: string; password: string; name: string },
+  ) {
+    const result: any = await firstValueFrom(
+      (this.authService as any).register({
+        email: body.email,
+        password: body.password,
+        name: body.name,
+      }),
     );
+    return {
+      accessToken: result.access_token || result.accessToken,
+      refreshToken: result.refresh_token || result.refreshToken,
+      user: result.user,
+    };
   }
 
   @Post("login")
   @Public()
-  async login(@Body() body: unknown) {
-    return this.proxy.forward(this.authUrl, "/api/v1/auth/login", "POST", body);
+  async login(@Body() body: { email: string; password: string }) {
+    const result: any = await firstValueFrom(
+      (this.authService as any).login({
+        email: body.email,
+        password: body.password,
+      }),
+    );
+    return {
+      accessToken: result.access_token || result.accessToken,
+      refreshToken: result.refresh_token || result.refreshToken,
+      user: result.user,
+    };
   }
 
   @Post("refresh")
   @Public()
-  async refresh(@Body() body: unknown) {
-    return this.proxy.forward(
-      this.authUrl,
-      "/api/v1/auth/refresh",
-      "POST",
-      body,
+  async refresh(@Body() body: { refreshToken: string }) {
+    const result: any = await firstValueFrom(
+      (this.authService as any).refresh({
+        refreshToken: body.refreshToken,
+      }),
     );
+    return {
+      accessToken: result.access_token || result.accessToken,
+      refreshToken: result.refresh_token || result.refreshToken,
+      user: result.user,
+    };
   }
 
   @Post("logout")
-  async logout(@Req() req: Request) {
-    return this.proxy.forward(
-      this.authUrl,
-      "/api/v1/auth/logout",
-      "POST",
-      null,
-      {
-        headers: { Authorization: req.headers["authorization"] || "" },
-      },
+  async logout(@Req() req: any) {
+    const token = req.headers["authorization"]?.replace("Bearer ", "") || "";
+    return firstValueFrom(
+      (this.authService as any).logout({
+        accessToken: token,
+      }),
     );
   }
 }

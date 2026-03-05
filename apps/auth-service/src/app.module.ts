@@ -4,7 +4,6 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { KafkaModule } from "@ai-coach/kafka-client";
 import configuration from "./config/configuration";
 import { AuthModule } from "./auth/auth.module";
-import { HealthModule } from "./health/health.module";
 import { RedisModule } from "./common/redis/redis.module";
 
 @Module({
@@ -36,7 +35,6 @@ import { RedisModule } from "./common/redis/redis.module";
 
     // Feature Modules
     AuthModule,
-    HealthModule,
   ],
 })
 export class AppModule {}

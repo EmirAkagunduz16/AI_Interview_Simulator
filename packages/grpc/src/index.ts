@@ -15,6 +15,7 @@ export {
   GRPC_QUESTION_SERVICE,
   GRPC_AI_SERVICE,
   PROTO_PACKAGES,
+  IGrpcAuthTokenResponse,
   IGrpcAuthService,
   IGrpcUserService,
   IGrpcUserResponse,
