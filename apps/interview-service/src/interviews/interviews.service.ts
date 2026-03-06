@@ -23,7 +23,6 @@ export class InterviewsService {
 
   constructor(
     private readonly interviewRepository: InterviewRepository,
-    private readonly configService: ConfigService,
     private readonly kafkaProducer: KafkaProducerService,
   ) {}
 

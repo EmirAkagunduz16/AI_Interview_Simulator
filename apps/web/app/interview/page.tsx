@@ -34,7 +34,7 @@ export default function InterviewPage() {
       const timer = setTimeout(() => vapi.startCall(), 300);
       return () => clearTimeout(timer);
     }
-  }, [step, vapi.startCall]);
+  }, [step, vapi.startCall, vapi]);
 
   const handleFieldChange = (newField: string) => {
     setField(newField);

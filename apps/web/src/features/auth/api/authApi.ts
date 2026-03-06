@@ -40,6 +40,7 @@ export const authApi = {
     return res.data;
   },
 
+  // NOTE: this is not used.
   refresh: async (refreshToken: string): Promise<AuthResponse> => {
     const res = await api.post("/auth/refresh", { refreshToken });
     return res.data;
@@ -49,6 +50,7 @@ export const authApi = {
     await api.post("/auth/logout");
   },
 
+  // NOTE: this is not used.
   getMe: async (): Promise<AuthUser> => {
     const res = await api.get("/users/me");
     return res.data;
