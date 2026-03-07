@@ -1,4 +1,5 @@
 import axios from "axios";
+import { showToast } from "@/components/ui/Toast";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/v1";
@@ -58,10 +59,29 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const status = error.response?.status;
+    const serverMessage =
+      error.response?.data?.message || error.response?.data?.error || "";
 
-    // Only try refresh on 401 and if we haven't already retried
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      // If already refreshing, queue this request
+    // ── Network / connection errors (no response at all) ──
+    if (!error.response) {
+      showToast(
+        "Sunucuya bağlanılamıyor. Lütfen internet bağlantınızı kontrol edin.",
+        "error",
+      );
+      return Promise.reject(error);
+    }
+
+    // ── 500 server errors → always notify user ──
+    if (status >= 500) {
+      const msg = serverMessage.includes("ECONNREFUSED")
+        ? "Sunucu servisleri başlatılıyor, lütfen birkaç saniye bekleyin."
+        : serverMessage || "Sunucu hatası oluştu, lütfen tekrar deneyin.";
+      showToast(msg, "error");
+    }
+
+    // ── 401 → refresh token ──
+    if (status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -78,12 +98,12 @@ api.interceptors.response.use(
 
       if (!refreshToken) {
         isRefreshing = false;
+        showToast("Oturumunuz sona erdi, lütfen tekrar giriş yapın.", "warning");
         forceLogout();
         return Promise.reject(error);
       }
 
       try {
-        // Use a raw axios call (not the intercepted instance) to avoid loops
         const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
           refreshToken,
         });
@@ -99,11 +119,17 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
+        showToast("Oturumunuz sona erdi, lütfen tekrar giriş yapın.", "warning");
         forceLogout();
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
       }
+    }
+
+    // ── 403 Forbidden ──
+    if (status === 403) {
+      showToast("Bu işlem için yetkiniz bulunmuyor.", "warning");
     }
 
     return Promise.reject(error);

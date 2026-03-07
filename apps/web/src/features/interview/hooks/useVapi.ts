@@ -199,7 +199,7 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
       transcriber: {
         provider: "deepgram",
         model: "nova-3",
-        language: "multi",
+        language: "tr",
         smartFormat: true,
       } as any,
       model: {
