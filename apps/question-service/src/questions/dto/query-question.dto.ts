@@ -54,4 +54,8 @@ export class RandomQuestionsDto {
   @Min(1)
   @IsOptional()
   count?: number = 5;
+
+  @IsString({ each: true })
+  @IsOptional()
+  excludeIds?: string[];
 }

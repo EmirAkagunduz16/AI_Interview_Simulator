@@ -64,6 +64,7 @@ export class GrpcQuestionsController {
       difficulty: data.difficulty as string,
       category: data.category,
       tags: data.tags,
+      excludeIds: data.excludeIds,
     } as Parameters<typeof this.questionsService.findRandom>[0]);
     return {
       questions: questions.map((q) => {

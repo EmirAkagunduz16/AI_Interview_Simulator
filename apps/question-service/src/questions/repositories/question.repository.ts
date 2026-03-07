@@ -40,16 +40,58 @@ export class QuestionRepository extends BaseRepository<QuestionDocument> {
   async findRandom(
     filter: QuestionFilter = {},
     count = 5,
+    excludeIds: string[] = [],
   ): Promise<QuestionDocument[]> {
     const query = this.buildFilterQuery({ ...filter, isActive: true });
+
+    if (excludeIds.length > 0) {
+      const { Types } = require("mongoose");
+      const objectIds = excludeIds
+        .filter((id) => Types.ObjectId.isValid(id))
+        .map((id) => new Types.ObjectId(id));
+      if (objectIds.length > 0) {
+        query._id = { $nin: objectIds };
+      }
+    }
+
+    // Pick 3x candidates sorted by usageCount (least-asked first),
+    // then randomly sample from that subset for variety.
+    const poolSize = count * 3;
     return this.questionModel
-      .aggregate([{ $match: query }, { $sample: { size: count } }])
+      .aggregate([
+        { $match: query },
+        { $sort: { usageCount: 1 } },
+        { $limit: poolSize },
+        { $sample: { size: count } },
+      ])
       .exec() as unknown as QuestionDocument[];
   }
 
   async incrementUsage(id: string): Promise<void> {
     await this.questionModel
-      .findByIdAndUpdate(id, { $inc: { usageCount: 1 } })
+      .findByIdAndUpdate(id, {
+        $inc: { usageCount: 1 },
+        $set: { lastAskedAt: new Date() },
+      })
+      .exec();
+  }
+
+  async incrementUsageBatch(ids: string[]): Promise<void> {
+    if (!ids.length) return;
+    const { Types } = require("mongoose");
+    const objectIds = ids
+      .filter((id) => Types.ObjectId.isValid(id))
+      .map((id) => new Types.ObjectId(id));
+    if (!objectIds.length) return;
+
+    await this.questionModel
+      .updateMany(
+        { _id: { $in: objectIds } },
+        {
+          $inc: { usageCount: 1 },
+          $set: { lastAskedAt: new Date() },
+        },
+      )
       .exec();
   }
 

@@ -72,6 +72,15 @@ export class InterviewRepository extends BaseRepository<InterviewDocument> {
       .exec();
   }
 
+  async setQuestionIds(
+    id: string,
+    questionIds: string[],
+  ): Promise<InterviewDocument | null> {
+    return this.interviewModel
+      .findByIdAndUpdate(id, { $set: { questionIds } }, { new: true })
+      .exec();
+  }
+
   async addAnswer(
     id: string,
     answer: InterviewAnswer,
@@ -127,6 +136,13 @@ export class InterviewRepository extends BaseRepository<InterviewDocument> {
     totalScore: number,
     overallFeedback: string,
   ): Promise<InterviewDocument | null> {
+    const interview = await this.interviewModel.findById(id).exec();
+    const now = new Date();
+    const actualDuration =
+      interview?.startedAt
+        ? Math.max(1, Math.round((now.getTime() - interview.startedAt.getTime()) / 60000))
+        : interview?.durationMinutes || 30;
+
     return this.interviewModel
       .findByIdAndUpdate(
         id,
@@ -136,7 +152,8 @@ export class InterviewRepository extends BaseRepository<InterviewDocument> {
             report,
             totalScore,
             overallFeedback,
-            completedAt: new Date(),
+            durationMinutes: actualDuration,
+            completedAt: now,
           },
         },
         { new: true },
@@ -149,6 +166,13 @@ export class InterviewRepository extends BaseRepository<InterviewDocument> {
     totalScore: number,
     overallFeedback: string,
   ): Promise<InterviewDocument | null> {
+    const interview = await this.interviewModel.findById(id).exec();
+    const now = new Date();
+    const actualDuration =
+      interview?.startedAt
+        ? Math.max(1, Math.round((now.getTime() - interview.startedAt.getTime()) / 60000))
+        : interview?.durationMinutes || 30;
+
     return this.interviewModel
       .findByIdAndUpdate(
         id,
@@ -157,7 +181,8 @@ export class InterviewRepository extends BaseRepository<InterviewDocument> {
             status: InterviewStatus.COMPLETED,
             totalScore,
             overallFeedback,
-            completedAt: new Date(),
+            durationMinutes: actualDuration,
+            completedAt: now,
           },
         },
         { new: true },

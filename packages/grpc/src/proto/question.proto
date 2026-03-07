@@ -36,6 +36,7 @@ message GetRandomQuestionsRequest {
   optional string difficulty = 3;
   optional string category = 4;
   optional string tags = 5;
+  repeated string exclude_ids = 6;
 }
 
 message CreateQuestionRequest {

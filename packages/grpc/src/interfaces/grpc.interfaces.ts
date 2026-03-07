@@ -233,6 +233,7 @@ export interface CreateInterviewRequest {
 export interface StartInterviewRequest {
   interviewId: string;
   userId: string;
+  questionIds?: string[];
 }
 
 export interface SubmitAnswerRequest {
@@ -325,6 +326,7 @@ export interface InterviewResponse {
   totalScore?: number;
   overallFeedback?: string;
   createdAt: string;
+  questionIds?: string[];
   answers: InterviewAnswerResponse[];
   report?: InterviewReportResponse;
   messages?: InterviewMessageResponse[];
@@ -385,6 +387,7 @@ export interface GetRandomQuestionsRequest {
   difficulty?: string;
   category?: string;
   tags?: string;
+  excludeIds?: string[];
 }
 
 export interface CreateQuestionRequest {

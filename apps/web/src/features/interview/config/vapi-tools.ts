@@ -1,8 +1,3 @@
-/**
- * VAPI tool (function) definitions for the interview assistant.
- * Each tool is called by the AI during the interview flow.
- */
-
 export function buildVapiTools(interviewId: string) {
   return [
     {
@@ -10,7 +5,7 @@ export function buildVapiTools(interviewId: string) {
       function: {
         name: "save_preferences",
         description:
-          "Mülakat başlangıcında tercihleri kaydet ve soruları oluştur. Kullanıcı hazır olduğunda çağır.",
+          "Mülakatı başlat ve soruları hazırla. Kullanıcı hazır olduğunu belirttiğinde çağır. Çağırırken konuşma.",
         parameters: {
           type: "object",
           properties: {
@@ -35,21 +30,22 @@ export function buildVapiTools(interviewId: string) {
       function: {
         name: "save_answer",
         description:
-          "Kullanıcının cevabını kaydet ve sonraki soruyu al. Her cevaptan sonra çağır.",
+          "Kullanıcının cevabını kaydet. SADECE cevap değerlendirmesi ve takip soruları dahil tüm tartışma tamamen bittikten sonra çağır. Değerlendirme bitmeden çağırma. Çağırırken konuşma.",
         parameters: {
           type: "object",
           properties: {
             questionOrder: {
               type: "number",
-              description: "Şu anki sorunun sıra numarası (1-5)",
+              description: "Sorunun sıra numarası (1-5)",
             },
             questionText: {
               type: "string",
-              description: "Sorulan sorunun metni",
+              description: "Sorulan sorunun tam metni",
             },
             answer: {
               type: "string",
-              description: "Kullanıcının verdiği cevap",
+              description:
+                "Kullanıcının verdiği cevabın tam metni. Kısaltma veya özetleme.",
             },
             questions: {
               type: "array",
@@ -60,8 +56,7 @@ export function buildVapiTools(interviewId: string) {
                   order: { type: "number" },
                 },
               },
-              description:
-                "save_preferences fonksiyonundan dönen soru listesinin tamamı",
+              description: "save_preferences'tan dönen soru listesinin tamamı",
             },
             interviewId: {
               type: "string",
@@ -77,18 +72,10 @@ export function buildVapiTools(interviewId: string) {
       function: {
         name: "end_interview",
         description:
-          "Mülakatı sonlandır ve değerlendirme yap. Tüm sorular bittiğinde veya kullanıcı bitirmek istediğinde çağır. answers parametresine tüm soru-cevap çiftlerini ekle.",
+          "Mülakatı sonlandır. Tüm sorular bittiğinde çağır. answers parametresine mülakat boyunca sorulan tüm soru-cevap çiftlerini ekle.",
         parameters: {
           type: "object",
           properties: {
-            overallScore: {
-              type: "number",
-              description: "Genel performans puanı (0-100)",
-            },
-            summary: {
-              type: "string",
-              description: "Kısa değerlendirme özeti",
-            },
             interviewId: {
               type: "string",
               description: `Mülakat ID. Her zaman "${interviewId}" olmalı.`,
@@ -107,7 +94,7 @@ export function buildVapiTools(interviewId: string) {
                 },
               },
               description:
-                "Tüm soru-cevap çiftleri. Mülakat sırasında sorulan her soru ve alınan cevap.",
+                "Tüm soru-cevap çiftleri.",
             },
           },
           required: ["interviewId", "answers"],

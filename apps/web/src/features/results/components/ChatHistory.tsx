@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Bot, User, X, Maximize2 } from "lucide-react";
+import { normalizeTranscript } from "@/features/interview/config/transcript-normalizer";
 import "./ChatHistory.scss";
 
 interface Message {
@@ -22,13 +23,14 @@ function groupMessages(messages: Message[]): GroupedMessage[] {
   let current: GroupedMessage | null = null;
 
   for (const msg of messages) {
-    if (!msg.content || msg.content.trim() === "") continue;
+    const cleaned = normalizeTranscript(msg.content || "");
+    if (!cleaned) continue;
 
     if (current && current.role === msg.role) {
-      current.contents.push(msg.content.trim());
+      current.contents.push(cleaned);
     } else {
       if (current) groups.push(current);
-      current = { role: msg.role, contents: [msg.content.trim()] };
+      current = { role: msg.role, contents: [cleaned] };
     }
   }
 
@@ -51,7 +53,7 @@ export default function ChatHistory({ messages }: ChatHistoryProps) {
     );
   }
 
-  const grouped = groupMessages(messages);
+  const grouped = useMemo(() => groupMessages(messages), [messages]);
 
   const renderMessages = (inModal: boolean) => (
     <div className={`chat-messages ${inModal ? "in-modal" : ""}`}>

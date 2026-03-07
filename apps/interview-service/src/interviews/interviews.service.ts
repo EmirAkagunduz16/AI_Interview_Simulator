@@ -98,7 +98,11 @@ export class InterviewsService {
     };
   }
 
-  async start(userId: string, id: string): Promise<InterviewDocument> {
+  async start(
+    userId: string,
+    id: string,
+    questionIds?: string[],
+  ): Promise<InterviewDocument> {
     const interview = await this.findById(userId, id);
 
     if (interview.status === InterviewStatus.IN_PROGRESS) {
@@ -106,6 +110,10 @@ export class InterviewsService {
     }
     if (interview.status === InterviewStatus.COMPLETED) {
       throw new InterviewAlreadyCompletedException();
+    }
+
+    if (questionIds?.length) {
+      await this.interviewRepository.setQuestionIds(id, questionIds);
     }
 
     const updated = await this.interviewRepository.updateStatus(

@@ -122,10 +122,12 @@ export class GrpcInterviewsController {
     );
 
     let interview;
+    const questionIds = data.questionIds?.length ? data.questionIds : undefined;
     if (data.userId && data.userId !== "anonymous") {
       interview = await this.interviewsService.start(
         data.userId,
         data.interviewId,
+        questionIds,
       );
     } else {
       const found = await this.interviewsService.findByIdInternal(
@@ -134,6 +136,7 @@ export class GrpcInterviewsController {
       interview = await this.interviewsService.start(
         found.userId,
         data.interviewId,
+        questionIds,
       );
     }
     return this.toGrpcResponse(interview);
@@ -270,6 +273,7 @@ export class GrpcInterviewsController {
             ),
           }
         : undefined,
+      questionIds: json.questionIds || [],
       messages: (json.messages || []).map((m: MongoDocument) => ({
         role: m.role || "",
         content: m.content || "",

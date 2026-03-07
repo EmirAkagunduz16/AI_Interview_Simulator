@@ -46,6 +46,9 @@ export class Question {
   @Prop({ type: [McqOptionSchema], default: [] }) mcqOptions: McqOption[];
   @Prop({ default: 0 }) usageCount: number;
   @Prop({ default: true }) isActive: boolean;
+  @Prop({ type: String, enum: ["seed", "ai-generated"], default: "seed" })
+  createdBy: "seed" | "ai-generated";
+  @Prop({ type: Date }) lastAskedAt?: Date;
 
   createdAt: Date;
   updatedAt: Date;

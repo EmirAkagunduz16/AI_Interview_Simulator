@@ -49,6 +49,7 @@ message CreateInterviewRequest {
 message StartInterviewRequest {
   string interview_id = 1;
   string user_id = 2;
+  repeated string question_ids = 3;
 }
 
 message SubmitAnswerRequest {
@@ -98,6 +99,7 @@ message InterviewResponse {
   optional InterviewReportResponse report = 13;
   string created_at = 14;
   repeated InterviewMessageResponse messages = 15;
+  repeated string question_ids = 16;
 }
 
 message InterviewMessageResponse {

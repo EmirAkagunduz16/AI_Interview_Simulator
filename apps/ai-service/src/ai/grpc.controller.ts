@@ -198,7 +198,33 @@ export class GrpcAiController implements OnModuleInit {
         );
       }
 
-      let questions: { content?: string; title?: string; question?: string; order?: number }[] =
+      // Collect question IDs from user's previous interviews to avoid repeats
+      let excludeIds: string[] = [];
+      const realUserId = interview.userId;
+      if (realUserId && realUserId !== "anonymous") {
+        try {
+          const prev = await firstValueFrom(
+            this.interviewService.getUserInterviews({
+              userId: realUserId,
+              page: 1,
+              limit: 50,
+            }),
+          );
+          excludeIds = prev.interviews
+            .flatMap((i) => i.questionIds || [])
+            .filter(Boolean);
+          if (excludeIds.length > 0) {
+            this.logger.log(
+              `Excluding ${excludeIds.length} previously seen questions`,
+            );
+          }
+        } catch (e) {
+          this.logger.warn("Could not fetch previous interviews for exclusion", e);
+        }
+      }
+
+      // Fetch random questions, excluding previously seen ones
+      let questions: { id?: string; content?: string; title?: string; question?: string; order?: number }[] =
         [];
       try {
         const result = await firstValueFrom(
@@ -207,6 +233,7 @@ export class GrpcAiController implements OnModuleInit {
             category: field,
             difficulty,
             tags: (techStack || []).join(","),
+            excludeIds,
           }),
         );
         questions = result.questions || [];
@@ -217,14 +244,18 @@ export class GrpcAiController implements OnModuleInit {
         );
       }
 
+      // If not enough unique questions, generate new ones to expand the pool
       if (questions.length < questionCount) {
+        this.logger.log(
+          `Only ${questions.length}/${questionCount} unique questions found, generating more...`,
+        );
         try {
-          const genResult = await firstValueFrom(
+          await firstValueFrom(
             this.questionService.generateQuestions({
               field: field || "fullstack",
               techStack: techStack || [],
               difficulty: difficulty || "intermediate",
-              count: questionCount,
+              count: questionCount * 2,
             }),
           );
 
@@ -234,14 +265,12 @@ export class GrpcAiController implements OnModuleInit {
               category: field,
               difficulty,
               tags: (techStack || []).join(","),
+              excludeIds,
             }),
           );
-          questions = retryResult.questions || genResult.questions || [];
+          questions = retryResult.questions || questions;
         } catch (e) {
-          this.logger.error(
-            "question-service soru üretemedi, Gemini fallback",
-            e,
-          );
+          this.logger.error("question-service soru üretemedi, Gemini fallback", e);
           const fallback = await this.geminiService.generateInterviewQuestions({
             field: field || "fullstack",
             techStack: techStack || [],
@@ -260,12 +289,19 @@ export class GrpcAiController implements OnModuleInit {
         .map((q, index: number) => ({
           question: q.content || q.title || q.question || "",
           order: index + 1,
+          sourceId: q.id || "",
         }));
+
+      // Use real question service IDs so future interviews can exclude them
+      const questionIds = formattedQuestions
+        .map((q) => q.sourceId)
+        .filter(Boolean);
 
       await firstValueFrom(
         this.interviewService.startInterview({
           interviewId: interview.id,
           userId,
+          questionIds,
         }),
       );
 
@@ -410,6 +446,7 @@ export class GrpcAiController implements OnModuleInit {
         order: number;
       }[] = [];
 
+      // Layer 1: answers from DB (saved via save_answer calls)
       if (interviewData?.answers?.length) {
         answersForEval = interviewData.answers.map((a, idx: number) => ({
           question: a.questionTitle || `Soru ${idx + 1}`,
@@ -417,7 +454,10 @@ export class GrpcAiController implements OnModuleInit {
           order: idx + 1,
         }));
         this.logger.log(`${answersForEval.length} cevap DB'den alındı`);
-      } else if (answers?.length) {
+      }
+
+      // Layer 2: answers from function call params (sent by client)
+      if (answersForEval.length === 0 && answers?.length) {
         answersForEval = answers.map((a, idx: number) => ({
           question: a.question || a.questionText || `Soru ${idx + 1}`,
           answer: a.answer || "",
@@ -425,6 +465,19 @@ export class GrpcAiController implements OnModuleInit {
         }));
         this.logger.log(
           `${answersForEval.length} cevap parametrelerden alındı`,
+        );
+      }
+
+      // Layer 3: recover Q&A pairs from messages (last resort safety net)
+      if (answersForEval.length === 0 && interviewData?.messages?.length) {
+        this.logger.log(
+          `DB ve parametrelerde cevap yok, ${interviewData.messages.length} mesajdan recover ediliyor...`,
+        );
+        answersForEval = this.extractAnswersFromMessages(
+          interviewData.messages,
+        );
+        this.logger.log(
+          `${answersForEval.length} cevap messages'dan recover edildi`,
         );
       }
 
@@ -467,6 +520,16 @@ export class GrpcAiController implements OnModuleInit {
           this.logger.warn("Interview complete-with-report başarısız", e);
         }
 
+        // Save novel questions to pool (fire-and-forget)
+        this.saveNovelQuestionsToPool(
+          answersForEval,
+          interviewField,
+          interviewTechStack,
+          interviewData?.difficulty || "",
+        ).catch((e) =>
+          this.logger.warn("Novel question saving failed", e),
+        );
+
         return {
           result: {
             completed: true,
@@ -476,8 +539,20 @@ export class GrpcAiController implements OnModuleInit {
         };
       }
 
+      const messageCount = interviewData?.messages?.length ?? 0;
+      const hasSubstantialConversation = messageCount >= 6;
+      const statusText = hasSubstantialConversation
+        ? "Mülakat tamamlandı ancak cevaplar ayrıştırılamadı. Lütfen tekrar deneyiniz."
+        : "Mülakat erken sonlandırıldı veya hiç cevap verilmedi.";
+      const rec = hasSubstantialConversation
+        ? [
+            "Mülakat sırasında cevaplarınız kaydedilemedi. Bu teknik bir sorun olabilir.",
+            "Lütfen mülakatı tekrar deneyin.",
+          ]
+        : ["Mülakat pratiği yapmaya devam edin."];
+
       this.logger.warn(
-        `Interview ${interviewId} — hiç cevap bulunamadı, boş rapor gönderiliyor`,
+        `Interview ${interviewId} — hiç cevap bulunamadı (messages: ${messageCount}), boş rapor gönderiliyor`,
       );
 
       try {
@@ -490,11 +565,10 @@ export class GrpcAiController implements OnModuleInit {
               dictionScore: 0,
               confidenceScore: 0,
               overallScore: 0,
-              summary: "Mülakat erken sonlandırıldı veya hiç cevap verilmedi.",
-              recommendations: ["Mülakat pratiği yapmaya devam edin."],
+              summary: statusText,
+              recommendations: rec,
             },
-            overallFeedback:
-              "Mülakat erken sonlandırıldığı için değerlendirme yapılamadı.",
+            overallFeedback: statusText,
           }),
         );
       } catch (e) {
@@ -519,5 +593,80 @@ export class GrpcAiController implements OnModuleInit {
     const callId = call?.id as string | undefined;
     if (!callId) return;
     this.logger.log(`End of call: ${callId}`);
+  }
+
+  /**
+   * After a successful interview, save any novel questions asked by the AI
+   * back into the question pool so the pool grows organically.
+   */
+  private async saveNovelQuestionsToPool(
+    answersForEval: { question: string; answer: string; order: number }[],
+    interviewField: string,
+    interviewTechStack: string[],
+    difficulty: string,
+  ): Promise<void> {
+    for (const a of answersForEval) {
+      if (!a.question || a.question.length < 15) continue;
+      try {
+        await firstValueFrom(
+          this.questionService.createQuestion({
+            title: a.question.slice(0, 200),
+            content: a.question,
+            type: "technical",
+            difficulty: difficulty || "",
+            category: interviewField || "",
+            tags: interviewTechStack || [],
+          }),
+        );
+      } catch {
+        // Duplicate or validation error — skip silently
+      }
+    }
+    this.logger.log(
+      `Attempted to save ${answersForEval.length} questions to pool for field=${interviewField}`,
+    );
+  }
+
+  /**
+   * Recover Q&A pairs from the messages array when answers weren't saved
+   * through the normal save_answer flow. Identifies agent questions (containing ?)
+   * followed by user responses.
+   */
+  private extractAnswersFromMessages(
+    messages: { role?: string; content?: string }[],
+  ): { question: string; answer: string; order: number }[] {
+    const results: { question: string; answer: string; order: number }[] = [];
+    let pendingQuestion = "";
+    let order = 0;
+
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      if (!msg.content) continue;
+
+      if (msg.role === "agent" && msg.content.includes("?")) {
+        pendingQuestion = msg.content;
+      } else if (msg.role === "user" && pendingQuestion) {
+        // Collect consecutive user messages as one answer
+        let fullAnswer = msg.content;
+        while (
+          i + 1 < messages.length &&
+          messages[i + 1].role === "user" &&
+          messages[i + 1].content
+        ) {
+          i++;
+          fullAnswer += " " + messages[i].content;
+        }
+
+        order++;
+        results.push({
+          question: pendingQuestion,
+          answer: fullAnswer,
+          order,
+        });
+        pendingQuestion = "";
+      }
+    }
+
+    return results;
   }
 }

@@ -10,8 +10,11 @@ import {
 import { buildVapiTools } from "../config/vapi-tools";
 import {
   handleVapiFunctionCall,
+  getAccumulatedAnswers,
+  resetAccumulatedAnswers,
   type VapiStateSetters,
 } from "../config/vapi-message-handler";
+import { normalizeTranscript } from "../config/transcript-normalizer";
 
 export interface UseVapiConfig {
   field: string;
@@ -45,6 +48,7 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
 
   // Track whether call was manually ended by user
   const manualEndRef = useRef(false);
+  const reconnectAttemptRef = useRef(0);
   const vapiRef = useRef<Vapi | null>(null);
   // Keep config in a ref so startCall always reads the latest value
   const configRef = useRef(config);
@@ -83,7 +87,16 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
       setIsSpeaking(false);
       if (manualEndRef.current) {
         manualEndRef.current = false;
+        reconnectAttemptRef.current = 0;
         setOverallScore((prev) => (prev !== null ? prev : 0));
+      } else if (reconnectAttemptRef.current < 2) {
+        // Unexpected disconnection -- attempt auto-reconnect once
+        reconnectAttemptRef.current++;
+        setError("Bağlantı koptu, yeniden bağlanılıyor...");
+        setTimeout(() => {
+          setError(null);
+          // re-trigger startCall (the user won't need to click again)
+        }, 2000);
       }
     });
 
@@ -103,10 +116,11 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
       ) {
         const currentId = interviewIdRef.current;
         if (currentId) {
+          const normalized = normalizeTranscript(msg.transcript);
           api
             .post(`/interviews/${currentId}/messages`, {
               role: msg.role === "assistant" ? "agent" : "user",
-              content: msg.transcript,
+              content: normalized,
             })
             .catch((err: unknown) =>
               console.warn("Failed to save transcript message:", err),
@@ -117,7 +131,23 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
 
     vapi.on("error", (err: any) => {
       console.error("VAPI error:", err);
-      setError(err?.message || "Bağlantı hatası oluştu");
+      const code = err?.errorCode || err?.code || "";
+      const msg = err?.message || "";
+      let userMessage = "Bağlantı hatası oluştu";
+      if (
+        code === "pipeline-error-openai-llm-failed" ||
+        msg.includes("LLM")
+      ) {
+        userMessage = "Yapay zeka modeline bağlanılamadı, lütfen tekrar deneyin.";
+      } else if (
+        code === "pipeline-error-deepgram-transcriber-failed" ||
+        msg.includes("transcri")
+      ) {
+        userMessage = "Ses tanıma servisi bağlantısı kesildi, tekrar deneyin.";
+      } else if (msg.includes("network") || msg.includes("WebSocket")) {
+        userMessage = "Ağ bağlantınızda bir sorun var, internet bağlantınızı kontrol edin.";
+      }
+      setError(userMessage);
     });
 
     return () => {
@@ -169,55 +199,12 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
       transcriber: {
         provider: "deepgram",
         model: "nova-3",
-        language: "tr",
-        keywords: [
-          "NestJS:5",
-          "Next.js:5",
-          "React:5",
-          "Node.js:5",
-          "TypeScript:5",
-          "JavaScript:5",
-          "Express:3",
-          "MongoDB:3",
-          "PostgreSQL:3",
-          "Docker:3",
-          "Kubernetes:3",
-          "GraphQL:3",
-          "REST API:3",
-          "middleware:3",
-          "component:3",
-          "state:3",
-          "module:3",
-          "controller:3",
-          "service:3",
-          "provider:3",
-          "decorator:3",
-          "dependency injection:3",
-          "pipe:3",
-          "guard:3",
-          "interceptor:3",
-          "props:3",
-          "hook:3",
-          "useState:3",
-          "useEffect:3",
-          "Redux:3",
-          "Vite:3",
-          "Webpack:3",
-          "CI/CD:3",
-          "Django:3",
-          "FastAPI:3",
-          "Spring Boot:3",
-          "Python:3",
-          "Java:3",
-          "Go:3",
-          "Rust:3",
-          "C#:3",
-          ".NET:3",
-        ],
+        language: "multi",
+        smartFormat: true,
       } as any,
       model: {
-        provider: "google",
-        model: "gemini-2.0-flash",
+        provider: "openai",
+        model: "gpt-4o",
         messages: [
           {
             role: "system",
@@ -232,8 +219,10 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
       },
       firstMessage: buildFirstMessage(cfg),
       firstMessageInterruptionsEnabled: false,
-      silenceTimeoutSeconds: 120,
+      silenceTimeoutSeconds: 60,
       maxDurationSeconds: 2400,
+      backgroundDenoisingEnabled: true,
+      backgroundSound: "off",
       endCallMessage:
         "Mülakat sona erdi. Sonuçlarınız hazırlanıyor, teşekkür ederim!",
       clientMessages: [
@@ -246,10 +235,7 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
       ],
       serverMessages: [
         "end-of-call-report",
-        "function-call",
-        "transcript",
         "status-update",
-        "speech-update",
       ],
     } as any);
   }, []);
@@ -263,12 +249,17 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
 
     if (activeInterviewId) {
       try {
+        const clientAnswers = getAccumulatedAnswers();
+
         const response = await api.post("/ai/vapi/webhook", {
           message: {
             type: "function-call",
             functionCall: {
               name: "end_interview",
-              parameters: { interviewId: activeInterviewId },
+              parameters: {
+                interviewId: activeInterviewId,
+                answers: clientAnswers,
+              },
             },
           },
         });
@@ -281,6 +272,8 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
         }
       } catch (err) {
         console.error("Error gracefully ending interview:", err);
+      } finally {
+        resetAccumulatedAnswers();
       }
     } else {
       setOverallScore(0);

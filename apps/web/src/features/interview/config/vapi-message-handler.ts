@@ -2,7 +2,7 @@
  * Handles VAPI function-call messages by forwarding to the backend webhook
  * and sending results back to the VAPI instance.
  *
- * Stateless — receives setters as arguments to avoid stale closure bugs.
+ * Accumulates answers client-side as a safety net for evaluation.
  */
 
 import type Vapi from "@vapi-ai/web";
@@ -14,10 +14,22 @@ export interface VapiStateSetters {
   setOverallScore: (score: number) => void;
 }
 
-/**
- * Process an incoming VAPI function-call message.
- * Forwards to backend, updates local state, and sends the result back to VAPI.
- */
+export interface AccumulatedAnswer {
+  question: string;
+  answer: string;
+  order: number;
+}
+
+let accumulatedAnswers: AccumulatedAnswer[] = [];
+
+export function getAccumulatedAnswers(): AccumulatedAnswer[] {
+  return [...accumulatedAnswers];
+}
+
+export function resetAccumulatedAnswers(): void {
+  accumulatedAnswers = [];
+}
+
 export async function handleVapiFunctionCall(
   msg: any,
   vapiInstance: Vapi,
@@ -27,14 +39,13 @@ export async function handleVapiFunctionCall(
   if (!functionCall) return;
 
   try {
-    // 1. Forward to backend webhook
     const response = await api.post("/ai/vapi/webhook", { message: msg });
     const data = response.data;
     const result = data.result || {};
 
-    // 2. Update local state based on function name
     switch (functionCall.name) {
       case "save_preferences": {
+        resetAccumulatedAnswers();
         if (result.interviewId) {
           setters.setInterviewId(result.interviewId);
         }
@@ -45,7 +56,13 @@ export async function handleVapiFunctionCall(
       }
 
       case "save_answer": {
-        // Backend now returns nextQuestion directly — no client-side lookup needed
+        const params = functionCall.parameters || {};
+        accumulatedAnswers.push({
+          question: params.questionText || `Soru ${params.questionOrder}`,
+          answer: params.answer || "",
+          order: params.questionOrder || accumulatedAnswers.length + 1,
+        });
+
         if (result.nextQuestion) {
           setters.setCurrentQuestion(result.nextQuestion);
         }
@@ -63,7 +80,6 @@ export async function handleVapiFunctionCall(
       }
     }
 
-    // 3. Send result back to VAPI so the AI can continue the conversation
     vapiInstance.send({
       type: "add-message",
       message: {
@@ -75,7 +91,6 @@ export async function handleVapiFunctionCall(
     });
   } catch (err) {
     console.error("Error handling VAPI function call:", err);
-    // Send fallback response to VAPI so it doesn't hang waiting for a tool result
     try {
       vapiInstance.send({
         type: "add-message",

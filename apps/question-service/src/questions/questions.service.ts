@@ -85,7 +85,7 @@ export class QuestionsService implements OnModuleInit {
   }
 
   async findRandom(query: RandomQuestionsDto): Promise<QuestionDocument[]> {
-    return this.questionRepository.findRandom(
+    const questions = await this.questionRepository.findRandom(
       {
         type: query.type,
         difficulty: query.difficulty,
@@ -95,7 +95,22 @@ export class QuestionsService implements OnModuleInit {
           : undefined,
       },
       query.count || 5,
+      query.excludeIds || [],
     );
+
+    // Auto-increment usage for returned questions
+    const ids = questions
+      .map((q) => q._id?.toString())
+      .filter(Boolean) as string[];
+    if (ids.length > 0) {
+      this.questionRepository
+        .incrementUsageBatch(ids)
+        .catch((e) =>
+          this.logger.warn("Failed to increment usage counts", e),
+        );
+    }
+
+    return questions;
   }
 
   async update(id: string, dto: UpdateQuestionDto): Promise<QuestionDocument> {
@@ -164,7 +179,8 @@ export class QuestionsService implements OnModuleInit {
           difficulty: dto.difficulty as Difficulty,
           category: dto.field,
           tags: dto.techStack,
-        });
+          createdBy: "ai-generated",
+        } as any);
 
         savedQuestions.push(question);
       }
