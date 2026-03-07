@@ -9,11 +9,12 @@ import {
 } from "@nestjs/common";
 import { ClientGrpc } from "@nestjs/microservices";
 import { firstValueFrom } from "rxjs";
-import { GRPC_USER_SERVICE, IGrpcUserService } from "@ai-coach/grpc";
-
-interface AuthenticatedRequest {
-  user: { userId: string; email: string; role: string };
-}
+import {
+  GRPC_USER_SERVICE,
+  IGrpcUserService,
+  UpdateUserRequest,
+} from "@ai-coach/grpc";
+import { AuthenticatedRequest } from "../../common/guards/auth.guard";
 
 @Controller("users")
 export class UsersController implements OnModuleInit {
@@ -31,48 +32,38 @@ export class UsersController implements OnModuleInit {
   @Get("me")
   async getMe(@Req() req: AuthenticatedRequest) {
     return firstValueFrom(
-      (this.userService as any).getUserByAuthId({
-        authId: req.user.userId,
-      }),
+      this.userService.getUserByAuthId({ authId: req.user.userId }),
     );
   }
 
   @Patch("me")
-  async updateMe(@Req() req: AuthenticatedRequest, @Body() body: any) {
-    // Convert generic body fields to what gRPC expects (camelCase)
-    const payload = {
+  async updateMe(
+    @Req() req: AuthenticatedRequest,
+    @Body()
+    body: Omit<UpdateUserRequest, "authId">,
+  ) {
+    const payload: UpdateUserRequest = {
       authId: req.user.userId,
-      name: body.name,
-      avatar: body.avatar,
-      bio: body.bio,
-      targetRole: body.target_role || body.targetRole,
-      experienceLevel: body.experience_level || body.experienceLevel,
-      skills: body.skills,
+      ...body,
     };
-    // Remove undefined properties
-    Object.keys(payload).forEach(
-      (key) =>
-        payload[key as keyof typeof payload] === undefined &&
-        delete payload[key as keyof typeof payload],
-    );
+    Object.keys(payload).forEach((key) => {
+      const k = key as keyof UpdateUserRequest;
+      if (payload[k] === undefined) delete payload[k];
+    });
 
-    return firstValueFrom((this.userService as any).updateUser(payload));
+    return firstValueFrom(this.userService.updateUser(payload));
   }
 
   @Get("me/stats")
   async getMyStats(@Req() req: AuthenticatedRequest) {
-    const result: any = await firstValueFrom(
-      (this.userService as any).getUserStats({
-        authId: req.user.userId,
-      }),
+    const result = await firstValueFrom(
+      this.userService.getUserStats({ authId: req.user.userId }),
     );
-    return JSON.parse(result.json_data || result.jsonData || "{}");
+    return JSON.parse(result.jsonData || "{}");
   }
 
   @Get()
   async getUsers() {
-    return firstValueFrom(
-      this.userService.getUsers({ page: 1, limit: 50 }) as any,
-    );
+    return firstValueFrom(this.userService.getUsers({ page: 1, limit: 50 }));
   }
 }

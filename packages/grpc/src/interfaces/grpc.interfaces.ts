@@ -1,4 +1,5 @@
 import { InjectionToken, OptionalFactoryDependency } from "@nestjs/common";
+import { Observable } from "rxjs";
 
 // ===========================
 // gRPC Module Options
@@ -47,170 +48,207 @@ export const PROTO_PACKAGES = {
 // Auth Service
 // ===========================
 
-export interface IGrpcAuthTokenResponse {
-  access_token: string;
-  refresh_token: string;
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    role: string;
-  };
+export interface ValidateTokenRequest {
+  accessToken: string;
+}
+
+export interface ValidateTokenResponse {
+  valid: boolean;
+  userId: string;
+  email: string;
+  role: string;
+}
+
+export interface GetTokenUserResponse {
+  userId: string;
+  email: string;
+  name: string;
+  role: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  name: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RefreshRequest {
+  refreshToken: string;
+}
+
+export interface LogoutRequest {
+  accessToken: string;
+}
+
+export interface TokenUserInfo {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+}
+
+export interface TokenResponse {
+  accessToken: string;
+  refreshToken: string;
+  user: TokenUserInfo;
+}
+
+export interface LogoutResponse {
+  message: string;
 }
 
 export interface IGrpcAuthService {
-  validateToken(data: {
-    access_token: string;
-  }): Promise<{ valid: boolean; user_id: string; email: string; role: string }>;
-
-  getTokenUser(data: {
-    access_token: string;
-  }): Promise<{ user_id: string; email: string; name: string; role: string }>;
-
-  register(data: {
-    email: string;
-    password: string;
-    name: string;
-  }): Promise<IGrpcAuthTokenResponse>;
-
-  login(data: {
-    email: string;
-    password: string;
-  }): Promise<IGrpcAuthTokenResponse>;
-
-  refresh(data: { refresh_token: string }): Promise<IGrpcAuthTokenResponse>;
-
-  logout(data: { access_token: string }): Promise<{ message: string }>;
+  validateToken(data: ValidateTokenRequest): Observable<ValidateTokenResponse>;
+  getTokenUser(
+    data: ValidateTokenRequest,
+  ): Observable<GetTokenUserResponse>;
+  register(data: RegisterRequest): Observable<TokenResponse>;
+  login(data: LoginRequest): Observable<TokenResponse>;
+  refresh(data: RefreshRequest): Observable<TokenResponse>;
+  logout(data: LogoutRequest): Observable<LogoutResponse>;
 }
 
 // ===========================
 // User Service
 // ===========================
 
-export interface IGrpcUserService {
-  getUserByAuthId(data: { auth_id: string }): Promise<IGrpcUserResponse>;
-  getUserById(data: { user_id: string }): Promise<IGrpcUserResponse>;
-  updateUser(data: {
-    auth_id: string;
-    name?: string;
-    avatar?: string;
-    bio?: string;
-    target_role?: string;
-    experience_level?: string;
-    skills?: string[];
-  }): Promise<IGrpcUserResponse>;
-  getUserStats(data: { auth_id: string }): Promise<{ json_data: string }>;
-  getUsers(data: { page: number; limit: number }): Promise<{
-    users: IGrpcUserResponse[];
-    total: number;
-    page: number;
-    total_pages: number;
-  }>;
+export interface GetUserByAuthIdRequest {
+  authId: string;
 }
 
-export interface IGrpcUserResponse {
+export interface GetUserByIdRequest {
+  userId: string;
+}
+
+export interface UpdateUserRequest {
+  authId: string;
+  name?: string;
+  avatar?: string;
+  bio?: string;
+  targetRole?: string;
+  experienceLevel?: string;
+  skills?: string[];
+}
+
+export interface GetUserStatsRequest {
+  authId: string;
+}
+
+export interface GetUserStatsResponse {
+  jsonData: string;
+}
+
+export interface GetUsersRequest {
+  page: number;
+  limit: number;
+}
+
+export interface UserProfileResponse {
+  avatar: string;
+  bio: string;
+  targetRole: string;
+  experienceLevel: string;
+  skills: string[];
+}
+
+export interface UserSubscriptionResponse {
+  plan: string;
+  interviewsUsed: number;
+  interviewsLimit: number;
+}
+
+export interface UserResponse {
   id: string;
-  auth_id: string;
+  authId: string;
   email: string;
   name: string;
   role: string;
-  profile: {
-    avatar: string;
-    bio: string;
-    target_role: string;
-    experience_level: string;
-    skills: string[];
-  };
-  subscription: {
-    plan: string;
-    interviews_used: number;
-    interviews_limit: number;
-  };
-  is_active: boolean;
+  profile: UserProfileResponse;
+  subscription: UserSubscriptionResponse;
+  isActive: boolean;
+}
+
+export interface UsersListResponse {
+  users: UserResponse[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+export interface IGrpcUserService {
+  getUserByAuthId(data: GetUserByAuthIdRequest): Observable<UserResponse>;
+  getUserById(data: GetUserByIdRequest): Observable<UserResponse>;
+  updateUser(data: UpdateUserRequest): Observable<UserResponse>;
+  getUserStats(data: GetUserStatsRequest): Observable<GetUserStatsResponse>;
+  getUsers(data: GetUsersRequest): Observable<UsersListResponse>;
 }
 
 // ===========================
 // Interview Service
 // ===========================
 
-export interface IGrpcInterviewService {
-  getInterview(data: {
-    interviewId: string;
-    userId: string;
-  }): Promise<IGrpcInterviewResponse>;
-
-  getInterviewByVapiCallId(data: {
-    vapiCallId: string;
-  }): Promise<IGrpcInterviewResponse>;
-
-  getUserInterviews(data: {
-    userId: string;
-    page: number;
-    limit: number;
-    status?: string;
-  }): Promise<{
-    interviews: IGrpcInterviewResponse[];
-    total: number;
-    page: number;
-    totalPages: number;
-  }>;
-
-  getInterviewStats(data: { userId: string }): Promise<{
-    totalInterviews: number;
-    completedInterviews: number;
-    averageScore: number;
-    bestScore: number;
-    totalQuestionsAnswered: number;
-  }>;
-
-  createInterview(data: {
-    userId: string;
-    field: string;
-    techStack: string[];
-    difficulty: string;
-    title?: string;
-    vapiCallId?: string;
-    questionCount?: number;
-  }): Promise<IGrpcInterviewResponse>;
-
-  startInterview(data: {
-    interviewId: string;
-    userId: string;
-  }): Promise<IGrpcInterviewResponse>;
-
-  submitAnswer(data: {
-    interviewId: string;
-    userId: string;
-    questionId: string;
-    questionTitle: string;
-    answer: string;
-  }): Promise<IGrpcInterviewResponse>;
-
-  completeInterview(data: {
-    interviewId: string;
-    userId: string;
-  }): Promise<IGrpcInterviewResponse>;
-
-  completeWithReport(data: {
-    interviewId: string;
-    report: IGrpcInterviewReportData;
-    overallFeedback: string;
-  }): Promise<IGrpcInterviewResponse>;
-
-  cancelInterview(data: {
-    interviewId: string;
-    userId: string;
-  }): Promise<IGrpcInterviewResponse>;
-
-  addInterviewMessage(data: {
-    interviewId: string;
-    userId: string;
-    role: string;
-    content: string;
-  }): Promise<IGrpcInterviewResponse>;
+export interface GetInterviewRequest {
+  interviewId: string;
+  userId: string;
 }
 
-export interface IGrpcInterviewReportData {
+export interface GetInterviewByVapiCallIdRequest {
+  vapiCallId: string;
+}
+
+export interface GetUserInterviewsRequest {
+  userId: string;
+  page: number;
+  limit: number;
+  status?: string;
+}
+
+export interface GetInterviewStatsRequest {
+  userId: string;
+}
+
+export interface InterviewStatsResponse {
+  totalInterviews: number;
+  completedInterviews: number;
+  averageScore: number;
+  bestScore: number;
+  totalQuestionsAnswered: number;
+}
+
+export interface CreateInterviewRequest {
+  userId: string;
+  field: string;
+  techStack: string[];
+  difficulty: string;
+  title?: string;
+  vapiCallId?: string;
+  questionCount?: number;
+}
+
+export interface StartInterviewRequest {
+  interviewId: string;
+  userId: string;
+}
+
+export interface SubmitAnswerRequest {
+  interviewId: string;
+  userId: string;
+  questionId: string;
+  questionTitle: string;
+  answer: string;
+}
+
+export interface CompleteInterviewRequest {
+  interviewId: string;
+  userId: string;
+}
+
+export interface InterviewReportData {
   technicalScore: number;
   communicationScore: number;
   dictionScore: number;
@@ -220,148 +258,254 @@ export interface IGrpcInterviewReportData {
   recommendations: string[];
 }
 
-export interface IGrpcInterviewResponse {
+export interface CompleteWithReportRequest {
+  interviewId: string;
+  report: InterviewReportData;
+  overallFeedback: string;
+}
+
+export interface CancelInterviewRequest {
+  interviewId: string;
+  userId: string;
+}
+
+export interface AddInterviewMessageRequest {
+  interviewId: string;
+  userId: string;
+  role: string;
+  content: string;
+}
+
+export interface InterviewAnswerResponse {
+  questionId: string;
+  questionTitle: string;
+  answer: string;
+  feedback?: string;
+  score?: number;
+  strengths: string[];
+  improvements: string[];
+}
+
+export interface QuestionEvaluationResponse {
+  question: string;
+  answer: string;
+  score: number;
+  feedback: string;
+  strengths: string[];
+  improvements: string[];
+}
+
+export interface InterviewReportResponse {
+  technicalScore: number;
+  communicationScore: number;
+  dictionScore: number;
+  confidenceScore: number;
+  overallScore: number;
+  summary: string;
+  recommendations: string[];
+  questionEvaluations: QuestionEvaluationResponse[];
+}
+
+export interface InterviewMessageResponse {
+  role: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface InterviewResponse {
   id: string;
-  user_id: string;
+  userId: string;
   title: string;
   field: string;
-  tech_stack: string[];
+  techStack: string[];
   type: string;
   status: string;
   difficulty: string;
-  duration_minutes: number;
-  total_score?: number;
-  overall_feedback?: string;
-  created_at: string;
-  answers: {
-    question_id: string;
-    question_title: string;
-    answer: string;
-    feedback?: string;
-    score?: number;
-    strengths: string[];
-    improvements: string[];
-  }[];
-  report?: {
-    technical_score: number;
-    communication_score: number;
-    diction_score: number;
-    confidence_score: number;
-    overall_score: number;
-    summary: string;
-    recommendations: string[];
-    question_evaluations: {
-      question: string;
-      answer: string;
-      score: number;
-      feedback: string;
-      strengths: string[];
-      improvements: string[];
-    }[];
-  };
-  messages?: {
-    role: string;
-    content: string;
-    created_at: string;
-  }[];
+  durationMinutes: number;
+  totalScore?: number;
+  overallFeedback?: string;
+  createdAt: string;
+  answers: InterviewAnswerResponse[];
+  report?: InterviewReportResponse;
+  messages?: InterviewMessageResponse[];
+}
+
+export interface InterviewsListResponse {
+  interviews: InterviewResponse[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+export interface IGrpcInterviewService {
+  getInterview(data: GetInterviewRequest): Observable<InterviewResponse>;
+  getInterviewByVapiCallId(
+    data: GetInterviewByVapiCallIdRequest,
+  ): Observable<InterviewResponse>;
+  getUserInterviews(
+    data: GetUserInterviewsRequest,
+  ): Observable<InterviewsListResponse>;
+  getInterviewStats(
+    data: GetInterviewStatsRequest,
+  ): Observable<InterviewStatsResponse>;
+  createInterview(data: CreateInterviewRequest): Observable<InterviewResponse>;
+  startInterview(data: StartInterviewRequest): Observable<InterviewResponse>;
+  submitAnswer(data: SubmitAnswerRequest): Observable<InterviewResponse>;
+  completeInterview(
+    data: CompleteInterviewRequest,
+  ): Observable<InterviewResponse>;
+  completeWithReport(
+    data: CompleteWithReportRequest,
+  ): Observable<InterviewResponse>;
+  cancelInterview(data: CancelInterviewRequest): Observable<InterviewResponse>;
+  addInterviewMessage(
+    data: AddInterviewMessageRequest,
+  ): Observable<InterviewResponse>;
 }
 
 // ===========================
 // Question Service
 // ===========================
 
-export interface IGrpcQuestionService {
-  getQuestion(data: { question_id: string }): Promise<IGrpcQuestionResponse>;
-
-  getQuestions(data: {
-    type?: string;
-    difficulty?: string;
-    category?: string;
-    page: number;
-    limit: number;
-  }): Promise<{
-    questions: IGrpcQuestionResponse[];
-    total: number;
-    page: number;
-    total_pages: number;
-  }>;
-
-  getRandomQuestions(data: {
-    count: number;
-    type?: string;
-    difficulty?: string;
-    category?: string;
-    tags?: string;
-  }): Promise<{ questions: IGrpcQuestionResponse[] }>;
-
-  getCategories(data: Record<string, never>): Promise<{ items: string[] }>;
-
-  getTags(data: Record<string, never>): Promise<{ items: string[] }>;
-
-  createQuestion(data: {
-    title: string;
-    content: string;
-    type: string;
-    difficulty: string;
-    category: string;
-    hints?: string;
-    sample_answer?: string;
-    tags?: string[];
-  }): Promise<IGrpcQuestionResponse>;
-
-  generateQuestions(data: {
-    field: string;
-    techStack: string[];
-    difficulty: string;
-    count: number;
-  }): Promise<{ questions: IGrpcQuestionResponse[] }>;
-
-  seedQuestions(data: Record<string, never>): Promise<{ created: number }>;
-
-  updateQuestion(data: {
-    question_id: string;
-    title?: string;
-    content?: string;
-    type?: string;
-    difficulty?: string;
-    category?: string;
-    hints?: string;
-    sample_answer?: string;
-    tags?: string[];
-  }): Promise<IGrpcQuestionResponse>;
-
-  deleteQuestion(data: { question_id: string }): Promise<Record<string, never>>;
+export interface GetQuestionRequest {
+  questionId: string;
 }
 
-export interface IGrpcQuestionResponse {
+export interface GetQuestionsRequest {
+  type?: string;
+  difficulty?: string;
+  category?: string;
+  page: number;
+  limit: number;
+}
+
+export interface GetRandomQuestionsRequest {
+  count: number;
+  type?: string;
+  difficulty?: string;
+  category?: string;
+  tags?: string;
+}
+
+export interface CreateQuestionRequest {
+  title: string;
+  content: string;
+  type: string;
+  difficulty: string;
+  category: string;
+  hints?: string;
+  sampleAnswer?: string;
+  tags?: string[];
+}
+
+export interface GenerateQuestionsRequest {
+  field: string;
+  techStack: string[];
+  difficulty: string;
+  count: number;
+}
+
+export interface UpdateQuestionRequest {
+  questionId: string;
+  title?: string;
+  content?: string;
+  type?: string;
+  difficulty?: string;
+  category?: string;
+  hints?: string;
+  sampleAnswer?: string;
+  tags?: string[];
+}
+
+export interface DeleteQuestionRequest {
+  questionId: string;
+}
+
+export interface McqOptionResponse {
+  text: string;
+  isCorrect: boolean;
+}
+
+export interface QuestionResponse {
   id: string;
   title: string;
   content: string;
   hints: string;
-  sample_answer: string;
+  sampleAnswer: string;
   type: string;
   difficulty: string;
   category: string;
   tags: string[];
-  mcq_options: { text: string; is_correct: boolean }[];
+  mcqOptions: McqOptionResponse[];
+}
+
+export interface QuestionsListResponse {
+  questions: QuestionResponse[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+export interface StringListResponse {
+  items: string[];
+}
+
+export interface SeedQuestionsResponse {
+  created: number;
+}
+
+export interface IGrpcQuestionService {
+  getQuestion(data: GetQuestionRequest): Observable<QuestionResponse>;
+  getQuestions(data: GetQuestionsRequest): Observable<QuestionsListResponse>;
+  getRandomQuestions(
+    data: GetRandomQuestionsRequest,
+  ): Observable<{ questions: QuestionResponse[] }>;
+  getCategories(data: Record<string, never>): Observable<StringListResponse>;
+  getTags(data: Record<string, never>): Observable<StringListResponse>;
+  createQuestion(data: CreateQuestionRequest): Observable<QuestionResponse>;
+  generateQuestions(
+    data: GenerateQuestionsRequest,
+  ): Observable<{ questions: QuestionResponse[] }>;
+  seedQuestions(
+    data: Record<string, never>,
+  ): Observable<SeedQuestionsResponse>;
+  updateQuestion(data: UpdateQuestionRequest): Observable<QuestionResponse>;
+  deleteQuestion(
+    data: DeleteQuestionRequest,
+  ): Observable<Record<string, never>>;
 }
 
 // ===========================
 // AI Service
 // ===========================
 
-export interface IGrpcAiService {
-  generateQuestions(data: {
-    field: string;
-    tech_stack: string[];
-    difficulty: string;
-    count: number;
-  }): Promise<{
-    questions: { question: string; order: number; expected_answer: string }[];
-  }>;
+export interface AiGenerateQuestionsRequest {
+  field: string;
+  techStack: string[];
+  difficulty: string;
+  count: number;
+}
 
-  handleVapiWebhook(data: {
-    json_body: string;
-    user_id?: string;
-  }): Promise<{ json_response: string }>;
+export interface AiGeneratedQuestion {
+  question: string;
+  order: number;
+  expectedAnswer: string;
+}
+
+export interface HandleVapiWebhookRequest {
+  jsonBody: string;
+  userId?: string;
+}
+
+export interface HandleVapiWebhookResponse {
+  jsonResponse: string;
+}
+
+export interface IGrpcAiService {
+  generateQuestions(
+    data: AiGenerateQuestionsRequest,
+  ): Observable<{ questions: AiGeneratedQuestion[] }>;
+  handleVapiWebhook(
+    data: HandleVapiWebhookRequest,
+  ): Observable<HandleVapiWebhookResponse>;
 }

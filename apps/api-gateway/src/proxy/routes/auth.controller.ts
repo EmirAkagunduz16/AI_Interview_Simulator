@@ -7,6 +7,7 @@ import {
   OnModuleInit,
 } from "@nestjs/common";
 import { ClientGrpc } from "@nestjs/microservices";
+import { Request } from "express";
 import { firstValueFrom } from "rxjs";
 import { GRPC_AUTH_SERVICE, IGrpcAuthService } from "@ai-coach/grpc";
 import { Public } from "../../common/decorators/public.decorator";
@@ -29,16 +30,16 @@ export class AuthController implements OnModuleInit {
   async register(
     @Body() body: { email: string; password: string; name: string },
   ) {
-    const result: any = await firstValueFrom(
-      (this.authService as any).register({
+    const result = await firstValueFrom(
+      this.authService.register({
         email: body.email,
         password: body.password,
         name: body.name,
       }),
     );
     return {
-      accessToken: result.access_token || result.accessToken,
-      refreshToken: result.refresh_token || result.refreshToken,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
       user: result.user,
     };
   }
@@ -46,15 +47,15 @@ export class AuthController implements OnModuleInit {
   @Post("login")
   @Public()
   async login(@Body() body: { email: string; password: string }) {
-    const result: any = await firstValueFrom(
-      (this.authService as any).login({
+    const result = await firstValueFrom(
+      this.authService.login({
         email: body.email,
         password: body.password,
       }),
     );
     return {
-      accessToken: result.access_token || result.accessToken,
-      refreshToken: result.refresh_token || result.refreshToken,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
       user: result.user,
     };
   }
@@ -62,25 +63,23 @@ export class AuthController implements OnModuleInit {
   @Post("refresh")
   @Public()
   async refresh(@Body() body: { refreshToken: string }) {
-    const result: any = await firstValueFrom(
-      (this.authService as any).refresh({
+    const result = await firstValueFrom(
+      this.authService.refresh({
         refreshToken: body.refreshToken,
       }),
     );
     return {
-      accessToken: result.access_token || result.accessToken,
-      refreshToken: result.refresh_token || result.refreshToken,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
       user: result.user,
     };
   }
 
   @Post("logout")
-  async logout(@Req() req: any) {
+  async logout(@Req() req: Request) {
     const token = req.headers["authorization"]?.replace("Bearer ", "") || "";
     return firstValueFrom(
-      (this.authService as any).logout({
-        accessToken: token,
-      }),
+      this.authService.logout({ accessToken: token }),
     );
   }
 }

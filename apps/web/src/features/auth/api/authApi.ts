@@ -23,7 +23,6 @@ export interface AuthUser {
 export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
-  expiresIn: string;
   user: AuthUser;
 }
 

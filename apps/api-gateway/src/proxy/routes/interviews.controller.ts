@@ -11,11 +11,13 @@ import {
 } from "@nestjs/common";
 import { ClientGrpc } from "@nestjs/microservices";
 import { firstValueFrom } from "rxjs";
-import { GRPC_INTERVIEW_SERVICE, IGrpcInterviewService } from "@ai-coach/grpc";
-
-interface AuthenticatedRequest {
-  user: { userId: string; email: string; role: string };
-}
+import {
+  GRPC_INTERVIEW_SERVICE,
+  IGrpcInterviewService,
+  CreateInterviewRequest,
+  SubmitAnswerRequest,
+} from "@ai-coach/grpc";
+import { AuthenticatedRequest } from "../../common/guards/auth.guard";
 
 @Controller("interviews")
 export class InterviewsController implements OnModuleInit {
@@ -38,7 +40,7 @@ export class InterviewsController implements OnModuleInit {
     @Query("status") status?: string,
   ) {
     return firstValueFrom(
-      (this.interviewService as any).getUserInterviews({
+      this.interviewService.getUserInterviews({
         userId: req.user.userId,
         page,
         limit,
@@ -50,7 +52,7 @@ export class InterviewsController implements OnModuleInit {
   @Get("stats")
   async getStats(@Req() req: AuthenticatedRequest) {
     return firstValueFrom(
-      (this.interviewService as any).getInterviewStats({
+      this.interviewService.getInterviewStats({
         userId: req.user.userId,
       }),
     );
@@ -59,7 +61,7 @@ export class InterviewsController implements OnModuleInit {
   @Get(":id")
   async findOne(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     return firstValueFrom(
-      (this.interviewService as any).getInterview({
+      this.interviewService.getInterview({
         interviewId: id,
         userId: req.user.userId,
       }),
@@ -67,16 +69,19 @@ export class InterviewsController implements OnModuleInit {
   }
 
   @Post()
-  async create(@Req() req: AuthenticatedRequest, @Body() body: any) {
+  async create(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: Omit<CreateInterviewRequest, "userId">,
+  ) {
     return firstValueFrom(
-      (this.interviewService as any).createInterview({
+      this.interviewService.createInterview({
         userId: req.user.userId,
         field: body.field,
-        techStack: body.techStack || body.tech_stack || [],
+        techStack: body.techStack || [],
         difficulty: body.difficulty,
         title: body.title,
-        vapiCallId: body.vapiCallId || body.vapi_call_id,
-        questionCount: body.questionCount || body.question_count,
+        vapiCallId: body.vapiCallId,
+        questionCount: body.questionCount,
       }),
     );
   }
@@ -84,7 +89,7 @@ export class InterviewsController implements OnModuleInit {
   @Post(":id/start")
   async start(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     return firstValueFrom(
-      (this.interviewService as any).startInterview({
+      this.interviewService.startInterview({
         interviewId: id,
         userId: req.user.userId,
       }),
@@ -95,14 +100,14 @@ export class InterviewsController implements OnModuleInit {
   async submit(
     @Req() req: AuthenticatedRequest,
     @Param("id") id: string,
-    @Body() body: any,
+    @Body() body: Omit<SubmitAnswerRequest, "interviewId" | "userId">,
   ) {
     return firstValueFrom(
-      (this.interviewService as any).submitAnswer({
+      this.interviewService.submitAnswer({
         interviewId: id,
         userId: req.user.userId,
-        questionId: body.questionId || body.question_id,
-        questionTitle: body.questionTitle || body.question_title,
+        questionId: body.questionId,
+        questionTitle: body.questionTitle,
         answer: body.answer,
       }),
     );
@@ -111,7 +116,7 @@ export class InterviewsController implements OnModuleInit {
   @Post(":id/complete")
   async complete(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     return firstValueFrom(
-      (this.interviewService as any).completeInterview({
+      this.interviewService.completeInterview({
         interviewId: id,
         userId: req.user.userId,
       }),
@@ -121,7 +126,7 @@ export class InterviewsController implements OnModuleInit {
   @Post(":id/cancel")
   async cancel(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     return firstValueFrom(
-      (this.interviewService as any).cancelInterview({
+      this.interviewService.cancelInterview({
         interviewId: id,
         userId: req.user.userId,
       }),
@@ -135,7 +140,7 @@ export class InterviewsController implements OnModuleInit {
     @Body() body: { role: string; content: string },
   ) {
     return firstValueFrom(
-      (this.interviewService as any).addInterviewMessage({
+      this.interviewService.addInterviewMessage({
         interviewId: id,
         userId: req.user.userId,
         role: body.role,

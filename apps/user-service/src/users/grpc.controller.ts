@@ -1,6 +1,16 @@
 import { Controller, Logger } from "@nestjs/common";
 import { GrpcMethod } from "@nestjs/microservices";
 import { UsersService } from "./users.service";
+import type {
+  GetUserByAuthIdRequest,
+  GetUserByIdRequest,
+  UpdateUserRequest,
+  GetUserStatsRequest,
+  GetUsersRequest,
+  UserResponse,
+  UsersListResponse,
+  GetUserStatsResponse,
+} from "@ai-coach/grpc";
 
 @Controller()
 export class GrpcUsersController {
@@ -9,66 +19,43 @@ export class GrpcUsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @GrpcMethod("UserService", "GetUserByAuthId")
-  async getUserByAuthId(data: { auth_id: string }) {
-    try {
-      const authId = data.auth_id || (data as any).authId;
-      this.logger.debug(`gRPC GetUserByAuthId: ${authId}`);
-      const user = await this.usersService.findByAuthId(authId);
-      return this.toGrpcResponse(user);
-    } catch (error: any) {
-      require("fs").appendFileSync(
-        "user-debug.log",
-        `Error in GetUserByAuthId: ${error.message}\n${error.stack}\n`,
-      );
-      throw error;
-    }
+  async getUserByAuthId(data: GetUserByAuthIdRequest): Promise<UserResponse> {
+    this.logger.debug(`gRPC GetUserByAuthId: ${data.authId}`);
+    const user = await this.usersService.findByAuthId(data.authId);
+    return this.toGrpcResponse(user);
   }
 
   @GrpcMethod("UserService", "GetUserById")
-  async getUserById(data: { user_id: string }) {
-    const userId = data.user_id || (data as any).userId;
-    this.logger.debug(`gRPC GetUserById: ${userId}`);
-    const user = await this.usersService.findById(userId);
+  async getUserById(data: GetUserByIdRequest): Promise<UserResponse> {
+    this.logger.debug(`gRPC GetUserById: ${data.userId}`);
+    const user = await this.usersService.findById(data.userId);
     return this.toGrpcResponse(user);
   }
 
   @GrpcMethod("UserService", "UpdateUser")
-  async updateUser(data: {
-    auth_id: string;
-    name?: string;
-    avatar?: string;
-    bio?: string;
-    target_role?: string;
-    experience_level?: string;
-    skills?: string[];
-  }) {
-    const authId = data.auth_id || (data as any).authId;
-    this.logger.debug(`gRPC UpdateUser: ${authId}`);
+  async updateUser(data: UpdateUserRequest): Promise<UserResponse> {
+    this.logger.debug(`gRPC UpdateUser: ${data.authId}`);
     const updateDto: Record<string, unknown> = {};
     if (data.name) updateDto.name = data.name;
     if (data.avatar) updateDto.avatar = data.avatar;
     if (data.bio) updateDto.bio = data.bio;
-    if (data.target_role || (data as any).targetRole)
-      updateDto.targetRole = data.target_role || (data as any).targetRole;
-    if (data.experience_level || (data as any).experienceLevel)
-      updateDto.experienceLevel =
-        data.experience_level || (data as any).experienceLevel;
+    if (data.targetRole) updateDto.targetRole = data.targetRole;
+    if (data.experienceLevel) updateDto.experienceLevel = data.experienceLevel;
     if (data.skills?.length) updateDto.skills = data.skills;
 
-    const user = await this.usersService.update(authId, updateDto);
+    const user = await this.usersService.update(data.authId, updateDto);
     return this.toGrpcResponse(user);
   }
 
   @GrpcMethod("UserService", "GetUserStats")
-  async getUserStats(data: { auth_id: string }) {
-    const authId = data.auth_id || (data as any).authId;
-    this.logger.debug(`gRPC GetUserStats: ${authId}`);
-    const stats = await this.usersService.getDashboardStats(authId);
-    return { json_data: JSON.stringify(stats) };
+  async getUserStats(data: GetUserStatsRequest): Promise<GetUserStatsResponse> {
+    this.logger.debug(`gRPC GetUserStats: ${data.authId}`);
+    const stats = await this.usersService.getDashboardStats(data.authId);
+    return { jsonData: JSON.stringify(stats) };
   }
 
   @GrpcMethod("UserService", "GetUsers")
-  async getUsers(data: { page: number; limit: number }) {
+  async getUsers(data: GetUsersRequest): Promise<UsersListResponse> {
     this.logger.debug(`gRPC GetUsers page=${data.page}`);
     const result = await this.usersService.findAll({
       page: data.page || 1,
@@ -78,31 +65,32 @@ export class GrpcUsersController {
       users: result.users.map((u) => this.toGrpcResponse(u)),
       total: result.total,
       page: result.page,
-      total_pages: result.totalPages,
+      totalPages: result.totalPages,
     };
   }
 
-  private toGrpcResponse(user: any) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private toGrpcResponse(user: { toJSON?: () => Record<string, any> } & Record<string, any>): UserResponse {
     const json = user.toJSON ? user.toJSON() : user;
     return {
       id: json._id?.toString() || json.id || "",
-      auth_id: json.authId || "",
+      authId: json.authId || "",
       email: json.email || "",
       name: json.name || "",
       role: json.role || "user",
       profile: {
         avatar: json.profile?.avatar || "",
         bio: json.profile?.bio || "",
-        target_role: json.profile?.targetRole || "",
-        experience_level: json.profile?.experienceLevel || "",
+        targetRole: json.profile?.targetRole || "",
+        experienceLevel: json.profile?.experienceLevel || "",
         skills: json.profile?.skills || [],
       },
       subscription: {
         plan: json.subscription?.plan || "free",
-        interviews_used: json.subscription?.interviewsUsed || 0,
-        interviews_limit: json.subscription?.interviewsLimit || 0,
+        interviewsUsed: json.subscription?.interviewsUsed || 0,
+        interviewsLimit: json.subscription?.interviewsLimit || 0,
       },
-      is_active: json.isActive !== false,
+      isActive: json.isActive !== false,
     };
   }
 }

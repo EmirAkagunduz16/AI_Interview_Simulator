@@ -72,7 +72,10 @@ export class AuthService {
         `Kafka event emitted: user.registered for ${authUser.email}`,
       );
     } catch (error) {
-      this.logger.warn("Failed to emit user.registered event", error);
+      this.logger.warn(
+        "Failed to emit user.registered event",
+        (error as Error).message,
+      );
     }
 
     this.logger.log(`User registered: ${authUser.email}`);
@@ -177,20 +180,21 @@ export class AuthService {
   }
 
   async validate(accessToken: string): Promise<ValidateResponseDto> {
-    // Check if token is blacklisted
+    if (!accessToken) {
+      return { valid: false, userId: "", email: "", role: "" };
+    }
+
     try {
       const isBlacklisted = await this.redisService.get(`bl:${accessToken}`);
       if (isBlacklisted) {
         this.logger.debug("Token is blacklisted");
         return { valid: false, userId: "", email: "", role: "" };
       }
-    } catch (e: any) {
-      this.logger.error("Redis get failed during validation", e);
-      require("fs").appendFileSync(
-        "auth-debug.log",
-        `Redis error: ${e.message}\n`,
+    } catch (error) {
+      this.logger.warn(
+        "Redis blacklist check failed, proceeding with JWT verification",
+        (error as Error).message,
       );
-      return { valid: false, userId: "", email: "", role: "" };
     }
 
     try {
@@ -204,12 +208,8 @@ export class AuthService {
         email: payload.email,
         role: payload.role || "user",
       };
-    } catch (e: any) {
-      this.logger.error("JWT verify failed", e);
-      require("fs").appendFileSync(
-        "auth-debug.log",
-        `JWT error: ${e.message}\n`,
-      );
+    } catch (error) {
+      this.logger.debug("JWT verification failed", (error as Error).message);
       return { valid: false, userId: "", email: "", role: "" };
     }
   }
@@ -242,19 +242,17 @@ export class AuthService {
       role: user.role,
     };
 
-    const accessExpiresIn =
-      this.configService.get<string>("jwt.accessExpiresIn") ?? "15m";
-    const refreshExpiresIn =
-      this.configService.get<string>("jwt.refreshExpiresIn") ?? "7d";
+    const accessExpiresIn = this.configService.get("jwt.accessExpiresIn") ?? "15m";
+    const refreshExpiresIn = this.configService.get("jwt.refreshExpiresIn") ?? "7d";
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: this.configService.get<string>("jwt.accessSecret"),
-        expiresIn: accessExpiresIn as unknown as number,
+        expiresIn: accessExpiresIn as `${number}${"s" | "m" | "h" | "d"}`,
       }),
       this.jwtService.signAsync(payload, {
         secret: this.configService.get<string>("jwt.refreshSecret"),
-        expiresIn: refreshExpiresIn as unknown as number,
+        expiresIn: refreshExpiresIn as `${number}${"s" | "m" | "h" | "d"}`,
       }),
     ]);
 

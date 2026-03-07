@@ -4,6 +4,7 @@ import { ConfigService } from "@nestjs/config";
 import { MicroserviceOptions, Transport } from "@nestjs/microservices";
 import { join } from "path";
 import { AppModule } from "./app.module";
+import { GrpcExceptionFilter } from "./common/filters/rpc-exception.filter";
 
 async function bootstrap() {
   const logger = new Logger("AuthService");
@@ -37,6 +38,7 @@ async function bootstrap() {
     },
   );
 
+  app.useGlobalFilters(new GrpcExceptionFilter());
   app.enableShutdownHooks();
   await app.listen();
 

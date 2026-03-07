@@ -1,6 +1,17 @@
 import { Controller, Logger } from "@nestjs/common";
 import { GrpcMethod } from "@nestjs/microservices";
 import { AuthService } from "./auth.service";
+import type {
+  ValidateTokenRequest,
+  ValidateTokenResponse,
+  GetTokenUserResponse,
+  RegisterRequest,
+  LoginRequest,
+  RefreshRequest,
+  LogoutRequest,
+  TokenResponse,
+  LogoutResponse,
+} from "@ai-coach/grpc";
 
 @Controller()
 export class GrpcAuthController {
@@ -9,30 +20,24 @@ export class GrpcAuthController {
   constructor(private readonly authService: AuthService) {}
 
   @GrpcMethod("AuthService", "ValidateToken")
-  async validateToken(data: any) {
+  async validateToken(data: ValidateTokenRequest): Promise<ValidateTokenResponse> {
     this.logger.debug("gRPC ValidateToken called");
-    const result = await this.authService.validate(
-      data.access_token || data.accessToken,
-    );
-
+    const result = await this.authService.validate(data.accessToken);
     return {
       valid: result.valid,
       userId: result.userId,
       email: result.email,
       role: result.role,
-    } as any;
+    };
   }
 
   @GrpcMethod("AuthService", "GetTokenUser")
-  async getTokenUser(data: any) {
+  async getTokenUser(data: ValidateTokenRequest): Promise<GetTokenUserResponse> {
     this.logger.debug("gRPC GetTokenUser called");
-
-    const result = await this.authService.validate(
-      data.access_token || data.accessToken,
-    );
+    const result = await this.authService.validate(data.accessToken);
 
     if (!result.valid) {
-      return { userId: "", email: "", name: "", role: "" } as any;
+      return { userId: "", email: "", name: "", role: "" };
     }
 
     return {
@@ -40,11 +45,11 @@ export class GrpcAuthController {
       email: result.email,
       name: "",
       role: result.role,
-    } as any;
+    };
   }
 
   @GrpcMethod("AuthService", "Register")
-  async register(data: { email: string; password: string; name: string }) {
+  async register(data: RegisterRequest): Promise<TokenResponse> {
     this.logger.debug(`gRPC Register: ${data.email}`);
     const result = await this.authService.register({
       email: data.email,
@@ -52,43 +57,41 @@ export class GrpcAuthController {
       name: data.name,
     });
     return {
-      access_token: result.accessToken,
-      refresh_token: result.refreshToken,
-      user: result.user,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      user: { ...result.user, name: result.user.name || "" },
     };
   }
 
   @GrpcMethod("AuthService", "Login")
-  async login(data: { email: string; password: string }) {
+  async login(data: LoginRequest): Promise<TokenResponse> {
     this.logger.debug(`gRPC Login: ${data.email}`);
     const result = await this.authService.login({
       email: data.email,
       password: data.password,
     });
     return {
-      access_token: result.accessToken,
-      refresh_token: result.refreshToken,
-      user: result.user,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      user: { ...result.user, name: result.user.name || "" },
     };
   }
 
   @GrpcMethod("AuthService", "Refresh")
-  async refresh(data: { refresh_token: string }) {
+  async refresh(data: RefreshRequest): Promise<TokenResponse> {
     this.logger.debug("gRPC Refresh called");
-    const refreshToken = data.refresh_token || (data as any).refreshToken;
-    const result = await this.authService.refresh(refreshToken);
+    const result = await this.authService.refresh(data.refreshToken);
     return {
-      access_token: result.accessToken,
-      refresh_token: result.refreshToken,
-      user: result.user,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      user: { ...result.user, name: result.user.name || "" },
     };
   }
 
   @GrpcMethod("AuthService", "Logout")
-  async logout(data: { access_token: string }) {
+  async logout(data: LogoutRequest): Promise<LogoutResponse> {
     this.logger.debug("gRPC Logout called");
-    const token = data.access_token || (data as any).accessToken;
-    await this.authService.logout(token);
+    await this.authService.logout(data.accessToken);
     return { message: "Çıkış yapıldı" };
   }
 }

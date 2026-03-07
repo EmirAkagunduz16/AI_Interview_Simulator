@@ -7,8 +7,26 @@ import {
   GRPC_QUESTION_SERVICE,
   IGrpcInterviewService,
   IGrpcQuestionService,
+  AiGenerateQuestionsRequest,
+  HandleVapiWebhookRequest,
+  HandleVapiWebhookResponse,
+  InterviewResponse,
 } from "@ai-coach/grpc";
 import { GeminiService } from "./ai.service";
+
+interface FunctionCallParams {
+  field?: string;
+  techStack?: string[];
+  difficulty?: string;
+  userId?: string;
+  interviewId?: string;
+  questionOrder?: number;
+  questionText?: string;
+  answer?: string;
+  answers?: { question?: string; questionText?: string; answer?: string; order?: number }[];
+  questions?: { question: string; order: number; id?: string }[];
+  currentOrder?: number;
+}
 
 @Controller()
 export class GrpcAiController implements OnModuleInit {
@@ -31,16 +49,11 @@ export class GrpcAiController implements OnModuleInit {
   }
 
   @GrpcMethod("AiService", "GenerateQuestions")
-  async generateQuestions(data: {
-    field: string;
-    tech_stack: string[];
-    difficulty: string;
-    count: number;
-  }) {
+  async generateQuestions(data: AiGenerateQuestionsRequest) {
     this.logger.debug(`gRPC GenerateQuestions: ${data.field}`);
     const questions = await this.geminiService.generateInterviewQuestions({
       field: data.field,
-      techStack: data.tech_stack,
+      techStack: data.techStack,
       difficulty: data.difficulty,
       count: data.count,
     });
@@ -48,26 +61,28 @@ export class GrpcAiController implements OnModuleInit {
   }
 
   @GrpcMethod("AiService", "HandleVapiWebhook")
-  async handleVapiWebhook(data: { json_body: string; user_id?: string }) {
+  async handleVapiWebhook(
+    data: HandleVapiWebhookRequest,
+  ): Promise<HandleVapiWebhookResponse> {
     this.logger.debug("gRPC HandleVapiWebhook called");
 
-    let body: any;
+    let body: Record<string, unknown>;
     try {
-      body = JSON.parse(data.json_body || (data as any).jsonBody || "{}");
+      body = JSON.parse(data.jsonBody || "{}");
     } catch {
-      return { json_response: JSON.stringify({ received: true }) };
+      return { jsonResponse: JSON.stringify({ received: true }) };
     }
 
-    const userId = data.user_id || (data as any).userId;
-    const { message } = body;
+    const userId = data.userId;
+    const message = body.message as Record<string, unknown> | undefined;
 
     if (!message) {
-      return { json_response: JSON.stringify({ received: true }) };
+      return { jsonResponse: JSON.stringify({ received: true }) };
     }
 
     this.logger.log(`VAPI webhook: ${message.type}`);
 
-    let result: any;
+    let result: Record<string, unknown>;
 
     switch (message.type) {
       case "function-call":
@@ -88,22 +103,23 @@ export class GrpcAiController implements OnModuleInit {
         this.logger.debug(
           `Transcript [${message.role}]: ${message.transcript}`,
         );
-        if (message.transcript && message.call?.id) {
+        if (message.transcript && (message.call as Record<string, unknown>)?.id) {
           try {
-            const interview: any = await firstValueFrom(
+            const callId = (message.call as Record<string, unknown>).id as string;
+            const interview = await firstValueFrom(
               this.interviewService.getInterviewByVapiCallId({
-                vapiCallId: message.call.id,
-              }) as any,
+                vapiCallId: callId,
+              }),
             );
 
-            if (interview && interview.id) {
+            if (interview?.id) {
               await firstValueFrom(
                 this.interviewService.addInterviewMessage({
                   interviewId: interview.id,
-                  userId: interview.userId || interview.user_id || "anonymous",
+                  userId: interview.userId || "anonymous",
                   role: message.role === "assistant" ? "agent" : "user",
-                  content: message.transcript,
-                }) as any,
+                  content: message.transcript as string,
+                }),
               );
             }
           } catch (e) {
@@ -117,18 +133,17 @@ export class GrpcAiController implements OnModuleInit {
         result = { received: true };
     }
 
-    return { json_response: JSON.stringify(result) };
+    return { jsonResponse: JSON.stringify(result) };
   }
 
-  // ========================================================
-  // VAPI Function Call Handler
-  // ========================================================
-
   private async handleFunctionCall(
-    message: any,
+    message: Record<string, unknown>,
     headerUserId?: string,
-  ): Promise<any> {
-    const { functionCall } = message;
+  ): Promise<Record<string, unknown>> {
+    const functionCall = message.functionCall as {
+      name: string;
+      parameters: FunctionCallParams;
+    };
 
     this.logger.log(`Function call: ${functionCall.name}`);
 
@@ -152,53 +167,47 @@ export class GrpcAiController implements OnModuleInit {
   }
 
   private async handleSavePreferences(
-    functionCall: any,
-    message: any,
+    functionCall: { name: string; parameters: FunctionCallParams },
+    message: Record<string, unknown>,
     headerUserId?: string,
-  ): Promise<any> {
-    const {
-      field,
-      techStack,
-      difficulty,
-      userId: paramsUserId,
-      interviewId,
-    } = functionCall.parameters;
+  ): Promise<Record<string, unknown>> {
+    const { field, techStack, difficulty, userId: paramsUserId, interviewId } =
+      functionCall.parameters;
 
     const userId = headerUserId || paramsUserId || "anonymous";
     const questionCount = 5;
 
     try {
-      let interview: any;
+      let interview: InterviewResponse;
       if (interviewId) {
         interview = await firstValueFrom(
-          this.interviewService.getInterview({
-            interviewId,
-            userId,
-          }) as any,
+          this.interviewService.getInterview({ interviewId, userId }),
         );
       } else {
+        const callInfo = message.call as Record<string, unknown> | undefined;
         interview = await firstValueFrom(
           this.interviewService.createInterview({
             userId,
-            field,
+            field: field || "fullstack",
             techStack: techStack || [],
             difficulty: difficulty || "intermediate",
             title: `${field} Developer Interview`,
             questionCount,
-            vapiCallId: message.call?.id,
-          }) as any,
+            vapiCallId: callInfo?.id as string | undefined,
+          }),
         );
       }
 
-      let questions: any[] = [];
+      let questions: { content?: string; title?: string; question?: string; order?: number }[] =
+        [];
       try {
-        const result: any = await firstValueFrom(
+        const result = await firstValueFrom(
           this.questionService.getRandomQuestions({
             count: questionCount,
             category: field,
             difficulty,
             tags: (techStack || []).join(","),
-          }) as any,
+          }),
         );
         questions = result.questions || [];
       } catch (e) {
@@ -210,22 +219,22 @@ export class GrpcAiController implements OnModuleInit {
 
       if (questions.length < questionCount) {
         try {
-          const genResult: any = await firstValueFrom(
+          const genResult = await firstValueFrom(
             this.questionService.generateQuestions({
               field: field || "fullstack",
               techStack: techStack || [],
               difficulty: difficulty || "intermediate",
               count: questionCount,
-            }) as any,
+            }),
           );
 
-          const retryResult: any = await firstValueFrom(
+          const retryResult = await firstValueFrom(
             this.questionService.getRandomQuestions({
               count: questionCount,
               category: field,
               difficulty,
               tags: (techStack || []).join(","),
-            }) as any,
+            }),
           );
           questions = retryResult.questions || genResult.questions || [];
         } catch (e) {
@@ -248,8 +257,8 @@ export class GrpcAiController implements OnModuleInit {
 
       const formattedQuestions = questions
         .slice(0, questionCount)
-        .map((q: any, index: number) => ({
-          question: q.content || q.title || q.question,
+        .map((q, index: number) => ({
+          question: q.content || q.title || q.question || "",
           order: index + 1,
         }));
 
@@ -257,7 +266,7 @@ export class GrpcAiController implements OnModuleInit {
         this.interviewService.startInterview({
           interviewId: interview.id,
           userId,
-        }) as any,
+        }),
       );
 
       return {
@@ -275,8 +284,8 @@ export class GrpcAiController implements OnModuleInit {
       };
     } catch (error) {
       this.logger.error(
-        `save_preferences başarısız: ${(error as any)?.message || error}`,
-        (error as any)?.stack || "",
+        `save_preferences başarısız: ${(error as Error)?.message || error}`,
+        (error as Error)?.stack || "",
       );
       return {
         result: {
@@ -287,21 +296,21 @@ export class GrpcAiController implements OnModuleInit {
   }
 
   private async handleSaveAnswer(
-    functionCall: any,
+    functionCall: { name: string; parameters: FunctionCallParams },
     headerUserId?: string,
-  ): Promise<any> {
+  ): Promise<Record<string, unknown>> {
     const { interviewId, questionOrder, questionText, answer, questions } =
       functionCall.parameters;
 
     try {
       await firstValueFrom(
         this.interviewService.submitAnswer({
-          interviewId,
+          interviewId: interviewId || "",
           userId: headerUserId || "anonymous",
           questionId: `q_${questionOrder}`,
           questionTitle: questionText || `Soru ${questionOrder}`,
-          answer,
-        }) as any,
+          answer: answer || "",
+        }),
       );
     } catch (error) {
       this.logger.warn("Cevap kaydedilemedi (interview-service)", error);
@@ -309,7 +318,7 @@ export class GrpcAiController implements OnModuleInit {
 
     if (questions && Array.isArray(questions)) {
       const currentOrder = questionOrder || 0;
-      const nextQ = questions.find((q: any) => q.order === currentOrder + 1);
+      const nextQ = questions.find((q) => q.order === currentOrder + 1);
 
       if (nextQ) {
         return {
@@ -335,12 +344,14 @@ export class GrpcAiController implements OnModuleInit {
     return { result: { saved: true } };
   }
 
-  private async handleGetNextQuestion(functionCall: any): Promise<any> {
+  private async handleGetNextQuestion(
+    functionCall: { name: string; parameters: FunctionCallParams },
+  ): Promise<Record<string, unknown>> {
     const { currentOrder, questions } = functionCall.parameters;
 
     if (questions && Array.isArray(questions)) {
       const nextQ = questions.find(
-        (q: any) => q.order === (currentOrder || 0) + 1,
+        (q) => q.order === (currentOrder || 0) + 1,
       );
 
       if (nextQ) {
@@ -364,9 +375,9 @@ export class GrpcAiController implements OnModuleInit {
   }
 
   private async handleEndInterview(
-    functionCall: any,
+    functionCall: { name: string; parameters: FunctionCallParams },
     headerUserId?: string,
-  ): Promise<any> {
+  ): Promise<Record<string, unknown>> {
     const { interviewId, answers } = functionCall.parameters;
 
     this.logger.log(
@@ -375,13 +386,13 @@ export class GrpcAiController implements OnModuleInit {
     );
 
     try {
-      let interviewData: any;
+      let interviewData: InterviewResponse | null = null;
       try {
         interviewData = await firstValueFrom(
           this.interviewService.getInterview({
-            interviewId,
+            interviewId: interviewId || "",
             userId: "",
-          }) as any,
+          }),
         );
         this.logger.log(
           `Interview loaded — answers in DB: ${interviewData?.answers?.length ?? 0}, ` +
@@ -389,9 +400,8 @@ export class GrpcAiController implements OnModuleInit {
         );
       } catch (e) {
         this.logger.warn(
-          `getInterview başarısız (interviewId: ${interviewId}): ${(e as any)?.message || e}`,
+          `getInterview başarısız (interviewId: ${interviewId}): ${(e as Error)?.message || e}`,
         );
-        interviewData = null;
       }
 
       let answersForEval: {
@@ -400,15 +410,15 @@ export class GrpcAiController implements OnModuleInit {
         order: number;
       }[] = [];
 
-      if (interviewData?.answers?.length > 0) {
-        answersForEval = interviewData.answers.map((a: any, idx: number) => ({
-          question: a.questionTitle || a.question_title || `Soru ${idx + 1}`,
+      if (interviewData?.answers?.length) {
+        answersForEval = interviewData.answers.map((a, idx: number) => ({
+          question: a.questionTitle || `Soru ${idx + 1}`,
           answer: a.answer || "",
           order: idx + 1,
         }));
         this.logger.log(`${answersForEval.length} cevap DB'den alındı`);
-      } else if (answers?.length > 0) {
-        answersForEval = answers.map((a: any, idx: number) => ({
+      } else if (answers?.length) {
+        answersForEval = answers.map((a, idx: number) => ({
           question: a.question || a.questionText || `Soru ${idx + 1}`,
           answer: a.answer || "",
           order: a.order || idx + 1,
@@ -419,8 +429,7 @@ export class GrpcAiController implements OnModuleInit {
       }
 
       const interviewField = interviewData?.field || "fullstack";
-      const interviewTechStack =
-        interviewData?.techStack || interviewData?.tech_stack || [];
+      const interviewTechStack = interviewData?.techStack || [];
 
       if (answersForEval.length > 0) {
         this.logger.log(
@@ -440,7 +449,7 @@ export class GrpcAiController implements OnModuleInit {
         try {
           await firstValueFrom(
             this.interviewService.completeWithReport({
-              interviewId,
+              interviewId: interviewId || "",
               report: {
                 technicalScore: evaluation.technicalScore,
                 communicationScore: evaluation.communicationScore,
@@ -451,7 +460,7 @@ export class GrpcAiController implements OnModuleInit {
                 recommendations: evaluation.recommendations,
               },
               overallFeedback: evaluation.summary,
-            }) as any,
+            }),
           );
           this.logger.log(`Interview ${interviewId} report kaydedildi`);
         } catch (e) {
@@ -474,7 +483,7 @@ export class GrpcAiController implements OnModuleInit {
       try {
         await firstValueFrom(
           this.interviewService.completeWithReport({
-            interviewId,
+            interviewId: interviewId || "",
             report: {
               technicalScore: 0,
               communicationScore: 0,
@@ -486,7 +495,7 @@ export class GrpcAiController implements OnModuleInit {
             },
             overallFeedback:
               "Mülakat erken sonlandırıldığı için değerlendirme yapılamadı.",
-          }) as any,
+          }),
         );
       } catch (e) {
         this.logger.warn("Boş interview tamamlanamadı", e);
@@ -503,8 +512,11 @@ export class GrpcAiController implements OnModuleInit {
     }
   }
 
-  private async handleEndOfCall(message: any): Promise<void> {
-    const callId = message.call?.id;
+  private async handleEndOfCall(
+    message: Record<string, unknown>,
+  ): Promise<void> {
+    const call = message.call as Record<string, unknown> | undefined;
+    const callId = call?.id as string | undefined;
     if (!callId) return;
     this.logger.log(`End of call: ${callId}`);
   }

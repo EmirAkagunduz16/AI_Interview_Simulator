@@ -10,12 +10,13 @@ import {
 } from "@nestjs/common";
 import { ClientGrpc } from "@nestjs/microservices";
 import { firstValueFrom } from "rxjs";
-import { GRPC_AI_SERVICE, IGrpcAiService } from "@ai-coach/grpc";
+import {
+  GRPC_AI_SERVICE,
+  IGrpcAiService,
+  AiGenerateQuestionsRequest,
+} from "@ai-coach/grpc";
 import { Public } from "../../common/decorators/public.decorator";
-
-interface AuthenticatedRequest {
-  user: { userId: string; email: string; role: string };
-}
+import { AuthenticatedRequest } from "../../common/guards/auth.guard";
 
 @Controller("ai")
 export class AiController implements OnModuleInit {
@@ -31,31 +32,33 @@ export class AiController implements OnModuleInit {
 
   @Post("generate-questions")
   @HttpCode(HttpStatus.OK)
-  async generateQuestions(@Body() body: any) {
+  async generateQuestions(@Body() body: AiGenerateQuestionsRequest) {
     return firstValueFrom(
       this.aiService.generateQuestions({
         field: body.field,
-        tech_stack: body.techStack || body.tech_stack || [],
+        techStack: body.techStack || [],
         difficulty: body.difficulty,
         count: body.count,
-      }) as any,
+      }),
     );
   }
 
   @Post("vapi/webhook")
   @Public()
   @HttpCode(HttpStatus.OK)
-  async handleVapiWebhook(@Body() body: any, @Req() req: AuthenticatedRequest) {
-    const result: any = await firstValueFrom(
+  async handleVapiWebhook(
+    @Body() body: Record<string, unknown>,
+    @Req() req: Partial<AuthenticatedRequest>,
+  ) {
+    const result = await firstValueFrom(
       this.aiService.handleVapiWebhook({
-        json_body: JSON.stringify(body),
-        user_id: req.user?.userId || "",
-      }) as any,
+        jsonBody: JSON.stringify(body),
+        userId: req.user?.userId || "",
+      }),
     );
 
-    // Parse the JSON response from gRPC
     try {
-      return JSON.parse(result.json_response || result.jsonResponse || "{}");
+      return JSON.parse(result.jsonResponse || "{}");
     } catch {
       return result;
     }

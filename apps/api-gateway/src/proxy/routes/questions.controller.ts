@@ -14,7 +14,13 @@ import {
 } from "@nestjs/common";
 import { ClientGrpc } from "@nestjs/microservices";
 import { firstValueFrom } from "rxjs";
-import { GRPC_QUESTION_SERVICE, IGrpcQuestionService } from "@ai-coach/grpc";
+import {
+  GRPC_QUESTION_SERVICE,
+  IGrpcQuestionService,
+  CreateQuestionRequest,
+  GenerateQuestionsRequest,
+  UpdateQuestionRequest,
+} from "@ai-coach/grpc";
 
 @Controller("questions")
 export class QuestionsController implements OnModuleInit {
@@ -44,7 +50,7 @@ export class QuestionsController implements OnModuleInit {
         type,
         difficulty,
         category,
-      }) as any,
+      }),
     );
   }
 
@@ -55,29 +61,29 @@ export class QuestionsController implements OnModuleInit {
     @Query("difficulty") difficulty?: string,
     @Query("category") category?: string,
   ) {
-    const result: any = await firstValueFrom(
+    const result = await firstValueFrom(
       this.questionService.getRandomQuestions({
         count,
         type,
         difficulty,
         category,
-      }) as any,
+      }),
     );
     return result.questions;
   }
 
   @Get("categories")
   async getCategories() {
-    const result: any = await firstValueFrom(
-      this.questionService.getCategories({} as any) as any,
+    const result = await firstValueFrom(
+      this.questionService.getCategories({} as Record<string, never>),
     );
     return result.items;
   }
 
   @Get("tags")
   async getTags() {
-    const result: any = await firstValueFrom(
-      this.questionService.getTags({} as any) as any,
+    const result = await firstValueFrom(
+      this.questionService.getTags({} as Record<string, never>),
     );
     return result.items;
   }
@@ -85,24 +91,24 @@ export class QuestionsController implements OnModuleInit {
   @Get(":id")
   async findOne(@Param("id") id: string) {
     return firstValueFrom(
-      this.questionService.getQuestion({ question_id: id }) as any,
+      this.questionService.getQuestion({ questionId: id }),
     );
   }
 
   @Post()
-  async create(@Body() body: any) {
-    return firstValueFrom(this.questionService.createQuestion(body) as any);
+  async create(@Body() body: CreateQuestionRequest) {
+    return firstValueFrom(this.questionService.createQuestion(body));
   }
 
   @Post("generate")
-  async generate(@Body() body: any) {
-    const result: any = await firstValueFrom(
+  async generate(@Body() body: GenerateQuestionsRequest) {
+    const result = await firstValueFrom(
       this.questionService.generateQuestions({
         field: body.field,
-        techStack: body.techStack || body.tech_stack || [],
+        techStack: body.techStack || [],
         difficulty: body.difficulty,
         count: body.count,
-      }) as any,
+      }),
     );
     return result.questions;
   }
@@ -110,16 +116,15 @@ export class QuestionsController implements OnModuleInit {
   @Post("seed")
   @HttpCode(HttpStatus.OK)
   async seed() {
-    return firstValueFrom(this.questionService.seedQuestions({} as any) as any);
+    return firstValueFrom(
+      this.questionService.seedQuestions({} as Record<string, never>),
+    );
   }
 
   @Patch(":id")
-  async update(@Param("id") id: string, @Body() body: any) {
+  async update(@Param("id") id: string, @Body() body: Omit<UpdateQuestionRequest, "questionId">) {
     return firstValueFrom(
-      this.questionService.updateQuestion({
-        question_id: id,
-        ...body,
-      }) as any,
+      this.questionService.updateQuestion({ questionId: id, ...body }),
     );
   }
 
@@ -127,7 +132,7 @@ export class QuestionsController implements OnModuleInit {
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param("id") id: string) {
     await firstValueFrom(
-      this.questionService.deleteQuestion({ question_id: id }) as any,
+      this.questionService.deleteQuestion({ questionId: id }),
     );
   }
 }

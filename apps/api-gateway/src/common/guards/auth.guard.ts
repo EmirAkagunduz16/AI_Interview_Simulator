@@ -13,6 +13,10 @@ import { firstValueFrom } from "rxjs";
 import { GRPC_AUTH_SERVICE, IGrpcAuthService } from "@ai-coach/grpc";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
 
+export interface AuthenticatedRequest {
+  user: { userId: string; email: string; role: string };
+}
+
 @Injectable()
 export class JwtAuthGuard implements CanActivate, OnModuleInit {
   private readonly logger = new Logger(JwtAuthGuard.name);
@@ -30,7 +34,6 @@ export class JwtAuthGuard implements CanActivate, OnModuleInit {
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // Check if route is marked as @Public()
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -50,29 +53,16 @@ export class JwtAuthGuard implements CanActivate, OnModuleInit {
     const token = authHeader.replace("Bearer ", "");
 
     try {
-      const result = await firstValueFrom<{
-        valid: boolean;
-        user_id: string;
-        email: string;
-        role: string;
-      }>(
-        (this.authService as any).validateToken({
-          accessToken: token,
-        }),
-      );
-
-      require("fs").appendFileSync(
-        "gateway-debug.log",
-        "Validation Result Dump: " + JSON.stringify(result) + "\n",
+      const result = await firstValueFrom(
+        this.authService.validateToken({ accessToken: token }),
       );
 
       if (!result.valid) {
         throw new UnauthorizedException("Token geçersiz");
       }
 
-      // Attach user to request for downstream use
       request.user = {
-        userId: result.user_id || (result as any).userId,
+        userId: result.userId,
         email: result.email,
         role: result.role,
       };

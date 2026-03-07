@@ -47,7 +47,8 @@ export default function ResultsPage() {
   });
 
   const error = queryError
-    ? (queryError as any)?.response?.data?.message ||
+    ? (queryError as Error & { response?: { data?: { message?: string } } })
+        ?.response?.data?.message ||
       (queryError as Error).message ||
       "Bir hata oluştu"
     : null;
