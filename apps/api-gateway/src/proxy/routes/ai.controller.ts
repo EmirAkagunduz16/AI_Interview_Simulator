@@ -10,11 +10,7 @@ import {
 } from "@nestjs/common";
 import { ClientGrpc } from "@nestjs/microservices";
 import { firstValueFrom } from "rxjs";
-import {
-  GRPC_AI_SERVICE,
-  IGrpcAiService,
-  AiGenerateQuestionsRequest,
-} from "@ai-coach/grpc";
+import { GRPC_AI_SERVICE, IGrpcAiService } from "@ai-coach/grpc";
 import { Public } from "../../common/decorators/public.decorator";
 import { AuthenticatedRequest } from "../../common/guards/auth.guard";
 
@@ -28,19 +24,6 @@ export class AiController implements OnModuleInit {
 
   onModuleInit() {
     this.aiService = this.grpcClient.getService<IGrpcAiService>("AiService");
-  }
-
-  @Post("generate-questions")
-  @HttpCode(HttpStatus.OK)
-  async generateQuestions(@Body() body: AiGenerateQuestionsRequest) {
-    return firstValueFrom(
-      this.aiService.generateQuestions({
-        field: body.field,
-        techStack: body.techStack || [],
-        difficulty: body.difficulty,
-        count: body.count,
-      }),
-    );
   }
 
   @Post("vapi/webhook")

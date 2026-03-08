@@ -482,19 +482,6 @@ export interface IGrpcQuestionService {
 // AI Service
 // ===========================
 
-export interface AiGenerateQuestionsRequest {
-  field: string;
-  techStack: string[];
-  difficulty: string;
-  count: number;
-}
-
-export interface AiGeneratedQuestion {
-  question: string;
-  order: number;
-  expectedAnswer: string;
-}
-
 export interface HandleVapiWebhookRequest {
   jsonBody: string;
   userId?: string;
@@ -505,9 +492,6 @@ export interface HandleVapiWebhookResponse {
 }
 
 export interface IGrpcAiService {
-  generateQuestions(
-    data: AiGenerateQuestionsRequest,
-  ): Observable<{ questions: AiGeneratedQuestion[] }>;
   handleVapiWebhook(
     data: HandleVapiWebhookRequest,
   ): Observable<HandleVapiWebhookResponse>;

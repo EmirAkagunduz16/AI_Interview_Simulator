@@ -1,10 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
-import {
-  IGeneratedQuestion,
-  IInterviewEvaluation,
-} from "@ai-coach/shared-types";
+import { IInterviewEvaluation } from "@ai-coach/shared-types";
 
 @Injectable()
 export class GeminiService {
@@ -24,58 +21,6 @@ export class GeminiService {
       this.logger.log("Gemini AI initialized");
     } else {
       this.logger.warn("GEMINI_API_KEY not set");
-    }
-  }
-
-  async generateInterviewQuestions(params: {
-    field: string;
-    techStack: string[];
-    difficulty?: string;
-    count?: number;
-  }): Promise<IGeneratedQuestion[]> {
-    const count = params.count || 5;
-    const difficulty = params.difficulty || "intermediate";
-
-    const prompt = `Sen bir teknik mülakat uzmanısın. Aşağıdaki bilgilere göre ${count} adet mülakat sorusu oluştur.
-
-Alan: ${params.field}
-Teknolojiler: ${params.techStack.join(", ")}
-Seviye: ${difficulty}
-
-Kurallar:
-- Sorular Türkçe olmalı
-- Her soru "${params.field}" alanı ve belirtilen teknolojilerle ilgili olmalı
-- Sorular "${difficulty}" seviyesine uygun olmalı
-- Açık uçlu, düşündürücü sorular sor
-- Hem teori hem pratik soruları karıştır
-
-JSON formatında yanıt ver:
-[
-  { "question": "soru metni", "category": "kategori", "order": 1 },
-  ...
-]
-
-Sadece JSON dizisi döndür, başka hiçbir şey yazma.`;
-
-    try {
-      const result = await this.model.generateContent(prompt);
-      const text = result.response.text();
-      const cleaned = text
-        .replace(/```json\n?/g, "")
-        .replace(/```\n?/g, "")
-        .trim();
-      const questions: IGeneratedQuestion[] = JSON.parse(cleaned);
-      this.logger.log(
-        `Generated ${questions.length} questions for ${params.field}`,
-      );
-      return questions;
-    } catch (error) {
-      this.logger.error("Question generation failed", error);
-      return Array.from({ length: count }, (_, i) => ({
-        question: `${params.field} alanında ${params.techStack[0] || "genel"} ile ilgili deneyimlerinizi anlatır mısınız?`,
-        category: params.field,
-        order: i + 1,
-      }));
     }
   }
 

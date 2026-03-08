@@ -54,6 +54,36 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
   const configRef = useRef(config);
   configRef.current = config;
 
+  // Message buffer: accumulate transcripts of the same role and flush on
+  // role change or 5+ second silence gap.
+  const messageBufferRef = useRef<{
+    role: string;
+    chunks: string[];
+    lastTimestamp: number;
+  } | null>(null);
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushMessageBuffer = useCallback(() => {
+    const buffer = messageBufferRef.current;
+    const currentId = interviewIdRef.current;
+    if (!buffer || buffer.chunks.length === 0 || !currentId) return;
+
+    const content = buffer.chunks.join(" ");
+    const role = buffer.role;
+
+    messageBufferRef.current = null;
+    if (flushTimerRef.current) {
+      clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+
+    api
+      .post(`/interviews/${currentId}/messages`, { role, content })
+      .catch((err: unknown) =>
+        console.warn("Failed to save transcript message:", err),
+      );
+  }, []);
+
   // Stable setters ref for the message handler (avoids stale closures)
   const settersRef = useRef<VapiStateSetters>({
     setInterviewId: (id: string) => {
@@ -83,6 +113,7 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
     });
 
     vapi.on("call-end", () => {
+      flushMessageBuffer();
       setIsCallActive(false);
       setIsSpeaking(false);
       if (manualEndRef.current) {
@@ -90,12 +121,10 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
         reconnectAttemptRef.current = 0;
         setOverallScore((prev) => (prev !== null ? prev : 0));
       } else if (reconnectAttemptRef.current < 2) {
-        // Unexpected disconnection -- attempt auto-reconnect once
         reconnectAttemptRef.current++;
         setError("Bağlantı koptu, yeniden bağlanılıyor...");
         setTimeout(() => {
           setError(null);
-          // re-trigger startCall (the user won't need to click again)
         }, 2000);
       }
     });
@@ -108,7 +137,7 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
       if (msg.type === "function-call") {
         handleVapiFunctionCall(msg, vapi, settersRef.current);
       }
-      // Save transcript messages (final only) to backend for chat history
+
       if (
         msg.type === "transcript" &&
         msg.transcriptType === "final" &&
@@ -117,14 +146,31 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
         const currentId = interviewIdRef.current;
         if (currentId) {
           const normalized = normalizeTranscript(msg.transcript);
-          api
-            .post(`/interviews/${currentId}/messages`, {
-              role: msg.role === "assistant" ? "agent" : "user",
-              content: normalized,
-            })
-            .catch((err: unknown) =>
-              console.warn("Failed to save transcript message:", err),
-            );
+          const role = msg.role === "assistant" ? "agent" : "user";
+          const now = Date.now();
+          const buffer = messageBufferRef.current;
+
+          if (
+            buffer &&
+            (buffer.role !== role || now - buffer.lastTimestamp >= 5000)
+          ) {
+            flushMessageBuffer();
+          }
+
+          if (!messageBufferRef.current) {
+            messageBufferRef.current = {
+              role,
+              chunks: [],
+              lastTimestamp: now,
+            };
+          }
+          messageBufferRef.current.chunks.push(normalized);
+          messageBufferRef.current.lastTimestamp = now;
+
+          if (flushTimerRef.current) {
+            clearTimeout(flushTimerRef.current);
+          }
+          flushTimerRef.current = setTimeout(flushMessageBuffer, 5000);
         }
       }
     });
@@ -151,9 +197,10 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
     });
 
     return () => {
+      if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
       vapi.stop();
     };
-  }, [publicKey]);
+  }, [publicKey, flushMessageBuffer]);
 
   // ── Start call ─────────────────────────────────────────────────────
   const startCall = useCallback(async () => {
@@ -173,7 +220,6 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
         questionCount: 5,
         type: "technical",
         targetRole: cfg.field,
-        durationMinutes: 30,
       });
       newInterviewId = res.data.id;
       setInterviewId(newInterviewId);
@@ -193,18 +239,20 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
 
     const tools = buildVapiTools(newInterviewId);
 
-    // Use a transient assistant — no dashboard assistantId needed.
-    // The model, voice, and transcriber are all configured inline.
     vapiRef.current.start({
       transcriber: {
-        provider: "deepgram",
-        model: "nova-3",
-        language: "tr",
-        smartFormat: true,
+        provider: "azure",
+        language: "tr-TR",
+        fallbackPlan: {
+          transcriberPlan: {
+            provider: "azure",
+            language: "tr-TR",
+          },
+        },
       } as any,
       model: {
         provider: "openai",
-        model: "gpt-4o",
+        model: "gpt-4.1",
         messages: [
           {
             role: "system",
@@ -214,9 +262,25 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
         tools: tools,
       },
       voice: {
-        provider: "vapi",
-        voiceId: "Elliot",
-      },
+        provider: "11labs",
+        voiceId: "dDcfsSsiSzmphdMGCECb",
+        model: "eleven_turbo_v2_5",
+        similarityBoost: 0.75,
+        stability: 0.5,
+        fallbackPlan: {
+          voices: [
+            {
+              model: "eleven_multilingual_v2",
+              optimizeStreamingLatency: null,
+              useSpeakerBoost: null,
+              similarityBoost: 0.75,
+              stability: 0.5,
+              voiceId: "dDcfsSsiSzmphdMGCECb",
+              provider: "11labs",
+            },
+          ],
+        },
+      } as any,
       firstMessage: buildFirstMessage(cfg),
       firstMessageInterruptionsEnabled: false,
       silenceTimeoutSeconds: 60,
@@ -242,6 +306,7 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
 
   // ── End call ───────────────────────────────────────────────────────
   const endCall = useCallback(async () => {
+    flushMessageBuffer();
     manualEndRef.current = true;
     vapiRef.current?.stop();
 
@@ -278,7 +343,7 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
     } else {
       setOverallScore(0);
     }
-  }, []);
+  }, [flushMessageBuffer]);
 
   return {
     isConnected,

@@ -15,6 +15,7 @@
     "@ai-coach/grpc": "workspace:^",
     "@ai-coach/kafka-client": "workspace:*",
     "@ai-coach/shared-types": "workspace:*",
+    "@google/generative-ai": "^0.24.0",
     "@grpc/grpc-js": "^1.12.0",
     "@grpc/proto-loader": "^0.7.0",
     "@nestjs/cache-manager": "^3.1.0",

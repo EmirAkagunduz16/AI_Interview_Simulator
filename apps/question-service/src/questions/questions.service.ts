@@ -1,6 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import axios from "axios";
+import { Injectable, Logger } from "@nestjs/common";
 import {
   QuestionRepository,
   QuestionFilter,
@@ -18,27 +16,16 @@ import {
   Difficulty,
 } from "./entities/question.entity";
 import { QuestionNotFoundException } from "../common/exceptions";
-import { getSeedQuestions } from "./data/seed-questions";
+import { GeminiService } from "./gemini.service";
 
 @Injectable()
-export class QuestionsService implements OnModuleInit {
+export class QuestionsService {
   private readonly logger = new Logger(QuestionsService.name);
 
   constructor(
     private readonly questionRepository: QuestionRepository,
-    private readonly configService: ConfigService,
+    private readonly geminiService: GeminiService,
   ) {}
-
-  async onModuleInit() {
-    try {
-      const result = await this.seed();
-      if (result.created > 0) {
-        this.logger.log(`Auto-seeded ${result.created} questions on startup`);
-      }
-    } catch (error) {
-      this.logger.warn("Auto-seed failed (non-fatal):", error);
-    }
-  }
 
   async create(dto: CreateQuestionDto): Promise<QuestionDocument> {
     const question = await this.questionRepository.create({
@@ -146,90 +133,41 @@ export class QuestionsService implements OnModuleInit {
   async generateAndSave(
     dto: GenerateQuestionsDto,
   ): Promise<QuestionDocument[]> {
-    const aiServiceUrl =
-      this.configService.get<string>("AI_SERVICE_URL") ||
-      "http://localhost:3006";
     const count = dto.count || 5;
 
     this.logger.log(
-      `Generating ${count} questions for field=${dto.field}, tech=${dto.techStack.join(", ")}, difficulty=${dto.difficulty}`,
+      `Generating ${count} questions via Gemini for field=${dto.field}, tech=${dto.techStack.join(", ")}, difficulty=${dto.difficulty}`,
     );
 
-    try {
-      const { data } = await axios.post(
-        `${aiServiceUrl}/api/v1/ai/generate-questions`,
-        {
-          field: dto.field,
-          techStack: dto.techStack,
-          difficulty: dto.difficulty,
-          count,
-        },
-      );
+    const generatedQuestions = await this.geminiService.generateQuestions({
+      field: dto.field,
+      techStack: dto.techStack,
+      difficulty: dto.difficulty,
+      count,
+    });
 
-      const generatedQuestions = data.questions || [];
-      const savedQuestions: QuestionDocument[] = [];
+    const savedQuestions: QuestionDocument[] = [];
 
-      for (const q of generatedQuestions) {
+    for (const q of generatedQuestions) {
+      try {
         const question = await this.questionRepository.create({
-          title: q.title || q.question,
-          content: q.content || q.question,
-          hints: q.hints || "",
-          sampleAnswer: q.sampleAnswer || q.expectedAnswer || "",
+          title: q.title || q.content,
+          content: q.content || q.title,
+          hints: "",
+          sampleAnswer: q.sampleAnswer || "",
           type: QuestionType.TECHNICAL,
           difficulty: dto.difficulty as Difficulty,
           category: dto.field,
           tags: dto.techStack,
           createdBy: "ai-generated",
         } as any);
-
         savedQuestions.push(question);
-      }
-
-      this.logger.log(`Generated and saved ${savedQuestions.length} questions`);
-      return savedQuestions;
-    } catch (error) {
-      this.logger.error("Failed to generate questions from AI service", error);
-      throw error;
-    }
-  }
-
-  async seed(): Promise<{ created: number }> {
-    const seedQuestions = getSeedQuestions();
-    const categories = [...new Set(seedQuestions.map((q) => q.category))];
-    let totalCreated = 0;
-
-    for (const category of categories) {
-      const existingCount = await this.questionRepository.countQuestions({
-        category,
-      });
-
-      if (existingCount >= 5) {
-        continue; // This category already has enough questions
-      }
-
-      const questionsForCategory = seedQuestions.filter(
-        (q) => q.category === category,
-      );
-
-      // Only add questions that don't already exist (by title)
-      for (const q of questionsForCategory) {
-        const existing = await this.questionRepository.findAllQuestions(
-          { category: q.category },
-          { page: 1, limit: 100 },
-        );
-        const alreadyExists = existing.questions.some(
-          (eq) => eq.title === q.title,
-        );
-        if (!alreadyExists) {
-          await this.questionRepository.create(q as any);
-          totalCreated++;
-        }
+      } catch (e) {
+        this.logger.warn(`Skipping duplicate question: ${q.title}`, e);
       }
     }
 
-    if (totalCreated > 0) {
-      this.logger.log(`Seeded ${totalCreated} new questions`);
-    }
-    return { created: totalCreated };
+    this.logger.log(`Generated and saved ${savedQuestions.length} questions`);
+    return savedQuestions;
   }
 }

@@ -138,10 +138,10 @@ export class InterviewRepository extends BaseRepository<InterviewDocument> {
   ): Promise<InterviewDocument | null> {
     const interview = await this.interviewModel.findById(id).exec();
     const now = new Date();
-    const actualDuration =
-      interview?.startedAt
-        ? Math.max(1, Math.round((now.getTime() - interview.startedAt.getTime()) / 60000))
-        : interview?.durationMinutes || 30;
+    const startTime = interview?.startedAt || interview?.createdAt;
+    const actualDuration = startTime
+      ? Math.max(1, Math.round((now.getTime() - new Date(startTime).getTime()) / 60000))
+      : 0;
 
     return this.interviewModel
       .findByIdAndUpdate(
@@ -168,10 +168,10 @@ export class InterviewRepository extends BaseRepository<InterviewDocument> {
   ): Promise<InterviewDocument | null> {
     const interview = await this.interviewModel.findById(id).exec();
     const now = new Date();
-    const actualDuration =
-      interview?.startedAt
-        ? Math.max(1, Math.round((now.getTime() - interview.startedAt.getTime()) / 60000))
-        : interview?.durationMinutes || 30;
+    const startTime = interview?.startedAt || interview?.createdAt;
+    const actualDuration = startTime
+      ? Math.max(1, Math.round((now.getTime() - new Date(startTime).getTime()) / 60000))
+      : 0;
 
     return this.interviewModel
       .findByIdAndUpdate(

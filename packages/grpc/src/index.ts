@@ -83,8 +83,6 @@ export {
   type IGrpcQuestionService,
 
   // AI Service
-  type AiGenerateQuestionsRequest,
-  type AiGeneratedQuestion,
   type HandleVapiWebhookRequest,
   type HandleVapiWebhookResponse,
   type IGrpcAiService,

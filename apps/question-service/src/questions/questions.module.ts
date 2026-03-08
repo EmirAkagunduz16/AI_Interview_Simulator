@@ -4,6 +4,7 @@ import { GrpcQuestionsController } from "./grpc.controller";
 import { QuestionsService } from "./questions.service";
 import { Question, QuestionSchema } from "./entities/question.entity";
 import { QuestionRepository } from "./repositories/question.repository";
+import { GeminiService } from "./gemini.service";
 
 @Module({
   imports: [
@@ -12,7 +13,7 @@ import { QuestionRepository } from "./repositories/question.repository";
     ]),
   ],
   controllers: [GrpcQuestionsController],
-  providers: [QuestionsService, QuestionRepository],
+  providers: [QuestionsService, QuestionRepository, GeminiService],
   exports: [QuestionsService],
 })
 export class QuestionsModule {}

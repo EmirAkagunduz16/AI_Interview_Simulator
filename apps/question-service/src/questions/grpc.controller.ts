@@ -116,8 +116,8 @@ export class GrpcQuestionsController {
 
   @GrpcMethod("QuestionService", "SeedQuestions")
   async seedQuestions(): Promise<SeedQuestionsResponse> {
-    this.logger.debug("gRPC SeedQuestions");
-    return this.questionsService.seed();
+    this.logger.debug("gRPC SeedQuestions (no-op, seeding disabled)");
+    return { created: 0 };
   }
 
   @GrpcMethod("QuestionService", "UpdateQuestion")

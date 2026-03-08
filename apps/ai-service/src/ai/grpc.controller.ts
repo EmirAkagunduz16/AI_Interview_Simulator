@@ -7,7 +7,6 @@ import {
   GRPC_QUESTION_SERVICE,
   IGrpcInterviewService,
   IGrpcQuestionService,
-  AiGenerateQuestionsRequest,
   HandleVapiWebhookRequest,
   HandleVapiWebhookResponse,
   InterviewResponse,
@@ -46,18 +45,6 @@ export class GrpcAiController implements OnModuleInit {
     this.questionService =
       this.questionGrpc.getService<IGrpcQuestionService>("QuestionService");
     this.logger.log("gRPC clients initialized (Interview + Question)");
-  }
-
-  @GrpcMethod("AiService", "GenerateQuestions")
-  async generateQuestions(data: AiGenerateQuestionsRequest) {
-    this.logger.debug(`gRPC GenerateQuestions: ${data.field}`);
-    const questions = await this.geminiService.generateInterviewQuestions({
-      field: data.field,
-      techStack: data.techStack,
-      difficulty: data.difficulty,
-      count: data.count,
-    });
-    return { questions };
   }
 
   @GrpcMethod("AiService", "HandleVapiWebhook")
@@ -244,10 +231,10 @@ export class GrpcAiController implements OnModuleInit {
         );
       }
 
-      // If not enough unique questions, generate new ones to expand the pool
+      // If not enough unique questions, generate new ones via question-service (Gemini)
       if (questions.length < questionCount) {
         this.logger.log(
-          `Only ${questions.length}/${questionCount} unique questions found, generating more...`,
+          `Only ${questions.length}/${questionCount} unique questions found, generating more via question-service...`,
         );
         try {
           await firstValueFrom(
@@ -270,17 +257,7 @@ export class GrpcAiController implements OnModuleInit {
           );
           questions = retryResult.questions || questions;
         } catch (e) {
-          this.logger.error("question-service soru üretemedi, Gemini fallback", e);
-          const fallback = await this.geminiService.generateInterviewQuestions({
-            field: field || "fullstack",
-            techStack: techStack || [],
-            difficulty: difficulty || "intermediate",
-            count: questionCount,
-          });
-          questions = fallback.map((q) => ({
-            content: q.question,
-            order: q.order,
-          }));
+          this.logger.error("question-service soru üretemedi", e);
         }
       }
 

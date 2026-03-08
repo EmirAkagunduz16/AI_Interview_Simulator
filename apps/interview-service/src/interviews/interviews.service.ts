@@ -38,7 +38,7 @@ export class InterviewsService {
       title: dto.title || `${dto.field} Mülakat`,
       type: dto.type,
       targetRole: dto.targetRole,
-      durationMinutes: dto.durationMinutes || 30,
+      durationMinutes: dto.durationMinutes || 0,
       vapiCallId: dto.vapiCallId,
       status: InterviewStatus.PENDING,
     });

@@ -113,14 +113,6 @@ export class QuestionsController implements OnModuleInit {
     return result.questions;
   }
 
-  @Post("seed")
-  @HttpCode(HttpStatus.OK)
-  async seed() {
-    return firstValueFrom(
-      this.questionService.seedQuestions({} as Record<string, never>),
-    );
-  }
-
   @Patch(":id")
   async update(@Param("id") id: string, @Body() body: Omit<UpdateQuestionRequest, "questionId">) {
     return firstValueFrom(

@@ -94,7 +94,7 @@ export class Interview {
   @Prop({ type: InterviewReportSchema }) report?: InterviewReport;
 
   @Prop() targetRole?: string;
-  @Prop({ default: 30 }) durationMinutes: number;
+  @Prop({ default: 0 }) durationMinutes: number;
   @Prop() totalScore?: number;
   @Prop() overallFeedback?: string;
 
