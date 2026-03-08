@@ -34,6 +34,19 @@ export const InterviewMessageSchema =
   SchemaFactory.createForClass(InterviewMessage);
 
 @Schema({ _id: false })
+export class QuestionEvaluation {
+  @Prop() question: string;
+  @Prop() answer: string;
+  @Prop({ default: 0 }) score: number;
+  @Prop() feedback: string;
+  @Prop({ type: [String], default: [] }) strengths: string[];
+  @Prop({ type: [String], default: [] }) improvements: string[];
+}
+
+export const QuestionEvaluationSchema =
+  SchemaFactory.createForClass(QuestionEvaluation);
+
+@Schema({ _id: false })
 export class InterviewReport {
   @Prop({ default: 0 }) technicalScore: number;
   @Prop({ default: 0 }) communicationScore: number;
@@ -42,6 +55,8 @@ export class InterviewReport {
   @Prop({ default: 0 }) overallScore: number;
   @Prop() summary?: string;
   @Prop({ type: [String], default: [] }) recommendations: string[];
+  @Prop({ type: [QuestionEvaluationSchema], default: [] })
+  questionEvaluations?: QuestionEvaluation[];
 }
 
 export const InterviewReportSchema =

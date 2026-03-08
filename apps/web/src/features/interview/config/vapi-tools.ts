@@ -30,13 +30,18 @@ export function buildVapiTools(interviewId: string) {
       function: {
         name: "save_answer",
         description:
-          "Kullanıcının cevabını kaydet. SADECE cevap değerlendirmesi ve takip soruları dahil tüm tartışma tamamen bittikten sonra çağır. Değerlendirme bitmeden çağırma. Çağırırken konuşma.",
+          "Her sorunun tartışması bittikten sonra MUTLAKA çağır. Çağırmadan sonraki soruya geçme. Çağırırken konuşma.",
         parameters: {
           type: "object",
           properties: {
             questionOrder: {
               type: "number",
               description: "Sorunun sıra numarası (1-5)",
+            },
+            questionId: {
+              type: "string",
+              description:
+                "save_preferences'tan dönen sorunun id değeri",
             },
             questionText: {
               type: "string",
@@ -45,25 +50,19 @@ export function buildVapiTools(interviewId: string) {
             answer: {
               type: "string",
               description:
-                "Kullanıcının verdiği cevabın tam metni. Kısaltma veya özetleme.",
-            },
-            questions: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  question: { type: "string" },
-                  order: { type: "number" },
-                },
-              },
-              description: "save_preferences'tan dönen soru listesinin tamamı",
+                "Kullanıcının verdiği cevabın detaylı özeti. Kısaltma yapma, kullanıcının ne söylediğini olduğu gibi yaz.",
             },
             interviewId: {
               type: "string",
               description: `Mülakat ID. Her zaman "${interviewId}" olmalı.`,
             },
           },
-          required: ["questionOrder", "answer", "interviewId"],
+          required: [
+            "questionOrder",
+            "questionText",
+            "answer",
+            "interviewId",
+          ],
         },
       },
     },
@@ -72,7 +71,7 @@ export function buildVapiTools(interviewId: string) {
       function: {
         name: "end_interview",
         description:
-          "Mülakatı sonlandır. Tüm sorular bittiğinde çağır. answers parametresine mülakat boyunca sorulan tüm soru-cevap çiftlerini ekle.",
+          "Mülakatı sonlandır. Tüm 5 soru bittiğinde çağır. answers parametresine mülakat boyunca sorulan tüm soru-cevap çiftlerini ekle.",
         parameters: {
           type: "object",
           properties: {
@@ -93,8 +92,7 @@ export function buildVapiTools(interviewId: string) {
                   order: { type: "number", description: "Soru sırası" },
                 },
               },
-              description:
-                "Tüm soru-cevap çiftleri.",
+              description: "Tüm soru-cevap çiftleri.",
             },
           },
           required: ["interviewId", "answers"],

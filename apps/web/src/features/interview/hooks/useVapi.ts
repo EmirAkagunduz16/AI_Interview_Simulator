@@ -241,13 +241,50 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
 
     vapiRef.current.start({
       transcriber: {
-        provider: "azure",
-        language: "tr-TR",
+        provider: "deepgram",
+        model: "nova-3",
+        language: "multi",
+        keywords: [
+          "NestJS:5",
+          "Next.js:5",
+          "Node.js:5",
+          "React:5",
+          "TypeScript:5",
+          "JavaScript:5",
+          "MongoDB:5",
+          "PostgreSQL:5",
+          "GraphQL:5",
+          "Docker:5",
+          "Kubernetes:5",
+          "Express:5",
+          "REST API:5",
+          "middleware:3",
+          "dependency injection:3",
+          "microservice:3",
+          "backend:3",
+          "frontend:3",
+          "component:3",
+          "state management:3",
+          "controller:3",
+          "decorator:3",
+          "provider:3",
+          "module:3",
+          "prisma:3",
+          "webpack:3",
+          "Redis:3",
+          "CI/CD:3",
+          "git:3",
+          "AWS:3",
+          "Azure:3",
+        ],
         fallbackPlan: {
-          transcriberPlan: {
-            provider: "azure",
-            language: "tr-TR",
-          },
+          transcribers: [
+            {
+              provider: "deepgram",
+              model: "nova-3",
+              language: "tr",
+            },
+          ],
         },
       } as any,
       model: {
@@ -265,14 +302,15 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
         provider: "11labs",
         voiceId: "dDcfsSsiSzmphdMGCECb",
         model: "eleven_turbo_v2_5",
-        similarityBoost: 0.75,
         stability: 0.5,
+        similarityBoost: 0.75,
+        optimizeStreamingLatency: 3,
         fallbackPlan: {
           voices: [
             {
               model: "eleven_multilingual_v2",
-              optimizeStreamingLatency: null,
-              useSpeakerBoost: null,
+              optimizeStreamingLatency: 3,
+              useSpeakerBoost: false,
               similarityBoost: 0.75,
               stability: 0.5,
               voiceId: "dDcfsSsiSzmphdMGCECb",
@@ -283,7 +321,7 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
       } as any,
       firstMessage: buildFirstMessage(cfg),
       firstMessageInterruptionsEnabled: false,
-      silenceTimeoutSeconds: 60,
+      silenceTimeoutSeconds: 90,
       maxDurationSeconds: 2400,
       backgroundDenoisingEnabled: true,
       backgroundSound: "off",
@@ -297,10 +335,7 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
         "metadata",
         "conversation-update",
       ],
-      serverMessages: [
-        "end-of-call-report",
-        "status-update",
-      ],
+      serverMessages: ["end-of-call-report", "status-update"],
     } as any);
   }, []);
 

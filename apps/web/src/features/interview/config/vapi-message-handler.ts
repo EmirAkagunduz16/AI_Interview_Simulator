@@ -18,6 +18,7 @@ export interface AccumulatedAnswer {
   question: string;
   answer: string;
   order: number;
+  questionId?: string;
 }
 
 let accumulatedAnswers: AccumulatedAnswer[] = [];
@@ -61,6 +62,7 @@ export async function handleVapiFunctionCall(
           question: params.questionText || `Soru ${params.questionOrder}`,
           answer: params.answer || "",
           order: params.questionOrder || accumulatedAnswers.length + 1,
+          questionId: params.questionId,
         });
 
         if (result.nextQuestion) {

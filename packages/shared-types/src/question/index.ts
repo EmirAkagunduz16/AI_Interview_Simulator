@@ -9,6 +9,7 @@ export enum QuestionType {
   SYSTEM_DESIGN = "system_design",
   SITUATIONAL = "situational",
   MCQ = "mcq",
+  FOLLOW_UP = "follow_up",
 }
 
 export enum Difficulty {

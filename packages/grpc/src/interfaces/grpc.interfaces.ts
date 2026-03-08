@@ -257,6 +257,7 @@ export interface InterviewReportData {
   overallScore: number;
   summary: string;
   recommendations: string[];
+  questionEvaluations?: QuestionEvaluationResponse[];
 }
 
 export interface CompleteWithReportRequest {

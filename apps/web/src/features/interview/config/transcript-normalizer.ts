@@ -10,20 +10,26 @@ const TERM_CORRECTIONS: [RegExp, Replacement][] = [
   // AI / acronyms
   [/\bE[- ]?[iİ]\b/gi, "AI"],
   [/\beyay\b/gi, "AI"],
+  [/\bCI ?\/? ?CD\b/gi, "CI/CD"],
+  [/\bsi aydı\b/gi, "CI/CD"],
 
   // Frameworks & runtimes
-  [/\b(?:Mescies|Mesciyes|MesciGS|NesliJS|NesliGS|NESCS|NestGS|NESC|Nest[ -]?[Cc]ey[ -]?[Ee]s)\b/g, "NestJS"],
-  [/\b(?:Next[ -]?[Cc]ey[ -]?[Ee]s|NextGS|NexGS)\b/g, "Next.js"],
-  [/\b(?:Nod[ -]?[Cc]ey[ -]?[Ee]s|NodeGS|NodGS)\b/g, "Node.js"],
-  [/\b(?:Riyekt|Riyakt)\b/g, "React"],
-  [/\b(?:Tayp[ -]?skript|TaypScript)\b/gi, "TypeScript"],
-  [/\b(?:Java[ -]?skript)\b/gi, "JavaScript"],
-  [/\b(?:Eks[ -]?pres)\b/gi, "Express"],
-  [/\b(?:Mongo[ -]?di[ -]?bi|MongoDb)\b/gi, "MongoDB"],
-  [/\b(?:Post[ -]?gres[ -]?kyu[ -]?el|Postgre)\b/gi, "PostgreSQL"],
-  [/\b(?:Doker)\b/g, "Docker"],
-  [/\b(?:Kubernetis|Kubernatis)\b/gi, "Kubernetes"],
-  [/\b(?:Graf[ -]?kyu[ -]?el|GrafQL)\b/gi, "GraphQL"],
+  [/\b(?:Mescies|Mesciyes|MesciGS|NesliJS|NesliGS|NESCS|NestGS|NESC|Nest[ -]?[Cc]ey[ -]?[Ee]s|nescaese|Messig ?AS|nestcess|nescess)\b/gi, "NestJS"],
+  [/\b(?:Next[ -]?[Cc]ey[ -]?[Ee]s|NextGS|NexGS|next ?ces)\b/gi, "Next.js"],
+  [/\b(?:Nod[ -]?[Cc]ey[ -]?[Ee]s|NodeGS|NodGS|nod ?ces)\b/gi, "Node.js"],
+  [/\b(?:Riyekt|Riyakt|riyekt)\b/g, "React"],
+  [/\b(?:Tayp[ -]?skript|TaypScript|tayp ?skript)\b/gi, "TypeScript"],
+  [/\b(?:Java[ -]?skript|cava ?skript)\b/gi, "JavaScript"],
+  [/\b(?:Eks[ -]?pres|ekspres)\b/gi, "Express"],
+  [/\b(?:Mongo[ -]?di[ -]?bi|MongoDb|mongo ?dibi)\b/gi, "MongoDB"],
+  [/\b(?:Post[ -]?gres[ -]?kyu[ -]?el|Postgre|postgre ?sql)\b/gi, "PostgreSQL"],
+  [/\b(?:Doker|doker)\b/g, "Docker"],
+  [/\b(?:Kubernetis|Kubernatis|kubernetis)\b/gi, "Kubernetes"],
+  [/\b(?:Graf[ -]?kyu[ -]?el|GrafQL|graf ?kuel)\b/gi, "GraphQL"],
+  [/\b(?:Prisma|prisma)\b/g, "Prisma"],
+  [/\b(?:Rediss?|reddis)\b/gi, "Redis"],
+  [/\b(?:veb ?pak|web ?pak)\b/gi, "Webpack"],
+  [/\b(?:veb ?soket|web ?soket)\b/gi, "WebSocket"],
 
   // Common Turkish misrecognitions of English tech terms
   [/\b[Bb]ackhemt\b/g, "backend"],
@@ -35,12 +41,14 @@ const TERM_CORRECTIONS: [RegExp, Replacement][] = [
   [/\bKontrolörler\b/g, "Controller'lar"],
   [/\bKontrolör\b/g, "Controller"],
   [/\b[Mm]idılver\b/g, "middleware"],
+  [/\b[Mm]idilver\b/g, "middleware"],
   [/\bkomponentler\b/g, "component'ler"],
   [/\bkomponent\b/g, "component"],
   [/\bKomponentler\b/g, "Component'ler"],
   [/\bKomponent\b/g, "Component"],
   [/\bsteyt\b/gi, "state"],
   [/\bRest eypiai\b/gi, "REST API"],
+  [/\brest ?api\b/gi, "REST API"],
   [/\bservisler\b/g, "service'ler"],
   [/\bServisler\b/g, "Service'ler"],
   [/\bservis\b/g, "service"],
@@ -58,9 +66,38 @@ const TERM_CORRECTIONS: [RegExp, Replacement][] = [
   [/\bsağlayıcı\b/g, "provider"],
   [/\bSağlayıcı\b/g, "Provider"],
 
-  // CS terms
+  // CS / architecture terms
   [/\b[Dd]ependens[iy] [Ii]njekşın\b/g, "dependency injection"],
-  [/\bMessig AS\b/gi, "NestJS"],
+  [/\bpendince injtion\b/gi, "dependency injection"],
+  [/\bdi ?ay\b/gi, "DI"],
+  [/\bmikro ?servis\b/gi, "microservice"],
+  [/\bMikro ?servis\b/g, "Microservice"],
+  [/\b[Ee]ndpoynt\b/g, "endpoint"],
+  [/\b[Ee]ntpoynt\b/g, "endpoint"],
+  [/\brepozitori\b/gi, "repository"],
+  [/\b[Rr]epository\b/g, "repository"],
+  [/\bengradan\b/gi, "Angular'dan"],
+  [/\bengra\b/gi, "Angular"],
+  [/\b[Ss]ingılton\b/g, "singleton"],
+  [/\b[Ff]aktory\b/g, "factory"],
+  [/\b[Oo]bserver\b/g, "observer"],
+  [/\b[Ss]tream\b/g, "stream"],
+  [/\b[Pp]romis\b/g, "promise"],
+  [/\b[Kk]allbek\b/g, "callback"],
+  [/\b[Kk]ollbek\b/g, "callback"],
+  [/\basenkron\b/gi, "asenkron"],
+  [/\b[Kk]eşleme\b/g, "caching"],
+  [/\b[Kk]eş\b/g, "cache"],
+  [/\b[Şş]ema\b/g, "schema"],
+  [/\b[İi]ndeks\b/g, "index"],
+  [/\b[Kk]uery\b/g, "query"],
+  [/\b[Mm]igrasyon\b/g, "migration"],
+  [/\b[Dd]eploy\b/g, "deploy"],
+  [/\b[Dd]eployment\b/g, "deployment"],
+  [/\b[Ll]od balans[ıi]r?\b/gi, "load balancer"],
+  [/\b[Ss]kalabilite\b/g, "scalability"],
+  [/\b[Ss]kala\b/g, "scale"],
+  [/\b[Pp]erformans\b/g, "performans"],
 ];
 
 export function normalizeTranscript(text: string): string {
@@ -74,7 +111,6 @@ export function normalizeTranscript(text: string): string {
     }
   }
 
-  // Normalize whitespace: collapse multiple spaces, trim lines
   result = result.replace(/[ \t]+/g, " ");
   result = result
     .split("\n")

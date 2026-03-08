@@ -103,6 +103,7 @@ export class KafkaHandlersModule implements OnModuleInit {
       const evaluation = await this.geminiService.evaluateInterview({
         field: "general",
         techStack: [],
+        difficulty: "intermediate",
         answers: [
           {
             question: payload.questionTitle || payload.questionContent,
