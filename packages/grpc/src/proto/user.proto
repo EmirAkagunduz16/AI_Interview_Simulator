@@ -4,7 +4,6 @@ package user;
 
 service UserService {
   rpc GetUserByAuthId(GetUserByAuthIdRequest) returns (UserResponse);
-  rpc GetUserById(GetUserByIdRequest) returns (UserResponse);
   rpc UpdateUser(UpdateUserRequest) returns (UserResponse);
   rpc GetUserStats(GetUserStatsRequest) returns (UserStatsResponse);
   rpc GetUsers(GetUsersRequest) returns (UserListResponse);
@@ -12,10 +11,6 @@ service UserService {
 
 message GetUserByAuthIdRequest {
   string auth_id = 1;
-}
-
-message GetUserByIdRequest {
-  string user_id = 1;
 }
 
 message UpdateUserRequest {

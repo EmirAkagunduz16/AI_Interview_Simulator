@@ -12,11 +12,13 @@ import type {
   QuestionResponse,
   QuestionsListResponse,
   StringListResponse,
-  SeedQuestionsResponse,
 } from "@ai-coach/grpc";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type MongoDocument = { toJSON?: () => Record<string, any> } & Record<string, any>;
+type MongoDocument = { toJSON?: () => Record<string, any> } & Record<
+  string,
+  any
+>;
 
 @Controller()
 export class GrpcQuestionsController {
@@ -114,12 +116,6 @@ export class GrpcQuestionsController {
     };
   }
 
-  @GrpcMethod("QuestionService", "SeedQuestions")
-  async seedQuestions(): Promise<SeedQuestionsResponse> {
-    this.logger.debug("gRPC SeedQuestions (no-op, seeding disabled)");
-    return { created: 0 };
-  }
-
   @GrpcMethod("QuestionService", "UpdateQuestion")
   async updateQuestion(data: UpdateQuestionRequest): Promise<QuestionResponse> {
     this.logger.debug(`gRPC UpdateQuestion: ${data.questionId}`);
@@ -132,7 +128,9 @@ export class GrpcQuestionsController {
   }
 
   @GrpcMethod("QuestionService", "DeleteQuestion")
-  async deleteQuestion(data: DeleteQuestionRequest): Promise<Record<string, never>> {
+  async deleteQuestion(
+    data: DeleteQuestionRequest,
+  ): Promise<Record<string, never>> {
     this.logger.debug(`gRPC DeleteQuestion: ${data.questionId}`);
     await this.questionsService.delete(data.questionId);
     return {};

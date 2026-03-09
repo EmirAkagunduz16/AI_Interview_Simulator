@@ -59,13 +59,6 @@ export interface ValidateTokenResponse {
   role: string;
 }
 
-export interface GetTokenUserResponse {
-  userId: string;
-  email: string;
-  name: string;
-  role: string;
-}
-
 export interface RegisterRequest {
   email: string;
   password: string;
@@ -104,9 +97,6 @@ export interface LogoutResponse {
 
 export interface IGrpcAuthService {
   validateToken(data: ValidateTokenRequest): Observable<ValidateTokenResponse>;
-  getTokenUser(
-    data: ValidateTokenRequest,
-  ): Observable<GetTokenUserResponse>;
   register(data: RegisterRequest): Observable<TokenResponse>;
   login(data: LoginRequest): Observable<TokenResponse>;
   refresh(data: RefreshRequest): Observable<TokenResponse>;
@@ -119,10 +109,6 @@ export interface IGrpcAuthService {
 
 export interface GetUserByAuthIdRequest {
   authId: string;
-}
-
-export interface GetUserByIdRequest {
-  userId: string;
 }
 
 export interface UpdateUserRequest {
@@ -182,7 +168,6 @@ export interface UsersListResponse {
 
 export interface IGrpcUserService {
   getUserByAuthId(data: GetUserByAuthIdRequest): Observable<UserResponse>;
-  getUserById(data: GetUserByIdRequest): Observable<UserResponse>;
   updateUser(data: UpdateUserRequest): Observable<UserResponse>;
   getUserStats(data: GetUserStatsRequest): Observable<GetUserStatsResponse>;
   getUsers(data: GetUsersRequest): Observable<UsersListResponse>;
@@ -454,10 +439,6 @@ export interface StringListResponse {
   items: string[];
 }
 
-export interface SeedQuestionsResponse {
-  created: number;
-}
-
 export interface IGrpcQuestionService {
   getQuestion(data: GetQuestionRequest): Observable<QuestionResponse>;
   getQuestions(data: GetQuestionsRequest): Observable<QuestionsListResponse>;
@@ -470,9 +451,6 @@ export interface IGrpcQuestionService {
   generateQuestions(
     data: GenerateQuestionsRequest,
   ): Observable<{ questions: QuestionResponse[] }>;
-  seedQuestions(
-    data: Record<string, never>,
-  ): Observable<SeedQuestionsResponse>;
   updateQuestion(data: UpdateQuestionRequest): Observable<QuestionResponse>;
   deleteQuestion(
     data: DeleteQuestionRequest,

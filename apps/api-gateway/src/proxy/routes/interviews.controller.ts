@@ -15,7 +15,6 @@ import {
   GRPC_INTERVIEW_SERVICE,
   IGrpcInterviewService,
   CreateInterviewRequest,
-  SubmitAnswerRequest,
 } from "@ai-coach/grpc";
 import { AuthenticatedRequest } from "../../common/guards/auth.guard";
 
@@ -86,66 +85,5 @@ export class InterviewsController implements OnModuleInit {
     );
   }
 
-  @Post(":id/start")
-  async start(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
-    return firstValueFrom(
-      this.interviewService.startInterview({
-        interviewId: id,
-        userId: req.user.userId,
-      }),
-    );
-  }
 
-  @Post(":id/submit")
-  async submit(
-    @Req() req: AuthenticatedRequest,
-    @Param("id") id: string,
-    @Body() body: Omit<SubmitAnswerRequest, "interviewId" | "userId">,
-  ) {
-    return firstValueFrom(
-      this.interviewService.submitAnswer({
-        interviewId: id,
-        userId: req.user.userId,
-        questionId: body.questionId,
-        questionTitle: body.questionTitle,
-        answer: body.answer,
-      }),
-    );
-  }
-
-  @Post(":id/complete")
-  async complete(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
-    return firstValueFrom(
-      this.interviewService.completeInterview({
-        interviewId: id,
-        userId: req.user.userId,
-      }),
-    );
-  }
-
-  @Post(":id/cancel")
-  async cancel(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
-    return firstValueFrom(
-      this.interviewService.cancelInterview({
-        interviewId: id,
-        userId: req.user.userId,
-      }),
-    );
-  }
-
-  @Post(":id/messages")
-  async addMessage(
-    @Req() req: AuthenticatedRequest,
-    @Param("id") id: string,
-    @Body() body: { role: string; content: string },
-  ) {
-    return firstValueFrom(
-      this.interviewService.addInterviewMessage({
-        interviewId: id,
-        userId: req.user.userId,
-        role: body.role,
-        content: body.content,
-      }),
-    );
-  }
 }

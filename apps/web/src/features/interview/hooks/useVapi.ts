@@ -48,6 +48,8 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
 
   // Track whether call was manually ended by user
   const manualEndRef = useRef(false);
+  // Track whether end_interview already returned a score (natural completion)
+  const scoreSetRef = useRef(false);
   const reconnectAttemptRef = useRef(0);
   const vapiRef = useRef<Vapi | null>(null);
   // Keep config in a ref so startCall always reads the latest value
@@ -91,7 +93,10 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
       interviewIdRef.current = id;
     },
     setCurrentQuestion,
-    setOverallScore,
+    setOverallScore: (score: number) => {
+      scoreSetRef.current = true;
+      setOverallScore(score);
+    },
   });
 
   const publicKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY;
@@ -120,6 +125,9 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
         manualEndRef.current = false;
         reconnectAttemptRef.current = 0;
         setOverallScore((prev) => (prev !== null ? prev : 0));
+      } else if (scoreSetRef.current) {
+        // Interview completed naturally via end_interview — no reconnect needed
+        reconnectAttemptRef.current = 0;
       } else if (reconnectAttemptRef.current < 2) {
         reconnectAttemptRef.current++;
         setError("Bağlantı koptu, yeniden bağlanılıyor...");
@@ -208,6 +216,9 @@ export function useVapi(config: UseVapiConfig): UseVapiReturn {
 
     const cfg = configRef.current;
     if (!cfg.field) return;
+
+    scoreSetRef.current = false;
+    reconnectAttemptRef.current = 0;
 
     // Create interview record on the backend first
     let newInterviewId: string;

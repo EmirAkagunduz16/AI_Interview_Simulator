@@ -10,7 +10,6 @@ service QuestionService {
   rpc GetTags(EmptyRequest) returns (StringListResponse);
   rpc CreateQuestion(CreateQuestionRequest) returns (QuestionResponse);
   rpc GenerateQuestions(GenerateQuestionsRequest) returns (QuestionListResponse);
-  rpc SeedQuestions(EmptyRequest) returns (SeedResponse);
   rpc UpdateQuestion(UpdateQuestionRequest) returns (QuestionResponse);
   rpc DeleteQuestion(DeleteQuestionRequest) returns (EmptyResponse);
 }
@@ -104,8 +103,4 @@ message PaginatedQuestionResponse {
 
 message StringListResponse {
   repeated string items = 1;
-}
-
-message SeedResponse {
-  int32 created = 1;
 }

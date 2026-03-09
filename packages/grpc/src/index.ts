@@ -22,7 +22,6 @@ export {
   // Auth Service
   type ValidateTokenRequest,
   type ValidateTokenResponse,
-  type GetTokenUserResponse,
   type RegisterRequest,
   type LoginRequest,
   type RefreshRequest,
@@ -34,7 +33,6 @@ export {
 
   // User Service
   type GetUserByAuthIdRequest,
-  type GetUserByIdRequest,
   type UpdateUserRequest,
   type GetUserStatsRequest,
   type GetUserStatsResponse,
@@ -79,7 +77,6 @@ export {
   type QuestionResponse,
   type QuestionsListResponse,
   type StringListResponse,
-  type SeedQuestionsResponse,
   type IGrpcQuestionService,
 
   // AI Service

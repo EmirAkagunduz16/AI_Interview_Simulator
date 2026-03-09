@@ -4,7 +4,6 @@ import { AuthService } from "./auth.service";
 import type {
   ValidateTokenRequest,
   ValidateTokenResponse,
-  GetTokenUserResponse,
   RegisterRequest,
   LoginRequest,
   RefreshRequest,
@@ -20,30 +19,15 @@ export class GrpcAuthController {
   constructor(private readonly authService: AuthService) {}
 
   @GrpcMethod("AuthService", "ValidateToken")
-  async validateToken(data: ValidateTokenRequest): Promise<ValidateTokenResponse> {
+  async validateToken(
+    data: ValidateTokenRequest,
+  ): Promise<ValidateTokenResponse> {
     this.logger.debug("gRPC ValidateToken called");
     const result = await this.authService.validate(data.accessToken);
     return {
       valid: result.valid,
       userId: result.userId,
       email: result.email,
-      role: result.role,
-    };
-  }
-
-  @GrpcMethod("AuthService", "GetTokenUser")
-  async getTokenUser(data: ValidateTokenRequest): Promise<GetTokenUserResponse> {
-    this.logger.debug("gRPC GetTokenUser called");
-    const result = await this.authService.validate(data.accessToken);
-
-    if (!result.valid) {
-      return { userId: "", email: "", name: "", role: "" };
-    }
-
-    return {
-      userId: result.userId,
-      email: result.email,
-      name: "",
       role: result.role,
     };
   }

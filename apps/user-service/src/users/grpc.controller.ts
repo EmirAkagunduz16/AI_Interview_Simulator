@@ -3,7 +3,6 @@ import { GrpcMethod } from "@nestjs/microservices";
 import { UsersService } from "./users.service";
 import type {
   GetUserByAuthIdRequest,
-  GetUserByIdRequest,
   UpdateUserRequest,
   GetUserStatsRequest,
   GetUsersRequest,
@@ -22,13 +21,6 @@ export class GrpcUsersController {
   async getUserByAuthId(data: GetUserByAuthIdRequest): Promise<UserResponse> {
     this.logger.debug(`gRPC GetUserByAuthId: ${data.authId}`);
     const user = await this.usersService.findByAuthId(data.authId);
-    return this.toGrpcResponse(user);
-  }
-
-  @GrpcMethod("UserService", "GetUserById")
-  async getUserById(data: GetUserByIdRequest): Promise<UserResponse> {
-    this.logger.debug(`gRPC GetUserById: ${data.userId}`);
-    const user = await this.usersService.findById(data.userId);
     return this.toGrpcResponse(user);
   }
 
@@ -70,7 +62,9 @@ export class GrpcUsersController {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private toGrpcResponse(user: { toJSON?: () => Record<string, any> } & Record<string, any>): UserResponse {
+  private toGrpcResponse(
+    user: { toJSON?: () => Record<string, any> } & Record<string, any>,
+  ): UserResponse {
     const json = user.toJSON ? user.toJSON() : user;
     return {
       id: json._id?.toString() || json.id || "",
