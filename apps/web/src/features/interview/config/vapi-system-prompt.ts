@@ -91,5 +91,5 @@ export function buildFirstMessage(config: {
 }): string {
   const { field, techStack, difficulty } = config;
 
-  return `Merhaba! Ben AI Mülakat Koçunuzum. ${field} alanında, ${techStack.join(", ")} teknolojileri hakkında ${difficulty} seviyesinde bir teknik mülakat yapacağız. Hazır olduğunuzda "başlayalım" deyin.`;
+  return `Merhaba! Ben AI Mülakat Koçunuzum. ${field} alanında, ${techStack.join(", ")} teknolojileri hakkında ${difficulty} seviyesinde bir teknik mülakat yapacağız. Hazırsanız başlayalım.`;
 }
