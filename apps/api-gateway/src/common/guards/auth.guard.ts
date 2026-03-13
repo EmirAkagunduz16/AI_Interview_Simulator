@@ -40,6 +40,25 @@ export class JwtAuthGuard implements CanActivate, OnModuleInit {
     ]);
 
     if (isPublic) {
+      const request = context.switchToHttp().getRequest();
+      const authHeader = request.headers["authorization"];
+      if (authHeader) {
+        try {
+          const token = authHeader.replace("Bearer ", "");
+          const result = await firstValueFrom(
+            this.authService.validateToken({ accessToken: token }),
+          );
+          if (result.valid) {
+            request.user = {
+              userId: result.userId,
+              email: result.email,
+              role: result.role,
+            };
+          }
+        } catch {
+          // Sessizce geç — public route, token yoksa veya geçersizse devam et
+        }
+      }
       return true;
     }
 

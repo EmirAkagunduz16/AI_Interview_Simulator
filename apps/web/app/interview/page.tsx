@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useVapi } from "@/features/interview/hooks/useVapi";
+import { useElevenLabs } from "@/features/interview/hooks/useElevenLabs";
 import { InterviewConfigForm } from "@/features/interview/components/InterviewConfigForm";
 import { VoiceInterviewPanel } from "@/features/interview/components/VoiceInterviewPanel";
 import { CompletedScreen } from "@/features/interview/components/CompletedScreen";
@@ -18,23 +18,23 @@ export default function InterviewPage() {
   const [difficulty, setDifficulty] = useState("intermediate");
 
   const config = { field, techStack, difficulty };
-  const vapi = useVapi(config);
+  const el = useElevenLabs(config);
 
   const shouldStartRef = useRef(false);
 
   useEffect(() => {
-    if (vapi.overallScore !== null) {
+    if (el.overallScore !== null) {
       setStep("completed");
     }
-  }, [vapi.overallScore]);
+  }, [el.overallScore]);
 
   useEffect(() => {
     if (step === "interview" && shouldStartRef.current) {
       shouldStartRef.current = false;
-      const timer = setTimeout(() => vapi.startCall(), 300);
+      const timer = setTimeout(() => el.startCall(), 300);
       return () => clearTimeout(timer);
     }
-  }, [step, vapi.startCall, vapi]);
+  }, [step, el.startCall, el]);
 
   const handleFieldChange = (newField: string) => {
     setField(newField);
@@ -64,6 +64,13 @@ export default function InterviewPage() {
     setTechStack([]);
   };
 
+  const handleBack = () => {
+    if (el.isCallActive) {
+      el.endCall();
+    }
+    setStep("config");
+  };
+
   const renderContent = () => {
     if (step === "config") {
       return (
@@ -82,8 +89,8 @@ export default function InterviewPage() {
     if (step === "completed") {
       return (
         <CompletedScreen
-          overallScore={vapi.overallScore}
-          interviewId={vapi.interviewId}
+          overallScore={el.overallScore}
+          interviewId={el.interviewId}
           onRetry={handleRetry}
         />
       );
@@ -93,21 +100,30 @@ export default function InterviewPage() {
       <VoiceInterviewPanel
         field={field}
         techStack={techStack}
-        isConnected={vapi.isConnected}
-        isCallActive={vapi.isCallActive}
-        isSpeaking={vapi.isSpeaking}
-        volumeLevel={vapi.volumeLevel}
-        currentQuestion={vapi.currentQuestion}
-        error={vapi.error}
-        onStartCall={vapi.startCall}
-        onEndCall={vapi.endCall}
+        isConnected={el.isConnected}
+        isCallActive={el.isCallActive}
+        isSpeaking={el.isSpeaking}
+        micMuted={el.micMuted}
+        agentStatus={el.agentStatus}
+        inputVolume={el.inputVolume}
+        outputVolume={el.outputVolume}
+        currentQuestion={el.currentQuestion}
+        error={el.error}
+        transcript={el.transcript}
+        onStartCall={el.startCall}
+        onEndCall={el.endCall}
+        onSendMessage={el.sendTextMessage}
+        onToggleMic={el.toggleMic}
+        onBack={handleBack}
       />
     );
   };
 
   return (
     <AuthGuard>
-      <div className="interview-page">{renderContent()}</div>
+      <div className={`interview-page ${step === "interview" ? "el-active" : ""}`}>
+        {renderContent()}
+      </div>
     </AuthGuard>
   );
 }

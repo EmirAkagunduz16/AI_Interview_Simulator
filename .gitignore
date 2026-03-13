@@ -38,3 +38,6 @@ yarn-error.log*
 *.pem
 
 TODO-BUGS.md
+ai_mock_interviews
+ai_mock_interviews/
+ai_mock_interviews/*
