@@ -7,7 +7,6 @@ import {
   MicOff,
   PhoneOff,
   Send,
-  Settings,
   Clock,
 } from "lucide-react";
 import type { TranscriptMessage } from "../../hooks/useElevenLabs";
@@ -197,18 +196,17 @@ export default function VoiceInterviewPanel({
           )}
 
           {/* Bottom controls */}
-          <div className="el-bottom-controls">
-            <button className="el-ctrl-btn">
-              <Settings size={18} />
-            </button>
-            <button
-              className={`el-ctrl-btn el-mute-btn ${micMuted ? "muted" : ""}`}
-              onClick={onToggleMic}
-            >
-              {micMuted ? <MicOff size={18} /> : <Mic size={18} />}
-              <span>{micMuted ? "Sessiz" : "Mikrofon"}</span>
-            </button>
-          </div>
+          {isCallActive && (
+            <div className="el-bottom-controls">
+              <button
+                className={`el-ctrl-btn el-mute-btn ${micMuted ? "muted" : ""}`}
+                onClick={onToggleMic}
+              >
+                {micMuted ? <MicOff size={18} /> : <Mic size={18} />}
+                <span>{micMuted ? "Sessiz" : "Mikrofon"}</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Right Panel — Transcript */}

@@ -53,6 +53,7 @@ const AGENT_ID =
 
 export function useElevenLabs(config: UseElevenLabsConfig): UseElevenLabsReturn {
   const [isCallActive, setIsCallActive] = useState(false);
+  const [micMuted, setMicMuted] = useState(false);
   const [agentStatus, setAgentStatus] = useState<
     "listening" | "thinking" | "speaking" | null
   >(null);
@@ -99,14 +100,23 @@ export function useElevenLabs(config: UseElevenLabsConfig): UseElevenLabsReturn 
   }, []);
 
   const conversation = useConversation({
-    onConnect: () => {
+    micMuted,
+    onConnect: (props: { conversationId: string }) => {
+      console.info(
+        "[ElevenLabs] Connected — conversationId:",
+        props.conversationId,
+        "agentId:",
+        AGENT_ID,
+      );
       setIsCallActive(true);
       setError(null);
     },
-    onDisconnect: () => {
+    onDisconnect: (details: { reason: string; message?: string }) => {
+      console.info("[ElevenLabs] Disconnected —", details);
       flushMessageBuffer();
       setIsCallActive(false);
       setAgentStatus(null);
+      setMicMuted(false);
 
       if (!manualEndRef.current && !scoreSetRef.current) {
         const activeId = interviewIdRef.current;
@@ -175,11 +185,21 @@ export function useElevenLabs(config: UseElevenLabsConfig): UseElevenLabsReturn 
         flushTimerRef.current = setTimeout(flushMessageBuffer, 5000);
       }
     },
-    onError: (message: string, context?: Record<string, unknown>) => {
-      console.error("ElevenLabs error:", message, context);
+    onError: (message: string, context?: unknown) => {
+      console.error("[ElevenLabs] Error:", message, context);
 
       if (message.includes("max_duration_exceeded")) {
         setError("Mülakat süresi doldu.");
+      } else if (
+        message.includes("policy violation") ||
+        message.includes("not allowed")
+      ) {
+        setError("Agent konfigürasyon hatası oluştu.");
+      } else if (
+        message.includes("RTC path not found") ||
+        message.includes("Retrying")
+      ) {
+        return;
       } else {
         setError("Bağlantı hatası oluştu. Lütfen tekrar deneyin.");
       }
@@ -187,8 +207,8 @@ export function useElevenLabs(config: UseElevenLabsConfig): UseElevenLabsReturn 
     onModeChange: (prop: { mode: "speaking" | "listening" }) => {
       setAgentStatus(prop.mode);
     },
-    onUnhandledClientToolCall: (params: { tool_name: string; tool_call_id: string; parameters: unknown }) => {
-      console.warn("Unhandled client tool call:", params);
+    onUnhandledClientToolCall: (params: unknown) => {
+      console.warn("[ElevenLabs] Unhandled client tool call:", params);
     },
     onDebug: (props: unknown) => {
       console.debug("[ElevenLabs debug]", props);
@@ -216,17 +236,20 @@ export function useElevenLabs(config: UseElevenLabsConfig): UseElevenLabsReturn 
 
   const buildClientTools = useCallback(() => {
     return {
-      save_preferences: async (params: Record<string, unknown>) => {
+      save_preferences: async (parameters: Record<string, unknown>) => {
+        console.debug("[ClientTool] save_preferences called with:", parameters);
         try {
-          const p =
-            (params.parameters as Record<string, unknown>) || params;
           const response = await api.post("/ai/vapi/webhook", {
             message: {
               type: "function-call",
-              functionCall: { name: "save_preferences", parameters: p },
+              functionCall: {
+                name: "save_preferences",
+                parameters,
+              },
             },
           });
           const result = response.data.result || {};
+          console.debug("[ClientTool] save_preferences result:", result);
           if (result.interviewId) {
             setInterviewId(result.interviewId);
             interviewIdRef.current = result.interviewId;
@@ -243,28 +266,31 @@ export function useElevenLabs(config: UseElevenLabsConfig): UseElevenLabsReturn 
         }
       },
 
-      save_answer: async (params: Record<string, unknown>) => {
+      save_answer: async (parameters: Record<string, unknown>) => {
+        console.debug("[ClientTool] save_answer called with:", parameters);
         try {
-          const p =
-            (params.parameters as Record<string, unknown>) || params;
           accumulatedAnswers.current.push({
             question:
-              (p.questionText as string) ||
-              `Soru ${p.questionOrder}`,
-            answer: (p.answer as string) || "",
+              (parameters.questionText as string) ||
+              `Soru ${parameters.questionOrder}`,
+            answer: (parameters.answer as string) || "",
             order:
-              (p.questionOrder as number) ||
+              (parameters.questionOrder as number) ||
               accumulatedAnswers.current.length + 1,
-            questionId: p.questionId as string | undefined,
+            questionId: parameters.questionId as string | undefined,
           });
 
           const response = await api.post("/ai/vapi/webhook", {
             message: {
               type: "function-call",
-              functionCall: { name: "save_answer", parameters: p },
+              functionCall: {
+                name: "save_answer",
+                parameters,
+              },
             },
           });
           const result = response.data.result || {};
+          console.debug("[ClientTool] save_answer result:", result);
           if (result.nextQuestion) setCurrentQuestion(result.nextQuestion);
           if (result.finished) setCurrentQuestion("");
           return JSON.stringify(result);
@@ -277,7 +303,8 @@ export function useElevenLabs(config: UseElevenLabsConfig): UseElevenLabsReturn 
         }
       },
 
-      end_interview: async (params: Record<string, unknown>) => {
+      end_interview: async (parameters: Record<string, unknown>) => {
+        console.debug("[ClientTool] end_interview called with:", parameters);
         try {
           const response = await api.post("/ai/vapi/webhook", {
             message: {
@@ -286,9 +313,9 @@ export function useElevenLabs(config: UseElevenLabsConfig): UseElevenLabsReturn 
                 name: "end_interview",
                 parameters: {
                   interviewId:
-                    params.interviewId || interviewIdRef.current,
+                    parameters.interviewId || interviewIdRef.current,
                   answers:
-                    params.answers || accumulatedAnswers.current,
+                    parameters.answers || accumulatedAnswers.current,
                 },
               },
             },
@@ -338,29 +365,44 @@ export function useElevenLabs(config: UseElevenLabsConfig): UseElevenLabsReturn 
     }
 
     try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
     } catch {
-      setError("Mikrofon erişimi reddedildi. Tarayıcı ayarlarından mikrofon iznini kontrol edin.");
+      setError(
+        "Mikrofon erişimi reddedildi. Tarayıcı ayarlarından mikrofon iznini kontrol edin.",
+      );
       return;
     }
 
+    const sessionConfig = {
+      agentId: AGENT_ID,
+      connectionType: "websocket" as const,
+      clientTools: buildClientTools(),
+      dynamicVariables: {
+        interviewId: newInterviewId,
+        field: cfg.field,
+        techStack: cfg.techStack.join(", "),
+        difficulty: cfg.difficulty,
+      },
+    };
+
+    console.info("[ElevenLabs] Starting session with config:", {
+      agentId: sessionConfig.agentId,
+      connectionType: sessionConfig.connectionType,
+      dynamicVariables: sessionConfig.dynamicVariables,
+      clientToolNames: Object.keys(sessionConfig.clientTools),
+    });
+
     try {
-      await conversation.startSession({
-        agentId: AGENT_ID,
-        connectionType: "webrtc",
-        clientTools: buildClientTools(),
-        dynamicVariables: {
-          interviewId: newInterviewId,
-          field: cfg.field,
-          techStack: cfg.techStack.join(", "),
-          difficulty: cfg.difficulty,
-        },
-      });
+      const convId = await conversation.startSession(sessionConfig);
+      console.info("[ElevenLabs] Session started, convId:", convId);
     } catch (err) {
-      console.error("ElevenLabs startSession failed:", err);
+      console.error("[ElevenLabs] startSession failed:", err);
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("policy violation") || msg.includes("not allowed")) {
-        setError("Agent konfigürasyon hatası. Lütfen ElevenLabs ayarlarını kontrol edin.");
+        setError(
+          "Agent konfigürasyon hatası. Lütfen ElevenLabs ayarlarını kontrol edin.",
+        );
       } else {
         setError("Ses bağlantısı kurulamadı. Lütfen tekrar deneyin.");
       }
@@ -409,17 +451,40 @@ export function useElevenLabs(config: UseElevenLabsConfig): UseElevenLabsReturn 
   const sendTextMessage = useCallback(
     (text: string) => {
       if (conversation.status === "connected" && text.trim()) {
-        conversation.sendUserMessage(text);
+        const userMsg: TranscriptMessage = {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          source: "user",
+          message: text.trim(),
+          timestamp: Date.now(),
+        };
+        setTranscript((prev) => [...prev, userMsg]);
+
+        const currentId = interviewIdRef.current;
+        if (currentId) {
+          const normalized = normalizeTranscript(userMsg.message);
+          const now = Date.now();
+          const buffer = messageBufferRef.current;
+          if (buffer && (buffer.role !== "user" || now - buffer.lastTimestamp >= 5000)) {
+            flushMessageBuffer();
+          }
+          if (!messageBufferRef.current) {
+            messageBufferRef.current = { role: "user", chunks: [], lastTimestamp: now };
+          }
+          messageBufferRef.current.chunks.push(normalized);
+          messageBufferRef.current.lastTimestamp = now;
+          if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
+          flushTimerRef.current = setTimeout(flushMessageBuffer, 5000);
+        }
+
+        conversation.sendUserMessage(text.trim());
       }
     },
-    [conversation],
+    [conversation, flushMessageBuffer],
   );
 
   const toggleMic = useCallback(() => {
-    // micMuted is managed by the SDK internally
-    const next = !conversation.micMuted;
-    conversation.setVolume({ volume: next ? 0 : 1 });
-  }, [conversation]);
+    setMicMuted((prev) => !prev);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -431,7 +496,7 @@ export function useElevenLabs(config: UseElevenLabsConfig): UseElevenLabsReturn 
     isConnected: conversation.status === "connected",
     isCallActive,
     isSpeaking: conversation.isSpeaking,
-    micMuted: conversation.micMuted ?? false,
+    micMuted,
     toggleMic,
     agentStatus,
     currentQuestion,
