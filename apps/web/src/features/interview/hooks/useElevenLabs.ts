@@ -19,6 +19,8 @@ export interface TranscriptMessage {
   source: "user" | "ai";
   message: string;
   timestamp: number;
+  /** True when message is still streaming (real-time) */
+  streaming?: boolean;
 }
 
 export interface AccumulatedAnswer {
@@ -47,11 +49,11 @@ interface UseElevenLabsReturn {
   outputVolume: number;
 }
 
-const AGENT_ID =
-  process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID ||
-  "agent_6701kkew695fem3ab07318ff6zzw";
+const AGENT_ID = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID;
 
-export function useElevenLabs(config: UseElevenLabsConfig): UseElevenLabsReturn {
+export function useElevenLabs(
+  config: UseElevenLabsConfig,
+): UseElevenLabsReturn {
   const [isCallActive, setIsCallActive] = useState(false);
   const [micMuted, setMicMuted] = useState(false);
   const [agentStatus, setAgentStatus] = useState<
@@ -78,6 +80,7 @@ export function useElevenLabs(config: UseElevenLabsConfig): UseElevenLabsReturn 
     lastTimestamp: number;
   } | null>(null);
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const streamingAgentIdRef = useRef<string | null>(null);
 
   const flushMessageBuffer = useCallback(() => {
     const buffer = messageBufferRef.current;
@@ -147,19 +150,40 @@ export function useElevenLabs(config: UseElevenLabsConfig): UseElevenLabsReturn 
       }
       manualEndRef.current = false;
     },
-    onMessage: (message: { message: string; source: "user" | "ai"; role?: string }) => {
+    onMessage: (message: {
+      message: string;
+      source: "user" | "ai";
+      role?: string;
+    }) => {
       if (!message.message) return;
 
       const source = message.source === "ai" ? "ai" : "user";
 
-      const msg: TranscriptMessage = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        source,
-        message: message.message,
-        timestamp: Date.now(),
-      };
-
-      setTranscript((prev) => [...prev, msg]);
+      let msg: TranscriptMessage;
+      if (source === "ai" && streamingAgentIdRef.current) {
+        setTranscript((prev) => {
+          const idx = prev.findIndex((m) => m.id === streamingAgentIdRef.current);
+          if (idx >= 0) {
+            const next = [...prev];
+            const cur = next[idx];
+            if (cur) {
+              next[idx] = { ...cur, message: message.message, streaming: false };
+            }
+            streamingAgentIdRef.current = null;
+            return next;
+          }
+          return [...prev, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, source: "ai" as const, message: message.message, timestamp: Date.now() }];
+        });
+        msg = { id: "temp", source: "ai", message: message.message, timestamp: Date.now() };
+      } else {
+        msg = {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          source,
+          message: message.message,
+          timestamp: Date.now(),
+        };
+        setTranscript((prev) => [...prev, msg]);
+      }
 
       const currentId = interviewIdRef.current;
       if (currentId) {
@@ -312,10 +336,8 @@ export function useElevenLabs(config: UseElevenLabsConfig): UseElevenLabsReturn 
               functionCall: {
                 name: "end_interview",
                 parameters: {
-                  interviewId:
-                    parameters.interviewId || interviewIdRef.current,
-                  answers:
-                    parameters.answers || accumulatedAnswers.current,
+                  interviewId: parameters.interviewId || interviewIdRef.current,
+                  answers: parameters.answers || accumulatedAnswers.current,
                 },
               },
             },
@@ -374,24 +396,77 @@ export function useElevenLabs(config: UseElevenLabsConfig): UseElevenLabsReturn 
       return;
     }
 
-    const sessionConfig = {
-      agentId: AGENT_ID,
-      connectionType: "websocket" as const,
-      clientTools: buildClientTools(),
-      dynamicVariables: {
-        interviewId: newInterviewId,
-        field: cfg.field,
-        techStack: cfg.techStack.join(", "),
-        difficulty: cfg.difficulty,
-      },
-    };
+    // Resmi ElevenLabs dokümantasyonu: Public agent için agentId yeterli (signed URL gerekmez).
+    // Private agent ise 401 alırsınız → NEXT_PUBLIC_ELEVENLABS_USE_SIGNED_URL=true yapın.
+    const useSignedUrl =
+      process.env.NEXT_PUBLIC_ELEVENLABS_USE_SIGNED_URL === "true";
 
-    console.info("[ElevenLabs] Starting session with config:", {
-      agentId: sessionConfig.agentId,
-      connectionType: sessionConfig.connectionType,
-      dynamicVariables: sessionConfig.dynamicVariables,
-      clientToolNames: Object.keys(sessionConfig.clientTools),
-    });
+    let sessionConfig: Parameters<typeof conversation.startSession>[0];
+
+    if (useSignedUrl) {
+      let signedUrl: string;
+      try {
+        const signedRes = await api.get<{ signedUrl: string }>(
+          `/ai/elevenlabs/signed-url`,
+          { params: { agentId: AGENT_ID } },
+        );
+        signedUrl = signedRes.data.signedUrl;
+        if (!signedUrl) {
+          setError("ElevenLabs bağlantı bilgisi alınamadı.");
+          return;
+        }
+      } catch (err) {
+        console.error("[ElevenLabs] Signed URL fetch failed:", err);
+        const msg =
+          (err as { response?: { data?: { message?: string } } })?.response
+            ?.data?.message || (err instanceof Error ? err.message : String(err));
+        if (msg.includes("API key not configured")) {
+          setError(
+            "ElevenLabs API anahtarı sunucuda yapılandırılmamış. ELEVENLABS_API_KEY ekleyin.",
+          );
+        } else if (msg.includes("401") || msg.includes("Unauthorized")) {
+          setError(
+            "ElevenLabs API anahtarı geçersiz. Lütfen elevenlabs.io hesabınızdan doğru anahtarı kullanın.",
+          );
+        } else {
+          setError("Ses bağlantısı kurulamadı. Lütfen tekrar deneyin.");
+        }
+        return;
+      }
+
+      sessionConfig = {
+        signedUrl,
+        connectionType: "websocket" as const,
+        clientTools: buildClientTools(),
+        dynamicVariables: {
+          interviewId: newInterviewId,
+          field: cfg.field,
+          techStack: cfg.techStack.join(", "),
+          difficulty: cfg.difficulty,
+        },
+      };
+    } else {
+      sessionConfig = {
+        agentId: AGENT_ID,
+        connectionType: "websocket" as const,
+        clientTools: buildClientTools(),
+        dynamicVariables: {
+          interviewId: newInterviewId,
+          field: cfg.field,
+          techStack: cfg.techStack.join(", "),
+          difficulty: cfg.difficulty,
+        },
+      };
+    }
+
+    console.info(
+      "[ElevenLabs] Starting session",
+      useSignedUrl ? "(signed URL)" : "(agentId direct)",
+      "agentId:",
+      AGENT_ID,
+      "dynamicVariables:",
+      sessionConfig.dynamicVariables,
+    );
 
     try {
       const convId = await conversation.startSession(sessionConfig);
@@ -399,9 +474,20 @@ export function useElevenLabs(config: UseElevenLabsConfig): UseElevenLabsReturn 
     } catch (err) {
       console.error("[ElevenLabs] startSession failed:", err);
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes("policy violation") || msg.includes("not allowed")) {
+      if (msg.includes("401") || msg.includes("authentication")) {
+        setError(
+          "Agent kimlik doğrulama gerektiriyor. .env'e NEXT_PUBLIC_ELEVENLABS_USE_SIGNED_URL=true ekleyin.",
+        );
+      } else if (msg.includes("policy violation") || msg.includes("not allowed")) {
         setError(
           "Agent konfigürasyon hatası. Lütfen ElevenLabs ayarlarını kontrol edin.",
+        );
+      } else if (
+        msg.includes("Connection closed unexpectedly") ||
+        msg.includes("session could not be established")
+      ) {
+        setError(
+          "WebSocket bağlantısı kurulamadı. ElevenLabs API anahtarında 'ElevenAgents - Write' izninin açık olduğundan emin olun.",
         );
       } else {
         setError("Ses bağlantısı kurulamadı. Lütfen tekrar deneyin.");
@@ -464,11 +550,18 @@ export function useElevenLabs(config: UseElevenLabsConfig): UseElevenLabsReturn 
           const normalized = normalizeTranscript(userMsg.message);
           const now = Date.now();
           const buffer = messageBufferRef.current;
-          if (buffer && (buffer.role !== "user" || now - buffer.lastTimestamp >= 5000)) {
+          if (
+            buffer &&
+            (buffer.role !== "user" || now - buffer.lastTimestamp >= 5000)
+          ) {
             flushMessageBuffer();
           }
           if (!messageBufferRef.current) {
-            messageBufferRef.current = { role: "user", chunks: [], lastTimestamp: now };
+            messageBufferRef.current = {
+              role: "user",
+              chunks: [],
+              lastTimestamp: now,
+            };
           }
           messageBufferRef.current.chunks.push(normalized);
           messageBufferRef.current.lastTimestamp = now;

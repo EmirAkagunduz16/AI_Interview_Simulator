@@ -239,6 +239,7 @@ export default function VoiceInterviewPanel({
                 )}
                 <div className="el-msg-bubble">
                   {renderMessageContent(msg.message)}
+                  {msg.streaming && <span className="el-streaming-cursor" />}
                 </div>
               </div>
             ))}

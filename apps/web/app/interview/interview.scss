@@ -712,6 +712,22 @@
   background: linear-gradient(135deg, #8b5cf6, #06b6d4);
 }
 
+.el-streaming-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: #8b5cf6;
+  margin-left: 2px;
+  animation: el-blink 0.8s step-end infinite;
+  vertical-align: text-bottom;
+}
+
+@keyframes el-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
 .el-msg-bubble {
   padding: 0.65rem 1rem;
   border-radius: 14px;

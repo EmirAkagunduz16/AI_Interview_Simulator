@@ -11,10 +11,6 @@ export const geminiConfig = registerAs("gemini", () => ({
   model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
 }));
 
-export const vapiConfig = registerAs("vapi", () => ({
-  privateKey: process.env.VAPI_PRIVATE_KEY || "",
-}));
-
 export const microservicesConfig = registerAs("microservices", () => ({
   interviewGrpc: process.env.INTERVIEW_GRPC_URL || "localhost:50053",
   questionGrpc: process.env.QUESTION_GRPC_URL || "localhost:50054",
@@ -23,6 +19,5 @@ export const microservicesConfig = registerAs("microservices", () => ({
 export default () => ({
   service: serviceConfig(),
   gemini: geminiConfig(),
-  vapi: vapiConfig(),
   microservices: microservicesConfig(),
 });
