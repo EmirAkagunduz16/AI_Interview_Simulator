@@ -14,7 +14,13 @@ export {
 } from "./user";
 
 // Question
-export { IQuestion, IMcqOption, QuestionType, Difficulty } from "./question";
+export {
+  IQuestion,
+  IMcqOption,
+  QuestionType,
+  Difficulty,
+  mapInterviewDifficultyToQuestionDifficulty,
+} from "./question";
 
 // Interview
 export {

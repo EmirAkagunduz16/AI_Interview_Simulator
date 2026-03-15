@@ -18,6 +18,30 @@ export enum Difficulty {
   HARD = "hard",
 }
 
+/**
+ * Maps interview level (junior/intermediate/senior) to question difficulty (easy/medium/hard).
+ * Use when creating or querying questions from interview context.
+ */
+export function mapInterviewDifficultyToQuestionDifficulty(
+  interviewDifficulty: string,
+): Difficulty {
+  const d = (interviewDifficulty || "intermediate").toLowerCase();
+  switch (d) {
+    case "junior":
+      return Difficulty.EASY;
+    case "intermediate":
+      return Difficulty.MEDIUM;
+    case "senior":
+      return Difficulty.HARD;
+    case "easy":
+    case "medium":
+    case "hard":
+      return d as Difficulty;
+    default:
+      return Difficulty.MEDIUM;
+  }
+}
+
 export interface IQuestion {
   _id: string;
   title: string;

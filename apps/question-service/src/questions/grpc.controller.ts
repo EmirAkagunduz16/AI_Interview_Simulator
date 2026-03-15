@@ -1,5 +1,6 @@
 import { Controller, Logger } from "@nestjs/common";
 import { GrpcMethod } from "@nestjs/microservices";
+import { mapInterviewDifficultyToQuestionDifficulty } from "@ai-coach/shared-types";
 import { QuestionsService } from "./questions.service";
 import type {
   GetQuestionRequest,
@@ -38,9 +39,12 @@ export class GrpcQuestionsController {
     data: GetQuestionsRequest,
   ): Promise<QuestionsListResponse> {
     this.logger.debug(`gRPC GetQuestions page=${data.page}`);
+    const difficulty = data.difficulty
+      ? mapInterviewDifficultyToQuestionDifficulty(data.difficulty)
+      : undefined;
     const result = await this.questionsService.findAll({
       type: data.type as string,
-      difficulty: data.difficulty as string,
+      difficulty,
       category: data.category,
       page: data.page || 1,
       limit: data.limit || 10,
@@ -60,10 +64,13 @@ export class GrpcQuestionsController {
     data: GetRandomQuestionsRequest,
   ): Promise<{ questions: QuestionResponse[] }> {
     this.logger.debug(`gRPC GetRandomQuestions count=${data.count}`);
+    const difficulty = mapInterviewDifficultyToQuestionDifficulty(
+      data.difficulty || "",
+    );
     const questions = await this.questionsService.findRandom({
       count: data.count,
       type: data.type as string,
-      difficulty: data.difficulty as string,
+      difficulty,
       category: data.category,
       tags: data.tags,
       excludeIds: data.excludeIds,
@@ -94,9 +101,13 @@ export class GrpcQuestionsController {
   @GrpcMethod("QuestionService", "CreateQuestion")
   async createQuestion(data: CreateQuestionRequest): Promise<QuestionResponse> {
     this.logger.debug("gRPC CreateQuestion");
-    const question = await this.questionsService.create(
-      data as Parameters<typeof this.questionsService.create>[0],
+    const difficulty = mapInterviewDifficultyToQuestionDifficulty(
+      data.difficulty || "",
     );
+    const question = await this.questionsService.create({
+      ...data,
+      difficulty,
+    } as Parameters<typeof this.questionsService.create>[0]);
     return this.toGrpcResponse(question as MongoDocument);
   }
 
@@ -105,10 +116,13 @@ export class GrpcQuestionsController {
     data: GenerateQuestionsRequest,
   ): Promise<{ questions: QuestionResponse[] }> {
     this.logger.debug(`gRPC GenerateQuestions field=${data.field}`);
+    const difficulty = mapInterviewDifficultyToQuestionDifficulty(
+      data.difficulty || "",
+    );
     const questions = await this.questionsService.generateAndSave({
       field: data.field,
       techStack: data.techStack,
-      difficulty: data.difficulty,
+      difficulty,
       count: data.count,
     } as Parameters<typeof this.questionsService.generateAndSave>[0]);
     return {

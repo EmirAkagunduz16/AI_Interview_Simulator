@@ -8,6 +8,7 @@ import {
   IGrpcQuestionService,
   InterviewResponse,
 } from "@ai-coach/grpc";
+import { mapInterviewDifficultyToQuestionDifficulty } from "@ai-coach/shared-types";
 import { CachedQuestion, VapiFunctionCallParams } from "./types";
 
 @Injectable()
@@ -254,9 +255,9 @@ export class InterviewFlowService implements OnModuleInit {
 
     const field = interview.field || "";
     const techStack = interview.techStack || [];
-    const d = (interview.difficulty || "intermediate").toLowerCase();
-    const difficulty =
-      d === "easy" || d === "medium" || d === "hard" ? d : "medium";
+    const difficulty = mapInterviewDifficultyToQuestionDifficulty(
+      interview.difficulty || "",
+    );
 
     try {
       await firstValueFrom(
