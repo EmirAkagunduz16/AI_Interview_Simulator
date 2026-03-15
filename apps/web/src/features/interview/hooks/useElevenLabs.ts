@@ -86,10 +86,12 @@ export function useElevenLabs(
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const streamingAgentIdRef = useRef<string | null>(null);
 
-  const flushMessageBuffer = useCallback(() => {
+  const flushMessageBuffer = useCallback((): Promise<void> => {
     const buffer = messageBufferRef.current;
     const currentId = interviewIdRef.current;
-    if (!buffer || buffer.chunks.length === 0 || !currentId) return;
+    if (!buffer || buffer.chunks.length === 0 || !currentId) {
+      return Promise.resolve();
+    }
 
     const content = buffer.chunks.join(" ");
     const role = buffer.role;
@@ -99,11 +101,12 @@ export function useElevenLabs(
       flushTimerRef.current = null;
     }
 
-    api
+    return api
       .post(`/interviews/${currentId}/messages`, { role, content })
       .catch((err: unknown) =>
         console.warn("Failed to save transcript message:", err),
-      );
+      )
+      .then(() => undefined);
   }, []);
 
   const conversation = useConversation({
@@ -118,9 +121,10 @@ export function useElevenLabs(
       setIsCallActive(true);
       setError(null);
     },
-    onDisconnect: (details: { reason: string; message?: string }) => {
+    onDisconnect: async (details: { reason: string; message?: string }) => {
       console.info("[ElevenLabs] Disconnected —", details);
-      flushMessageBuffer();
+      // Flush pending messages before end_interview so chat history is complete
+      await flushMessageBuffer();
       setIsCallActive(false);
       setAgentStatus(null);
       setMicMuted(false);
@@ -128,8 +132,8 @@ export function useElevenLabs(
       if (!manualEndRef.current && !scoreSetRef.current) {
         const activeId = interviewIdRef.current;
         if (activeId) {
-          api
-            .post("/ai/vapi/webhook", {
+          try {
+            const res = await api.post("/ai/vapi/webhook", {
               message: {
                 type: "function-call",
                 functionCall: {
@@ -140,16 +144,15 @@ export function useElevenLabs(
                   },
                 },
               },
-            })
-            .then((res) => {
-              const score =
-                res.data.result?.overallScore ?? res.data.result?.score;
-              setOverallScore(score != null ? score : 0);
-            })
-            .catch(() => setOverallScore(0))
-            .finally(() => {
-              accumulatedAnswers.current = [];
             });
+            const score =
+              res.data.result?.overallScore ?? res.data.result?.score;
+            setOverallScore(score != null ? score : 0);
+          } catch {
+            setOverallScore(0);
+          } finally {
+            accumulatedAnswers.current = [];
+          }
         }
       }
       manualEndRef.current = false;
@@ -232,7 +235,7 @@ export function useElevenLabs(
 
         if (
           buffer &&
-          (buffer.role !== role || now - buffer.lastTimestamp >= 5000)
+          (buffer.role !== role || now - buffer.lastTimestamp >= 3000)
         ) {
           flushMessageBuffer();
         }
@@ -248,7 +251,7 @@ export function useElevenLabs(
         messageBufferRef.current.lastTimestamp = now;
 
         if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
-        flushTimerRef.current = setTimeout(flushMessageBuffer, 5000);
+        flushTimerRef.current = setTimeout(flushMessageBuffer, 3000);
       }
     },
     onError: (message: string, context?: unknown) => {
@@ -485,6 +488,7 @@ export function useElevenLabs(
           field: cfg.field,
           techStack: cfg.techStack.join(", "),
           difficulty: cfg.difficulty,
+          JSON_stringify_techStack_: JSON.stringify(cfg.techStack),
         },
       };
     } else {
@@ -497,6 +501,7 @@ export function useElevenLabs(
           field: cfg.field,
           techStack: cfg.techStack.join(", "),
           difficulty: cfg.difficulty,
+          JSON_stringify_techStack_: JSON.stringify(cfg.techStack),
         },
       };
     }
@@ -538,8 +543,9 @@ export function useElevenLabs(
   }, [conversation, buildClientTools]);
 
   const endCall = useCallback(async () => {
-    flushMessageBuffer();
     manualEndRef.current = true;
+    // Flush messages before disconnect so chat history is saved
+    await flushMessageBuffer();
 
     const activeId = interviewIdRef.current;
 
@@ -594,7 +600,7 @@ export function useElevenLabs(
           const buffer = messageBufferRef.current;
           if (
             buffer &&
-            (buffer.role !== "user" || now - buffer.lastTimestamp >= 5000)
+            (buffer.role !== "user" || now - buffer.lastTimestamp >= 3000)
           ) {
             flushMessageBuffer();
           }
@@ -608,7 +614,7 @@ export function useElevenLabs(
           messageBufferRef.current.chunks.push(normalized);
           messageBufferRef.current.lastTimestamp = now;
           if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
-          flushTimerRef.current = setTimeout(flushMessageBuffer, 5000);
+          flushTimerRef.current = setTimeout(flushMessageBuffer, 3000);
         }
 
         conversation.sendUserMessage(text.trim());
