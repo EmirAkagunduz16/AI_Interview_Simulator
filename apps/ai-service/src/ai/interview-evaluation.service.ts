@@ -382,6 +382,12 @@ export class InterviewEvaluationService implements OnModuleInit {
 
   // ── Message extraction (last resort) ───────────────────────────────
 
+  private isPlaceholderContent(text: string): boolean {
+    const t = (text || "").trim();
+    if (!t) return true;
+    return /^\.{2,}$/.test(t) || /^…+$/.test(t) || /^[.\s]+$/.test(t);
+  }
+
   private extractAnswersFromMessages(
     messages: { role?: string; content?: string }[],
   ): { question: string; answer: string; order: number }[] {
@@ -403,8 +409,12 @@ export class InterviewEvaluationService implements OnModuleInit {
           messages[i + 1].content
         ) {
           i++;
-          fullAnswer += " " + messages[i].content;
+          fullAnswer += " " + (messages[i].content || "");
         }
+        fullAnswer = fullAnswer.trim();
+        // Skip placeholder answers (e.g. "..." from speech recognition)
+        if (this.isPlaceholderContent(fullAnswer)) continue;
+
         order++;
         results.push({ question: pendingQuestion, answer: fullAnswer, order });
         pendingQuestion = "";

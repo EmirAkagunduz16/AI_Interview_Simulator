@@ -3,7 +3,11 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useConversation } from "@elevenlabs/react";
 import api from "@/lib/axios";
-import { normalizeTranscript } from "../config/transcript-normalizer";
+import {
+  normalizeTranscript,
+  isPlaceholderMessage,
+  containsErroneousContent,
+} from "../config/transcript-normalizer";
 import { patchElevenLabsErrorHandler } from "../config/elevenlabs-patch";
 
 patchElevenLabsErrorHandler();
@@ -156,10 +160,18 @@ export function useElevenLabs(
       role?: string;
     }) => {
       if (!message.message) return;
+      // Skip placeholder messages (e.g. "..." from speech recognition when user hasn't spoken)
+      if (isPlaceholderMessage(message.message)) return;
+      // Skip erroneous/hallucinated content (e.g. from misconfigured agent)
+      if (containsErroneousContent(message.message)) return;
 
       const source = message.source === "ai" ? "ai" : "user";
+      const content = message.message.trim();
+      const role = source === "ai" ? "agent" : "user";
 
+      const dedupRef = { skip: false, replace: false, finalContent: content };
       let msg: TranscriptMessage;
+
       if (source === "ai" && streamingAgentIdRef.current) {
         setTranscript((prev) => {
           const idx = prev.findIndex((m) => m.id === streamingAgentIdRef.current);
@@ -167,28 +179,54 @@ export function useElevenLabs(
             const next = [...prev];
             const cur = next[idx];
             if (cur) {
-              next[idx] = { ...cur, message: message.message, streaming: false };
+              next[idx] = { ...cur, message: content, streaming: false };
             }
             streamingAgentIdRef.current = null;
             return next;
           }
-          return [...prev, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, source: "ai" as const, message: message.message, timestamp: Date.now() }];
+          return [...prev, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, source: "ai" as const, message: content, timestamp: Date.now() }];
         });
-        msg = { id: "temp", source: "ai", message: message.message, timestamp: Date.now() };
+        msg = { id: "temp", source: "ai", message: content, timestamp: Date.now() };
       } else {
+        setTranscript((prev) => {
+          const last = prev[prev.length - 1];
+          if (last && last.source === source) {
+            const lastContent = last.message.trim();
+            if (lastContent === content) {
+              dedupRef.skip = true;
+              return prev;
+            }
+            if (content.startsWith(lastContent) || lastContent.startsWith(content)) {
+              dedupRef.replace = true;
+              dedupRef.finalContent =
+                content.length > lastContent.length ? content : lastContent;
+              const next = [...prev];
+              next[next.length - 1] = { ...last, message: dedupRef.finalContent };
+              return next;
+            }
+          }
+          return [
+            ...prev,
+            {
+              id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              source,
+              message: content,
+              timestamp: Date.now(),
+            },
+          ];
+        });
+        if (dedupRef.skip) return;
         msg = {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           source,
-          message: message.message,
+          message: dedupRef.replace ? dedupRef.finalContent : content,
           timestamp: Date.now(),
         };
-        setTranscript((prev) => [...prev, msg]);
       }
 
       const currentId = interviewIdRef.current;
       if (currentId) {
         const normalized = normalizeTranscript(msg.message);
-        const role = msg.source === "ai" ? "agent" : "user";
         const now = Date.now();
         const buffer = messageBufferRef.current;
 
@@ -202,7 +240,11 @@ export function useElevenLabs(
         if (!messageBufferRef.current) {
           messageBufferRef.current = { role, chunks: [], lastTimestamp: now };
         }
-        messageBufferRef.current.chunks.push(normalized);
+        if (dedupRef.replace && buffer?.role === role && buffer.chunks.length > 0) {
+          buffer.chunks[buffer.chunks.length - 1] = normalized;
+        } else {
+          messageBufferRef.current.chunks.push(normalized);
+        }
         messageBufferRef.current.lastTimestamp = now;
 
         if (flushTimerRef.current) clearTimeout(flushTimerRef.current);

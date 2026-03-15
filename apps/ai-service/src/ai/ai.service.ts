@@ -153,23 +153,29 @@ Sadece aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
       return evaluation;
     } catch (error) {
       this.logger.error("Interview evaluation failed", error);
+      // Provide a basic fallback evaluation so user always sees results
+      const answerCount = params.answers.length;
+      const hasContent = params.answers.some((a) => (a.answer || "").trim().length > 10);
+      const summary = hasContent
+        ? "Değerlendirme sırasında geçici bir sorun oluştu. Verdiğiniz cevaplar kaydedildi. Tam değerlendirme için lütfen mülakatı tekrar deneyin."
+        : "Mülakat erken sonlandırıldı veya yeterli cevap alınamadı. Detaylı değerlendirme için tüm soruları yanıtlayarak mülakatı tamamlayın.";
       return {
         technicalScore: 0,
         communicationScore: 0,
         dictionScore: 0,
         confidenceScore: 0,
         overallScore: 0,
-        summary:
-          "Değerlendirme sırasında teknik bir sorun oluştu. Lütfen mülakatı tekrar deneyin.",
+        summary,
         recommendations: [
-          "Teknik bir sorun nedeniyle değerlendirme yapılamadı.",
-          "Lütfen mülakatı tekrar deneyin.",
+          "Mülakatı baştan sona tamamlayarak daha kapsamlı geri bildirim alın.",
+          "Her soruya mümkün olduğunca detaylı cevap verin.",
+          "Teknik terimleri doğru kullanmaya özen gösterin.",
         ],
         questionEvaluations: params.answers.map((a) => ({
           question: a.question,
           answer: a.answer,
           score: 0,
-          feedback: "Değerlendirme yapılamadı.",
+          feedback: "Bu soru için değerlendirme tamamlanamadı.",
           strengths: [],
           improvements: [],
         })),

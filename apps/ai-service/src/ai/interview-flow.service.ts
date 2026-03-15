@@ -175,6 +175,14 @@ export class InterviewFlowService implements OnModuleInit {
     const resolvedQuestionText =
       questionText || currentQ?.question || `Soru ${questionOrder}`;
 
+    // Save question to question_db during interview (for question pool)
+    this.saveQuestionToPool(
+      resolvedQuestionText,
+      interviewId || "",
+    ).catch((e) =>
+      this.logger.warn(`saveQuestionToPool failed: ${(e as Error)?.message}`),
+    );
+
     let saveSuccess = true;
     try {
       await firstValueFrom(
@@ -224,6 +232,47 @@ export class InterviewFlowService implements OnModuleInit {
     }
 
     return { result: { saved: saveSuccess } };
+  }
+
+  // ── Save question to pool (during interview) ───────────────────────
+
+  private async saveQuestionToPool(
+    questionText: string,
+    interviewId: string,
+  ): Promise<void> {
+    if (!questionText || questionText.trim().length < 15) return;
+
+    let interview: InterviewResponse | null = null;
+    try {
+      interview = await firstValueFrom(
+        this.interviewService.getInterview({ interviewId, userId: "" }),
+      );
+    } catch {
+      return;
+    }
+    if (!interview) return;
+
+    const field = interview.field || "";
+    const techStack = interview.techStack || [];
+    const d = (interview.difficulty || "intermediate").toLowerCase();
+    const difficulty =
+      d === "easy" || d === "medium" || d === "hard" ? d : "medium";
+
+    try {
+      await firstValueFrom(
+        this.questionService.createQuestion({
+          title: questionText.slice(0, 200),
+          content: questionText,
+          type: "technical",
+          difficulty,
+          category: field || "fullstack",
+          tags: techStack || [],
+        }),
+      );
+      this.logger.debug(`Question saved to pool: ${questionText.slice(0, 50)}...`);
+    } catch {
+      // Duplicate or validation error — skip silently
+    }
   }
 
   // ── get_next_question ──────────────────────────────────────────────

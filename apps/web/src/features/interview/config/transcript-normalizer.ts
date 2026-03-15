@@ -6,6 +6,33 @@
 
 type Replacement = string | ((match: string) => string);
 
+/** Placeholder/empty messages (e.g. "..." from speech recognition) that should not be shown or saved */
+const PLACEHOLDER_PATTERNS = [
+  /^\.{2,}$/,           // ... or ....
+  /^…+$/,               // … (unicode ellipsis)
+  /^[.\s]+$/,           // dots and whitespace only
+  /^[.,;:\s]+$/,        // punctuation only
+];
+
+export function isPlaceholderMessage(text: string): boolean {
+  const t = text?.trim() || "";
+  if (!t) return true;
+  return PLACEHOLDER_PATTERNS.some((re) => re.test(t));
+}
+
+/** Erroneous/hallucinated phrases that should not be shown (e.g. from misconfigured agent) */
+const ERRONEOUS_PHRASES = [
+  /cumhurba[sş]kanl[iı]ğ[iı]/i,
+  /cumhurbaskanligi/i,
+  /geçiş yapılıyor.*lütfen bekleyin/i,
+];
+
+export function containsErroneousContent(text: string): boolean {
+  const t = text?.trim() || "";
+  if (!t) return false;
+  return ERRONEOUS_PHRASES.some((re) => re.test(t));
+}
+
 const TERM_CORRECTIONS: [RegExp, Replacement][] = [
   // AI / acronyms
   [/\bE[- ]?[iİ]\b/gi, "AI"],

@@ -2,7 +2,11 @@
 
 import { useState, useMemo } from "react";
 import { Bot, User, X, Maximize2 } from "lucide-react";
-import { normalizeTranscript } from "@/features/interview/config/transcript-normalizer";
+import {
+  normalizeTranscript,
+  isPlaceholderMessage,
+  containsErroneousContent,
+} from "@/features/interview/config/transcript-normalizer";
 import "./ChatHistory.scss";
 
 interface Message {
@@ -25,6 +29,11 @@ function groupMessages(messages: Message[]): GroupedMessage[] {
   for (const msg of messages) {
     const cleaned = normalizeTranscript(msg.content || "");
     if (!cleaned) continue;
+    if (isPlaceholderMessage(cleaned)) continue;
+    if (containsErroneousContent(cleaned)) continue;
+    // Skip duplicate: same content as last in current group
+    if (current && current.role === msg.role && current.contents.at(-1) === cleaned)
+      continue;
 
     if (current && current.role === msg.role) {
       current.contents.push(cleaned);
