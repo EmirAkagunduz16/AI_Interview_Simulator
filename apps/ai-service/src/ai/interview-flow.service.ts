@@ -73,24 +73,34 @@ export class InterviewFlowService implements OnModuleInit {
           this.interviewService.getInterview({ interviewId, userId }),
         );
       } else {
+        const createField = field || "fullstack";
         interview = await firstValueFrom(
           this.interviewService.createInterview({
             userId,
-            field: field || "fullstack",
+            field: createField,
             techStack: techStack || [],
             difficulty: difficulty || "intermediate",
-            title: `${field} Developer Interview`,
+            title: `${createField} Developer Interview`,
             questionCount,
             vapiCallId: callId,
           }),
         );
       }
 
+      // Always use the interview's own field/techStack/difficulty for question
+      // fetching. When the frontend already created the interview (interviewId
+      // was passed), the params from the ElevenLabs agent may be empty/wrong.
+      const resolvedField = interview.field || field || "fullstack";
+      const resolvedTechStack =
+        interview.techStack?.length ? interview.techStack : techStack || [];
+      const resolvedDifficulty =
+        interview.difficulty || difficulty || "intermediate";
+
       const excludeIds = await this.getPreviousQuestionIds(interview.userId);
       const questions = await this.fetchQuestions(
-        field,
-        difficulty,
-        techStack,
+        resolvedField,
+        resolvedDifficulty,
+        resolvedTechStack,
         questionCount,
         excludeIds,
       );

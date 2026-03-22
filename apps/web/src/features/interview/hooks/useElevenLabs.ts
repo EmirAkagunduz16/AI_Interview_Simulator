@@ -85,6 +85,7 @@ export function useElevenLabs(
   } | null>(null);
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const streamingAgentIdRef = useRef<string | null>(null);
+  const modeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flushMessageBuffer = useCallback((): Promise<void> => {
     const buffer = messageBufferRef.current;
@@ -274,7 +275,20 @@ export function useElevenLabs(
       }
     },
     onModeChange: (prop: { mode: "speaking" | "listening" }) => {
-      setAgentStatus(prop.mode);
+      if (modeDebounceRef.current) {
+        clearTimeout(modeDebounceRef.current);
+        modeDebounceRef.current = null;
+      }
+      if (prop.mode === "speaking") {
+        // AI started speaking — update immediately
+        setAgentStatus("speaking");
+      } else {
+        // AI switched to listening — debounce to prevent flicker from ambient noise
+        modeDebounceRef.current = setTimeout(() => {
+          setAgentStatus("listening");
+          modeDebounceRef.current = null;
+        }, 350);
+      }
     },
     onUnhandledClientToolCall: (params: unknown) => {
       console.warn("[ElevenLabs] Unhandled client tool call:", params);
@@ -630,6 +644,7 @@ export function useElevenLabs(
   useEffect(() => {
     return () => {
       if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
+      if (modeDebounceRef.current) clearTimeout(modeDebounceRef.current);
     };
   }, []);
 

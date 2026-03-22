@@ -6,8 +6,8 @@ import { IInterviewEvaluation } from "@ai-coach/shared-types";
 @Injectable()
 export class GeminiService {
   private readonly logger = new Logger(GeminiService.name);
-  private genAI: GoogleGenerativeAI;
-  private model: GenerativeModel;
+  private genAI!: GoogleGenerativeAI;
+  private model!: GenerativeModel;
 
   constructor(private readonly configService: ConfigService) {
     const apiKey = this.configService.get<string>("GEMINI_API_KEY");
@@ -155,7 +155,9 @@ Sadece aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
       this.logger.error("Interview evaluation failed", error);
       // Provide a basic fallback evaluation so user always sees results
       const answerCount = params.answers.length;
-      const hasContent = params.answers.some((a) => (a.answer || "").trim().length > 10);
+      const hasContent = params.answers.some(
+        (a) => (a.answer || "").trim().length > 10,
+      );
       const summary = hasContent
         ? "Değerlendirme sırasında geçici bir sorun oluştu. Verdiğiniz cevaplar kaydedildi. Tam değerlendirme için lütfen mülakatı tekrar deneyin."
         : "Mülakat erken sonlandırıldı veya yeterli cevap alınamadı. Detaylı değerlendirme için tüm soruları yanıtlayarak mülakatı tamamlayın.";
