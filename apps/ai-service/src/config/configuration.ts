@@ -8,7 +8,7 @@ export const serviceConfig = registerAs("service", () => ({
 
 export const geminiConfig = registerAs("gemini", () => ({
   apiKey: process.env.GEMINI_API_KEY || "",
-  model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
+  model: process.env.GEMINI_MODEL || "gemini-2.5-flash-preview-05-20",
 }));
 
 export const microservicesConfig = registerAs("microservices", () => ({

@@ -10,14 +10,12 @@ export class GeminiService {
   private model!: GenerativeModel;
 
   constructor(private readonly configService: ConfigService) {
-    const apiKey = this.configService.get<string>("GEMINI_API_KEY");
+    const apiKey = this.configService.getOrThrow<string>("GEMINI_API_KEY");
 
     if (apiKey) {
       this.genAI = new GoogleGenerativeAI(apiKey);
       this.model = this.genAI.getGenerativeModel({
-        model:
-          this.configService.get<string>("GEMINI_MODEL") ||
-          "gemini-2.5-flash-preview-05-20",
+        model: this.configService.getOrThrow<string>("GEMINI_MODEL"),
       });
       this.logger.log("Gemini AI initialized for evaluation");
     } else {

@@ -118,7 +118,7 @@ export class InterviewEvaluationService implements OnModuleInit {
         `Interview ${interview.id} not completed at end-of-call, triggering safety net evaluation`,
       );
       await this.handleEndInterview(
-        { interviewId: interview.id },
+        { interviewId: interview.id, answers: interview.answers },
         interview.userId || undefined,
       );
     } catch (e) {
@@ -270,9 +270,7 @@ export class InterviewEvaluationService implements OnModuleInit {
     await new Promise((r) => setTimeout(r, 2000));
 
     const second = await doFetch();
-    this.logger.log(
-      `Retry result — answers: ${second?.answers?.length ?? 0}`,
-    );
+    this.logger.log(`Retry result — answers: ${second?.answers?.length ?? 0}`);
     return second ?? first;
   }
 
@@ -334,13 +332,13 @@ export class InterviewEvaluationService implements OnModuleInit {
       this.logger.log(
         `No structured answers, recovering from ${interviewData.messages.length} messages...`,
       );
-      const recovered = this.extractAnswersFromMessages(
-        interviewData.messages,
-      );
+      const recovered = this.extractAnswersFromMessages(interviewData.messages);
       for (const r of recovered) {
         byOrder.set(r.order, r);
       }
-      this.logger.log(`Layer 3 (messages): ${recovered.length} answers recovered`);
+      this.logger.log(
+        `Layer 3 (messages): ${recovered.length} answers recovered`,
+      );
     }
 
     const result = Array.from(byOrder.values()).sort(
