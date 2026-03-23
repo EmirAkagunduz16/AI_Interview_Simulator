@@ -17,6 +17,7 @@ import {
 } from "./entities/question.entity";
 import { QuestionNotFoundException } from "../common/exceptions";
 import { GeminiService } from "./gemini.service";
+import { RedisService } from "../common/redis/redis.service";
 
 @Injectable()
 export class QuestionsService {
@@ -25,6 +26,7 @@ export class QuestionsService {
   constructor(
     private readonly questionRepository: QuestionRepository,
     private readonly geminiService: GeminiService,
+    private readonly redisService: RedisService,
   ) {}
 
   async create(dto: CreateQuestionDto): Promise<QuestionDocument> {
@@ -34,14 +36,41 @@ export class QuestionsService {
       mcqOptions: dto.mcqOptions || [],
     });
     this.logger.log(`Question created: ${question._id}`);
+
+    // Cache the new question & invalidate category caches
+    const id = question._id?.toString();
+    if (id) {
+      this.redisService
+        .cacheQuestion(id, question.toObject())
+        .catch((e) => this.logger.warn("Redis cacheQuestion failed", e));
+    }
+    if (dto.category) {
+      this.redisService
+        .invalidateCategoryCache(dto.category)
+        .catch((e) => this.logger.warn("Redis invalidateCategory failed", e));
+    }
+
     return question;
   }
 
   async findById(id: string): Promise<QuestionDocument> {
+    // Check Redis cache first
+    const cached = await this.redisService.getCachedQuestion(id);
+    if (cached) {
+      this.logger.debug(`Cache hit for question ${id}`);
+      return cached as unknown as QuestionDocument;
+    }
+
     const question = await this.questionRepository.findById(id);
     if (!question) {
       throw new QuestionNotFoundException(id);
     }
+
+    // Store in cache for future lookups
+    this.redisService
+      .cacheQuestion(id, question.toObject())
+      .catch((e) => this.logger.warn("Redis cacheQuestion failed", e));
+
     return question;
   }
 
@@ -106,6 +135,17 @@ export class QuestionsService {
       throw new QuestionNotFoundException(id);
     }
     this.logger.log(`Question updated: ${id}`);
+
+    // Invalidate caches
+    this.redisService
+      .invalidateQuestion(id)
+      .catch((e) => this.logger.warn("Redis invalidateQuestion failed", e));
+    if (dto.category) {
+      this.redisService
+        .invalidateCategoryCache(dto.category)
+        .catch((e) => this.logger.warn("Redis invalidateCategory failed", e));
+    }
+
     return updated;
   }
 
@@ -120,6 +160,17 @@ export class QuestionsService {
     }
     await this.questionRepository.delete(id);
     this.logger.log(`Question deleted: ${id}`);
+
+    // Invalidate caches
+    this.redisService
+      .invalidateQuestion(id)
+      .catch((e) => this.logger.warn("Redis invalidateQuestion failed", e));
+    const category = (question as any).category;
+    if (category) {
+      this.redisService
+        .invalidateCategoryCache(category)
+        .catch((e) => this.logger.warn("Redis invalidateCategory failed", e));
+    }
   }
 
   async getCategories(): Promise<string[]> {
@@ -168,6 +219,12 @@ export class QuestionsService {
     }
 
     this.logger.log(`Generated and saved ${savedQuestions.length} questions`);
+
+    // Invalidate category cache after bulk generation
+    this.redisService
+      .invalidateCategoryCache(dto.field)
+      .catch((e) => this.logger.warn("Redis invalidateCategory failed", e));
+
     return savedQuestions;
   }
 }

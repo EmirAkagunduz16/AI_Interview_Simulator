@@ -10,6 +10,7 @@ import {
 } from "@ai-coach/grpc";
 import { mapInterviewDifficultyToQuestionDifficulty } from "@ai-coach/shared-types";
 import { CachedQuestion, VapiFunctionCallParams } from "./types";
+import { RedisService } from "../common/redis/redis.service";
 
 @Injectable()
 export class InterviewFlowService implements OnModuleInit {
@@ -17,14 +18,10 @@ export class InterviewFlowService implements OnModuleInit {
   private interviewService!: IGrpcInterviewService;
   private questionService!: IGrpcQuestionService;
 
-  private questionsCache = new Map<
-    string,
-    { questions: CachedQuestion[]; createdAt: number }
-  >();
-
   constructor(
     @Inject(GRPC_INTERVIEW_SERVICE) private readonly interviewGrpc: ClientGrpc,
     @Inject(GRPC_QUESTION_SERVICE) private readonly questionGrpc: ClientGrpc,
+    private readonly redisService: RedisService,
   ) {}
 
   onModuleInit() {
@@ -32,26 +29,18 @@ export class InterviewFlowService implements OnModuleInit {
       this.interviewGrpc.getService<IGrpcInterviewService>("InterviewService");
     this.questionService =
       this.questionGrpc.getService<IGrpcQuestionService>("QuestionService");
-    setInterval(() => this.cleanExpiredCache(), 30 * 60 * 1000);
   }
 
-  // ── Cache helpers ──────────────────────────────────────────────────
+  // ── Cache helpers (Redis-backed) ───────────────────────────────────
 
-  getCachedQuestions(interviewId: string): CachedQuestion[] {
-    return this.questionsCache.get(interviewId)?.questions || [];
+  async getCachedQuestions(interviewId: string): Promise<CachedQuestion[]> {
+    const cached =
+      await this.redisService.getCachedInterviewQuestions(interviewId);
+    return cached || [];
   }
 
-  deleteCachedQuestions(interviewId: string): void {
-    this.questionsCache.delete(interviewId);
-  }
-
-  private cleanExpiredCache() {
-    const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
-    for (const [key, value] of this.questionsCache) {
-      if (value.createdAt < twoHoursAgo) {
-        this.questionsCache.delete(key);
-      }
-    }
+  async deleteCachedQuestions(interviewId: string): Promise<void> {
+    await this.redisService.deleteCachedInterviewQuestions(interviewId);
   }
 
   // ── save_preferences ───────────────────────────────────────────────
@@ -87,9 +76,6 @@ export class InterviewFlowService implements OnModuleInit {
         );
       }
 
-      // Always use the interview's own field/techStack/difficulty for question
-      // fetching. When the frontend already created the interview (interviewId
-      // was passed), the params from the ElevenLabs agent may be empty/wrong.
       const resolvedField = interview.field || field || "fullstack";
       const resolvedTechStack =
         interview.techStack?.length ? interview.techStack : techStack || [];
@@ -125,25 +111,23 @@ export class InterviewFlowService implements OnModuleInit {
         }),
       );
 
-      this.questionsCache.set(interview.id, {
-        questions: formattedQuestions.map((q) => ({
-          id: q.sourceId,
-          question: q.question,
-          order: q.order,
-        })),
-        createdAt: Date.now(),
-      });
+      const cachedQuestions: CachedQuestion[] = formattedQuestions.map((q) => ({
+        id: q.sourceId,
+        question: q.question,
+        order: q.order,
+      }));
+
+      await this.redisService.cacheInterviewQuestions(
+        interview.id,
+        cachedQuestions,
+      );
 
       return {
         result: {
           interviewId: interview.id,
           firstQuestion: formattedQuestions[0]?.question,
           totalQuestions: formattedQuestions.length,
-          questions: formattedQuestions.map((q) => ({
-            id: q.sourceId,
-            question: q.question,
-            order: q.order,
-          })),
+          questions: cachedQuestions,
           message: `${formattedQuestions.length} soru hazırlandı. İlk soru ile başlıyoruz.`,
         },
       };
@@ -178,7 +162,7 @@ export class InterviewFlowService implements OnModuleInit {
     );
 
     const cachedQuestions = interviewId
-      ? this.getCachedQuestions(interviewId)
+      ? await this.getCachedQuestions(interviewId)
       : [];
     const currentQ = cachedQuestions.find((q) => q.order === questionOrder);
     const resolvedQuestionId =
@@ -186,7 +170,6 @@ export class InterviewFlowService implements OnModuleInit {
     const resolvedQuestionText =
       questionText || currentQ?.question || `Soru ${questionOrder}`;
 
-    // Save question to question_db during interview (for question pool)
     this.saveQuestionToPool(
       resolvedQuestionText,
       interviewId || "",

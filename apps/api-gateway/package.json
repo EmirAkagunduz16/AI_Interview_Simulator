@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "build": "nest build",
-    "dev": "nest start --watch",
+    "dev": "echo '' > api-gateway.log && nest start --watch 2>&1 | tee api-gateway.log",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main"

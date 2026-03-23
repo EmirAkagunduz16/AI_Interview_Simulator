@@ -65,7 +65,7 @@ export class InterviewEvaluationService implements OnModuleInit {
         };
       }
 
-      const answersForEval = this.collectAnswers(interviewData, answers);
+      const answersForEval = await this.collectAnswers(interviewData, answers);
       const interviewField = interviewData?.field || "";
       const interviewTechStack = interviewData?.techStack || [];
       const interviewDifficulty = interviewData?.difficulty || "";
@@ -280,17 +280,17 @@ export class InterviewEvaluationService implements OnModuleInit {
   //  2. Function call params (client accumulated answers) — fills gaps
   //  3. Conversation messages — last resort extraction
 
-  private collectAnswers(
+  private async collectAnswers(
     interviewData: InterviewResponse | null,
     paramAnswers?: VapiFunctionCallParams["answers"],
-  ): { question: string; answer: string; order: number }[] {
+  ): Promise<{ question: string; answer: string; order: number }[]> {
     const byOrder = new Map<
       number,
       { question: string; answer: string; order: number }
     >();
 
     const cachedQuestions = interviewData?.id
-      ? this.flowService.getCachedQuestions(interviewData.id)
+      ? await this.flowService.getCachedQuestions(interviewData.id)
       : [];
 
     // Layer 1: DB answers (from save_answer)

@@ -38,6 +38,9 @@ importers:
       '@grpc/proto-loader':
         specifier: ^0.7.0
         version: 0.7.15
+      '@nestjs/cache-manager':
+        specifier: ^3.1.0
+        version: 3.1.0(@nestjs/common@11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.13(@nestjs/common@11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/microservices@11.1.13)(@nestjs/platform-express@11.1.13)(@nestjs/websockets@11.1.13)(reflect-metadata@0.2.2)(rxjs@7.8.2))(cache-manager@7.2.8)(keyv@5.6.0)(rxjs@7.8.2)
       '@nestjs/common':
         specifier: ^11.0.0
         version: 11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -56,6 +59,12 @@ importers:
       axios:
         specifier: ^1.7.0
         version: 1.13.5
+      cache-manager:
+        specifier: ^7.2.8
+        version: 7.2.8
+      cache-manager-ioredis-yet:
+        specifier: ^2.1.2
+        version: 2.1.2
       class-transformer:
         specifier: ^0.5.1
         version: 0.5.1

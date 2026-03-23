@@ -10,6 +10,7 @@ import {
 import configuration from "./config/configuration";
 import { AiModule } from "./ai/ai.module";
 import { KafkaHandlersModule } from "./kafka/kafka-handlers.module";
+import { RedisModule } from "./common/redis";
 
 const interviewClient = GrpcModule.forClientAsync({
   serviceName: GRPC_INTERVIEW_SERVICE,
@@ -46,6 +47,9 @@ const questionClient = GrpcModule.forClientAsync({
       KafkaModule.createAsyncOptionsProvider("ai-service"),
     ),
 
+    // Redis — interview question caching
+    RedisModule,
+
     // gRPC Clients — internal service-to-service calls
     interviewClient,
     questionClient,
@@ -56,3 +60,4 @@ const questionClient = GrpcModule.forClientAsync({
   exports: [interviewClient, questionClient],
 })
 export class AppModule {}
+
