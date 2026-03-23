@@ -8,10 +8,10 @@ type Replacement = string | ((match: string) => string);
 
 /** Placeholder/empty messages (e.g. "..." from speech recognition) that should not be shown or saved */
 const PLACEHOLDER_PATTERNS = [
-  /^\.{2,}$/,           // ... or ....
-  /^…+$/,               // … (unicode ellipsis)
-  /^[.\s]+$/,           // dots and whitespace only
-  /^[.,;:\s]+$/,        // punctuation only
+  /^\.{2,}$/, // ... or ....
+  /^…+$/, // … (unicode ellipsis)
+  /^[.\s]+$/, // dots and whitespace only
+  /^[.,;:\s]+$/, // punctuation only
 ];
 
 export function isPlaceholderMessage(text: string): boolean {
@@ -41,7 +41,10 @@ const TERM_CORRECTIONS: [RegExp, Replacement][] = [
   [/\bsi aydı\b/gi, "CI/CD"],
 
   // Frameworks & runtimes
-  [/\b(?:Mescies|Mesciyes|MesciGS|NesliJS|NesliGS|NESCS|NestGS|NESC|Nest[ -]?[Cc]ey[ -]?[Ee]s|nescaese|Messig ?AS|nestcess|nescess)\b/gi, "NestJS"],
+  [
+    /\b(?:Mescies|Mesciyes|MesciGS|NesliJS|NesliGS|NESCS|NestGS|NESC|Nest[ -]?[Cc]ey[ -]?[Ee]s|nescaese|Messig ?AS|nestcess|nescess)\b/gi,
+    "NestJS",
+  ],
   [/\b(?:Next[ -]?[Cc]ey[ -]?[Ee]s|NextGS|NexGS|next ?ces)\b/gi, "Next.js"],
   [/\b(?:Nod[ -]?[Cc]ey[ -]?[Ee]s|NodeGS|NodGS|nod ?ces)\b/gi, "Node.js"],
   [/\b(?:Riyekt|Riyakt|riyekt)\b/g, "React"],

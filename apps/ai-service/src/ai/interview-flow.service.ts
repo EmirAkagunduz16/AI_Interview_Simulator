@@ -8,7 +8,10 @@ import {
   IGrpcQuestionService,
   InterviewResponse,
 } from "@ai-coach/grpc";
-import { mapInterviewDifficultyToQuestionDifficulty } from "@ai-coach/shared-types";
+import {
+  InterviewStatus,
+  mapInterviewDifficultyToQuestionDifficulty,
+} from "@ai-coach/shared-types";
 import { CachedQuestion, VapiFunctionCallParams } from "./types";
 import { RedisService } from "../common/redis/redis.service";
 
@@ -61,7 +64,31 @@ export class InterviewFlowService implements OnModuleInit {
         interview = await firstValueFrom(
           this.interviewService.getInterview({ interviewId, userId }),
         );
+        // Oturum zaten başlamışsa (ör. save_preferences tekrar çağrıldıysa) yeniden
+        // startInterview yapma — Redis'teki soruları dön.
+        if (interview.status === InterviewStatus.IN_PROGRESS) {
+          const cached = await this.getCachedQuestions(interviewId);
+          if (cached.length > 0) {
+            const firstQ = cached[0]?.question || "";
+            this.logger.log(
+              `save_preferences idempotent — interview ${interviewId} already in progress`,
+            );
+            return {
+              result: {
+                interviewId: interview.id,
+                firstQuestion: firstQ,
+                totalQuestions: cached.length,
+                questions: cached,
+                message: `${cached.length} soru (devam eden oturum).`,
+                activeQuestionForRepeat: firstQ,
+              },
+            };
+          }
+        }
       } else {
+        this.logger.warn(
+          "save_preferences without interviewId — creating new interview; client should send pre-created interviewId to avoid duplicates",
+        );
         const createField = field || "fullstack";
         interview = await firstValueFrom(
           this.interviewService.createInterview({
@@ -122,13 +149,16 @@ export class InterviewFlowService implements OnModuleInit {
         cachedQuestions,
       );
 
+      const firstQ = formattedQuestions[0]?.question || "";
       return {
         result: {
           interviewId: interview.id,
-          firstQuestion: formattedQuestions[0]?.question,
+          firstQuestion: firstQ,
           totalQuestions: formattedQuestions.length,
           questions: cachedQuestions,
           message: `${formattedQuestions.length} soru hazırlandı. İlk soru ile başlıyoruz.`,
+          /** "Tekrar sor" için: yalnızca bu metni kullan (ilk ana soru) */
+          activeQuestionForRepeat: firstQ,
         },
       };
     } catch (error) {
@@ -210,6 +240,13 @@ export class InterviewFlowService implements OnModuleInit {
           nextQuestionId: nextQ.id,
           nextQuestionOrder: nextQ.order,
           progress: `Soru ${nextQ.order} / ${cachedQuestions.length || 5}`,
+          /** Bankadan gelen az önce cevaplanan ana soru (takip soruları değil) */
+          bankQuestionAnswered: resolvedQuestionText,
+          /**
+           * Kullanıcı "tekrar sor" dediğinde seslendirilecek metin: yeni ana soru.
+           * Alt soruları veya bir önceki turun son alt sorusunu tekrarlama.
+           */
+          activeQuestionForRepeat: nextQ.question,
         },
       };
     }
@@ -221,11 +258,18 @@ export class InterviewFlowService implements OnModuleInit {
           finished: true,
           message:
             "Tüm sorular tamamlandı. Mülakatı bitirmek için end_interview çağır.",
+          bankQuestionAnswered: resolvedQuestionText,
         },
       };
     }
 
-    return { result: { saved: saveSuccess } };
+    return {
+      result: {
+        saved: saveSuccess,
+        bankQuestionAnswered: resolvedQuestionText,
+        activeQuestionForRepeat: resolvedQuestionText,
+      },
+    };
   }
 
   // ── Save question to pool (during interview) ───────────────────────

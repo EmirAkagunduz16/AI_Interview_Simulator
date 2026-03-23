@@ -74,6 +74,31 @@ export function useElevenLabs(
 
   const configRef = useRef(config);
   configRef.current = config;
+
+  /**
+   * ElevenLabs agent often omits interviewId / wrong field in tool calls.
+   * We pre-create the interview in startCall — always attach that id so
+   * save_preferences does not create a duplicate (e.g. default "fullstack").
+   */
+  const mergeToolCallParameters = useCallback(
+    (
+      parameters: Record<string, unknown>,
+      options?: { syncConfigIntoSavePreferences?: boolean },
+    ): Record<string, unknown> => {
+      const merged: Record<string, unknown> = { ...parameters };
+      const id = interviewIdRef.current;
+      if (id) merged.interviewId = id;
+      if (options?.syncConfigIntoSavePreferences && id) {
+        const cfg = configRef.current;
+        if (cfg.field) merged.field = cfg.field;
+        if (cfg.techStack?.length) merged.techStack = [...cfg.techStack];
+        if (cfg.difficulty) merged.difficulty = cfg.difficulty;
+      }
+      return merged;
+    },
+    [],
+  );
+
   const manualEndRef = useRef(false);
   const scoreSetRef = useRef(false);
   const accumulatedAnswers = useRef<AccumulatedAnswer[]>([]);
@@ -84,7 +109,6 @@ export function useElevenLabs(
     lastTimestamp: number;
   } | null>(null);
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const streamingAgentIdRef = useRef<string | null>(null);
   const modeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flushMessageBuffer = useCallback((): Promise<void> => {
@@ -109,6 +133,90 @@ export function useElevenLabs(
       )
       .then(() => undefined);
   }, []);
+
+  /**
+   * Ensures the chat panel shows the official question from tool results even when
+   * the voice SDK omits or delays agent transcript events.
+   */
+  const appendCanonicalAgentText = useCallback(
+    async (raw: string) => {
+      const text = raw?.trim() || "";
+      if (text.length < 8) return;
+
+      const normalizedForDedup = normalizeTranscript(text);
+
+      setTranscript((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.source === "ai") {
+          const lastNorm = normalizeTranscript(last.message);
+          if (lastNorm === normalizedForDedup) return prev;
+          const shorter =
+            lastNorm.length < normalizedForDedup.length
+              ? lastNorm
+              : normalizedForDedup;
+          const longer =
+            lastNorm.length >= normalizedForDedup.length
+              ? lastNorm
+              : normalizedForDedup;
+          if (
+            longer.includes(shorter) &&
+            shorter.length >= Math.min(48, longer.length * 0.82)
+          ) {
+            return prev;
+          }
+          if (normalizedForDedup.includes(lastNorm) && lastNorm.length > 24) {
+            const next = [...prev];
+            next[next.length - 1] = {
+              ...last,
+              message: text,
+              timestamp: Date.now(),
+            };
+            return next;
+          }
+        }
+        return [
+          ...prev,
+          {
+            id: `q-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+            source: "ai" as const,
+            message: text,
+            timestamp: Date.now(),
+          },
+        ];
+      });
+
+      const currentId = interviewIdRef.current;
+      if (!currentId) return;
+
+      const normalized = normalizeTranscript(text);
+      const now = Date.now();
+      if (messageBufferRef.current && messageBufferRef.current.role !== "agent") {
+        await flushMessageBuffer();
+      }
+      if (!messageBufferRef.current) {
+        messageBufferRef.current = {
+          role: "agent",
+          chunks: [],
+          lastTimestamp: now,
+        };
+      }
+      const buf = messageBufferRef.current;
+      const lastChunk = buf.chunks[buf.chunks.length - 1];
+      if (
+        lastChunk &&
+        (normalized.startsWith(lastChunk) || lastChunk.startsWith(normalized))
+      ) {
+        buf.chunks[buf.chunks.length - 1] =
+          normalized.length >= lastChunk.length ? normalized : lastChunk;
+      } else {
+        buf.chunks.push(normalized);
+      }
+      buf.lastTimestamp = now;
+      if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = setTimeout(flushMessageBuffer, 3000);
+    },
+    [flushMessageBuffer],
+  );
 
   const conversation = useConversation({
     micMuted,
@@ -176,57 +284,45 @@ export function useElevenLabs(
       const dedupRef = { skip: false, replace: false, finalContent: content };
       let msg: TranscriptMessage;
 
-      if (source === "ai" && streamingAgentIdRef.current) {
-        setTranscript((prev) => {
-          const idx = prev.findIndex((m) => m.id === streamingAgentIdRef.current);
-          if (idx >= 0) {
+      setTranscript((prev) => {
+        const last = prev[prev.length - 1];
+        if (last && last.source === source) {
+          const lastContent = last.message.trim();
+          if (lastContent === content) {
+            dedupRef.skip = true;
+            return prev;
+          }
+          // Only merge consecutive turns when one is a clear streaming extension of the other
+          const extendsForward =
+            content.startsWith(lastContent) && content.length > lastContent.length;
+          const isPartialDuplicate =
+            lastContent.startsWith(content) && lastContent.length > content.length;
+          if (extendsForward || isPartialDuplicate) {
+            dedupRef.replace = true;
+            dedupRef.finalContent =
+              content.length > lastContent.length ? content : lastContent;
             const next = [...prev];
-            const cur = next[idx];
-            if (cur) {
-              next[idx] = { ...cur, message: content, streaming: false };
-            }
-            streamingAgentIdRef.current = null;
+            next[next.length - 1] = { ...last, message: dedupRef.finalContent };
             return next;
           }
-          return [...prev, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, source: "ai" as const, message: content, timestamp: Date.now() }];
-        });
-        msg = { id: "temp", source: "ai", message: content, timestamp: Date.now() };
-      } else {
-        setTranscript((prev) => {
-          const last = prev[prev.length - 1];
-          if (last && last.source === source) {
-            const lastContent = last.message.trim();
-            if (lastContent === content) {
-              dedupRef.skip = true;
-              return prev;
-            }
-            if (content.startsWith(lastContent) || lastContent.startsWith(content)) {
-              dedupRef.replace = true;
-              dedupRef.finalContent =
-                content.length > lastContent.length ? content : lastContent;
-              const next = [...prev];
-              next[next.length - 1] = { ...last, message: dedupRef.finalContent };
-              return next;
-            }
-          }
-          return [
-            ...prev,
-            {
-              id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-              source,
-              message: content,
-              timestamp: Date.now(),
-            },
-          ];
-        });
-        if (dedupRef.skip) return;
-        msg = {
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          source,
-          message: dedupRef.replace ? dedupRef.finalContent : content,
-          timestamp: Date.now(),
-        };
-      }
+        }
+        return [
+          ...prev,
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            source,
+            message: content,
+            timestamp: Date.now(),
+          },
+        ];
+      });
+      if (dedupRef.skip) return;
+      msg = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        source,
+        message: dedupRef.replace ? dedupRef.finalContent : content,
+        timestamp: Date.now(),
+      };
 
       const currentId = interviewIdRef.current;
       if (currentId) {
@@ -320,14 +416,17 @@ export function useElevenLabs(
   const buildClientTools = useCallback(() => {
     return {
       save_preferences: async (parameters: Record<string, unknown>) => {
-        console.debug("[ClientTool] save_preferences called with:", parameters);
+        const payload = mergeToolCallParameters(parameters, {
+          syncConfigIntoSavePreferences: true,
+        });
+        console.debug("[ClientTool] save_preferences merged:", payload);
         try {
           const response = await api.post("/ai/vapi/webhook", {
             message: {
               type: "function-call",
               functionCall: {
                 name: "save_preferences",
-                parameters,
+                parameters: payload,
               },
             },
           });
@@ -337,7 +436,10 @@ export function useElevenLabs(
             setInterviewId(result.interviewId);
             interviewIdRef.current = result.interviewId;
           }
-          if (result.firstQuestion) setCurrentQuestion(result.firstQuestion);
+          if (result.firstQuestion) {
+            setCurrentQuestion(result.firstQuestion as string);
+            await appendCanonicalAgentText(result.firstQuestion as string);
+          }
           accumulatedAnswers.current = [];
           return JSON.stringify(result);
         } catch (err) {
@@ -368,13 +470,16 @@ export function useElevenLabs(
               type: "function-call",
               functionCall: {
                 name: "save_answer",
-                parameters,
+                parameters: mergeToolCallParameters(parameters),
               },
             },
           });
           const result = response.data.result || {};
           console.debug("[ClientTool] save_answer result:", result);
-          if (result.nextQuestion) setCurrentQuestion(result.nextQuestion);
+          if (result.nextQuestion) {
+            setCurrentQuestion(result.nextQuestion as string);
+            await appendCanonicalAgentText(result.nextQuestion as string);
+          }
           if (result.finished) setCurrentQuestion("");
           return JSON.stringify(result);
         } catch (err) {
@@ -394,10 +499,11 @@ export function useElevenLabs(
               type: "function-call",
               functionCall: {
                 name: "end_interview",
-                parameters: {
-                  interviewId: parameters.interviewId || interviewIdRef.current,
-                  answers: parameters.answers || accumulatedAnswers.current,
-                },
+                parameters: mergeToolCallParameters({
+                  ...parameters,
+                  answers:
+                    parameters.answers ?? accumulatedAnswers.current,
+                }),
               },
             },
           });
@@ -415,7 +521,7 @@ export function useElevenLabs(
         }
       },
     };
-  }, []);
+  }, [appendCanonicalAgentText, mergeToolCallParameters]);
 
   const startCall = useCallback(async () => {
     const cfg = configRef.current;
