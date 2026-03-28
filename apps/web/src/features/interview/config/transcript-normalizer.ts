@@ -1,7 +1,7 @@
 /**
- * Post-processing for VAPI/Deepgram transcripts.
+ * Post-processing for ElevenLabs conversational transcripts.
  * Fixes common misrecognitions of English tech terms in Turkish speech,
- * and normalizes whitespace/formatting.
+ * collapses agent filler loops, and normalizes whitespace/formatting.
  */
 
 type Replacement = string | ((match: string) => string);
@@ -26,6 +26,36 @@ const ERRONEOUS_PHRASES = [
   /cumhurbaskanligi/i,
   /geçiş yapılıyor.*lütfen bekleyin/i,
 ];
+
+/**
+ * Collapses repeated silence / “still thinking” filler the agent sometimes stacks
+ * when turn detection misfires (same bubble, many copies).
+ */
+export function sanitizeAgentTranscript(text: string): string {
+  let t = text?.trim() || "";
+  if (!t) return t;
+
+  const fillerLong =
+    /(Anladım[, ]+h[âa]l[âa]\s+d[üu]ş[üu]n[üu]yorsunuz\.?\s*S[üu]rd[üu]r[üu]yoruz[, ]+bekliyorum\.?\s*){2,}/gi;
+  t = t.replace(
+    fillerLong,
+    "Anladım, hâlâ düşünüyorsunuz. Sürdürüyoruz, bekliyorum. ",
+  );
+
+  const fillerShort =
+    /(Anladım[, ]+h[âa]l[âa]\s+d[üu]ş[üu]n[üu]yorsunuz\.?\s*){2,}/gi;
+  t = t.replace(fillerShort, "Anladım, hâlâ düşünüyorsunuz. ");
+
+  const sentences = t.split(/(?<=[.!?…])\s+/);
+  const out: string[] = [];
+  for (const s of sentences) {
+    const x = s.trim();
+    if (!x) continue;
+    if (out.length > 0 && out[out.length - 1] === x) continue;
+    out.push(x);
+  }
+  return out.join(" ").replace(/\s+/g, " ").trim();
+}
 
 export function containsErroneousContent(text: string): boolean {
   const t = text?.trim() || "";
@@ -60,6 +90,14 @@ const TERM_CORRECTIONS: [RegExp, Replacement][] = [
   [/\b(?:Rediss?|reddis)\b/gi, "Redis"],
   [/\b(?:veb ?pak|web ?pak)\b/gi, "Webpack"],
   [/\b(?:veb ?soket|web ?soket)\b/gi, "WebSocket"],
+
+  // ASR often turns "Middleware, Guards" into unrelated tokens (e.g. product names)
+  [/\bS3\s*,\s*Stix\b/gi, "Middleware, Guards"],
+  [/\bS3\s+Stix\b/gi, "Middleware Guards"],
+  [/\bStix\b/gi, "Guards"],
+  [/\bdepolastik\b/gi, "repository"],
+  [/\bk[ıi]r[ıi]t[ıi]ld[ıi]ğ[ıi]nda\b/gi, "fırlatıldığında"],
+  [/\b[İi]stemiçi\b/gi, "istemci"],
 
   // Common Turkish misrecognitions of English tech terms
   [/\b[Bb]ackhemt\b/g, "backend"],

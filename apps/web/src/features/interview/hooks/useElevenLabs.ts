@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useConversation } from "@elevenlabs/react";
+import { useConversation, type Language } from "@elevenlabs/react";
 import api from "@/lib/axios";
 import {
   normalizeTranscript,
+  sanitizeAgentTranscript,
   isPlaceholderMessage,
   containsErroneousContent,
 } from "../config/transcript-normalizer";
+import { applySessionLexicon } from "../config/dynamic-interview-lexicon";
 import { patchElevenLabsErrorHandler } from "../config/elevenlabs-patch";
 
 patchElevenLabsErrorHandler();
@@ -55,11 +57,45 @@ interface UseElevenLabsReturn {
 
 const AGENT_ID = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID;
 
+/**
+ * Send silence from the mic while the agent’s turn is marked "speaking" so speaker→mic echo
+ * does not trigger VAD. **Opt-in only** — default off so the agent reliably hears you and
+ * barge-in works; enable if you use loudspeakers and get false interruptions.
+ */
+const SUPPRESS_MIC_WHILE_AGENT_SPEAKS =
+  process.env.NEXT_PUBLIC_VOICE_SUPPRESS_MIC_WHILE_AGENT_SPEAKS === "true";
+
+/** After the agent switches to "listening", keep the gate briefly (echo tail). Only if suppression is on. */
+const POST_AGENT_SPEECH_MS = (() => {
+  const n = Number.parseInt(
+    process.env.NEXT_PUBLIC_VOICE_POST_AGENT_SPEECH_MS || "280",
+    10,
+  );
+  return Number.isFinite(n) && n >= 0 ? n : 280;
+})();
+
+const CONNECTION_TYPE =
+  process.env.NEXT_PUBLIC_ELEVENLABS_USE_WEBRTC === "true"
+    ? ("webrtc" as const)
+    : ("websocket" as const);
+
+/** Biases ASR + voice pipeline toward Turkish (code-switch with English stack names). */
+const ELEVENLABS_AGENT_LANGUAGE = (
+  process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_LANGUAGE?.trim() || "tr"
+) as Language;
+
+/**
+ * ElevenLabs can emit multiple assistant `onMessage` texts for one spoken turn (draft → final).
+ * TTS often plays only the last; keep the transcript aligned by superseding the prior bubble.
+ */
+const AI_TRANSCRIPT_COALESCE_MS = 12_000;
+
 export function useElevenLabs(
   config: UseElevenLabsConfig,
 ): UseElevenLabsReturn {
   const [isCallActive, setIsCallActive] = useState(false);
-  const [micMuted, setMicMuted] = useState(false);
+  const [userMicMuted, setUserMicMuted] = useState(false);
+  const [playbackMicGate, setPlaybackMicGate] = useState(false);
   const [agentStatus, setAgentStatus] = useState<
     "listening" | "thinking" | "speaking" | null
   >(null);
@@ -110,6 +146,17 @@ export function useElevenLabs(
   } | null>(null);
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const modeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playbackGateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  /** Latest conversation API (for contextual hooks that run inside `useConversation` callbacks). */
+  const conversationApiRef = useRef<{ sendContextualUpdate: (t: string) => void } | null>(
+    null,
+  );
+
+  const micMutedForSdk =
+    userMicMuted ||
+    (SUPPRESS_MIC_WHILE_AGENT_SPEAKS ? playbackMicGate : false);
 
   const flushMessageBuffer = useCallback((): Promise<void> => {
     const buffer = messageBufferRef.current;
@@ -135,60 +182,19 @@ export function useElevenLabs(
   }, []);
 
   /**
-   * Ensures the chat panel shows the official question from tool results even when
-   * the voice SDK omits or delays agent transcript events.
+   * Persists official bank soru metnini backend transcript buffer’a yazar.
+   * UI’da **ayrı balon eklemez** — aksi halde TTS’in söylemediği “hayalet” satırlar oluşuyordu
+   * (SDK metin ile ses farklı seçebilir). Görünen metin yalnızca `onMessage`.
    */
-  const appendCanonicalAgentText = useCallback(
+  const persistCanonicalAgentText = useCallback(
     async (raw: string) => {
-      const text = raw?.trim() || "";
+      const text = normalizeTranscript(sanitizeAgentTranscript(raw?.trim() || ""));
       if (text.length < 8) return;
-
-      const normalizedForDedup = normalizeTranscript(text);
-
-      setTranscript((prev) => {
-        const last = prev[prev.length - 1];
-        if (last?.source === "ai") {
-          const lastNorm = normalizeTranscript(last.message);
-          if (lastNorm === normalizedForDedup) return prev;
-          const shorter =
-            lastNorm.length < normalizedForDedup.length
-              ? lastNorm
-              : normalizedForDedup;
-          const longer =
-            lastNorm.length >= normalizedForDedup.length
-              ? lastNorm
-              : normalizedForDedup;
-          if (
-            longer.includes(shorter) &&
-            shorter.length >= Math.min(48, longer.length * 0.82)
-          ) {
-            return prev;
-          }
-          if (normalizedForDedup.includes(lastNorm) && lastNorm.length > 24) {
-            const next = [...prev];
-            next[next.length - 1] = {
-              ...last,
-              message: text,
-              timestamp: Date.now(),
-            };
-            return next;
-          }
-        }
-        return [
-          ...prev,
-          {
-            id: `q-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-            source: "ai" as const,
-            message: text,
-            timestamp: Date.now(),
-          },
-        ];
-      });
 
       const currentId = interviewIdRef.current;
       if (!currentId) return;
 
-      const normalized = normalizeTranscript(text);
+      const normalized = text;
       const now = Date.now();
       if (messageBufferRef.current && messageBufferRef.current.role !== "agent") {
         await flushMessageBuffer();
@@ -219,7 +225,8 @@ export function useElevenLabs(
   );
 
   const conversation = useConversation({
-    micMuted,
+    micMuted: micMutedForSdk,
+    preferHeadphonesForIosDevices: true,
     onConnect: (props: { conversationId: string }) => {
       console.info(
         "[ElevenLabs] Connected — conversationId:",
@@ -229,6 +236,17 @@ export function useElevenLabs(
       );
       setIsCallActive(true);
       setError(null);
+      const cfg = configRef.current;
+      const sttHint =
+        `Oturum: ${cfg.field}. Teknik anahtar kelimeler: ${cfg.techStack.join(", ")}. ` +
+        `Aday Türkçe konuşuyor; İngilizce ürün adları bekleniyor.`;
+      queueMicrotask(() => {
+        try {
+          conversationApiRef.current?.sendContextualUpdate(sttHint);
+        } catch {
+          /* noop */
+        }
+      });
     },
     onDisconnect: async (details: { reason: string; message?: string }) => {
       console.info("[ElevenLabs] Disconnected —", details);
@@ -236,7 +254,12 @@ export function useElevenLabs(
       await flushMessageBuffer();
       setIsCallActive(false);
       setAgentStatus(null);
-      setMicMuted(false);
+      setUserMicMuted(false);
+      setPlaybackMicGate(false);
+      if (playbackGateTimerRef.current) {
+        clearTimeout(playbackGateTimerRef.current);
+        playbackGateTimerRef.current = null;
+      }
 
       if (!manualEndRef.current && !scoreSetRef.current) {
         const activeId = interviewIdRef.current;
@@ -278,7 +301,15 @@ export function useElevenLabs(
       if (containsErroneousContent(message.message)) return;
 
       const source = message.source === "ai" ? "ai" : "user";
-      const content = message.message.trim();
+      const raw = message.message.trim();
+      const content =
+        source === "ai"
+          ? normalizeTranscript(sanitizeAgentTranscript(raw))
+          : applySessionLexicon(
+              normalizeTranscript(raw),
+              configRef.current,
+            );
+      if (!content) return;
       const role = source === "ai" ? "agent" : "user";
 
       const dedupRef = { skip: false, replace: false, finalContent: content };
@@ -303,6 +334,20 @@ export function useElevenLabs(
               content.length > lastContent.length ? content : lastContent;
             const next = [...prev];
             next[next.length - 1] = { ...last, message: dedupRef.finalContent };
+            return next;
+          }
+          if (
+            source === "ai" &&
+            Date.now() - last.timestamp < AI_TRANSCRIPT_COALESCE_MS
+          ) {
+            dedupRef.replace = true;
+            dedupRef.finalContent = content;
+            const next = [...prev];
+            next[next.length - 1] = {
+              ...last,
+              message: content,
+              timestamp: Date.now(),
+            };
             return next;
           }
         }
@@ -376,14 +421,28 @@ export function useElevenLabs(
         modeDebounceRef.current = null;
       }
       if (prop.mode === "speaking") {
-        // AI started speaking — update immediately
         setAgentStatus("speaking");
+        if (SUPPRESS_MIC_WHILE_AGENT_SPEAKS) {
+          if (playbackGateTimerRef.current) {
+            clearTimeout(playbackGateTimerRef.current);
+            playbackGateTimerRef.current = null;
+          }
+          setPlaybackMicGate(true);
+        }
       } else {
-        // AI switched to listening — debounce to prevent flicker from ambient noise
         modeDebounceRef.current = setTimeout(() => {
           setAgentStatus("listening");
           modeDebounceRef.current = null;
-        }, 350);
+        }, 450);
+        if (SUPPRESS_MIC_WHILE_AGENT_SPEAKS) {
+          if (playbackGateTimerRef.current) {
+            clearTimeout(playbackGateTimerRef.current);
+          }
+          playbackGateTimerRef.current = setTimeout(() => {
+            setPlaybackMicGate(false);
+            playbackGateTimerRef.current = null;
+          }, POST_AGENT_SPEECH_MS);
+        }
       }
     },
     onUnhandledClientToolCall: (params: unknown) => {
@@ -393,6 +452,29 @@ export function useElevenLabs(
       console.debug("[ElevenLabs debug]", props);
     },
   });
+
+  conversationApiRef.current = conversation;
+
+  const disconnectVoiceAndResetUi = useCallback(async () => {
+    await flushMessageBuffer();
+    try {
+      await conversation.endSession();
+    } catch {
+      /* already disconnected */
+    }
+    setIsCallActive(false);
+    setAgentStatus(null);
+    setUserMicMuted(false);
+    setPlaybackMicGate(false);
+    if (playbackGateTimerRef.current) {
+      clearTimeout(playbackGateTimerRef.current);
+      playbackGateTimerRef.current = null;
+    }
+    if (modeDebounceRef.current) {
+      clearTimeout(modeDebounceRef.current);
+      modeDebounceRef.current = null;
+    }
+  }, [conversation, flushMessageBuffer]);
 
   // Poll volume levels during active call
   useEffect(() => {
@@ -412,6 +494,16 @@ export function useElevenLabs(
 
     return () => cancelAnimationFrame(raf);
   }, [isCallActive, conversation]);
+
+  useEffect(() => {
+    if (!isCallActive || !SUPPRESS_MIC_WHILE_AGENT_SPEAKS) {
+      if (playbackGateTimerRef.current) {
+        clearTimeout(playbackGateTimerRef.current);
+        playbackGateTimerRef.current = null;
+      }
+      setPlaybackMicGate(false);
+    }
+  }, [isCallActive]);
 
   const buildClientTools = useCallback(() => {
     return {
@@ -438,7 +530,7 @@ export function useElevenLabs(
           }
           if (result.firstQuestion) {
             setCurrentQuestion(result.firstQuestion as string);
-            await appendCanonicalAgentText(result.firstQuestion as string);
+            await persistCanonicalAgentText(result.firstQuestion as string);
           }
           accumulatedAnswers.current = [];
           return JSON.stringify(result);
@@ -478,7 +570,7 @@ export function useElevenLabs(
           console.debug("[ClientTool] save_answer result:", result);
           if (result.nextQuestion) {
             setCurrentQuestion(result.nextQuestion as string);
-            await appendCanonicalAgentText(result.nextQuestion as string);
+            await persistCanonicalAgentText(result.nextQuestion as string);
           }
           if (result.finished) setCurrentQuestion("");
           return JSON.stringify(result);
@@ -513,15 +605,17 @@ export function useElevenLabs(
           scoreSetRef.current = true;
           setOverallScore(score != null ? score : 0);
           accumulatedAnswers.current = [];
+          await disconnectVoiceAndResetUi();
           return JSON.stringify(result);
         } catch (err) {
           console.error("end_interview error:", err);
           setOverallScore(0);
+          await disconnectVoiceAndResetUi();
           return JSON.stringify({ error: true });
         }
       },
     };
-  }, [appendCanonicalAgentText, mergeToolCallParameters]);
+  }, [persistCanonicalAgentText, mergeToolCallParameters, disconnectVoiceAndResetUi]);
 
   const startCall = useCallback(async () => {
     const cfg = configRef.current;
@@ -609,12 +703,21 @@ export function useElevenLabs(
           techStack: cfg.techStack.join(", "),
           difficulty: cfg.difficulty,
           JSON_stringify_techStack_: JSON.stringify(cfg.techStack),
+          interviewSttVocabulary: cfg.techStack.join(", "),
+          interviewFieldLabel: cfg.field,
+        },
+        overrides: {
+          agent: { language: ELEVENLABS_AGENT_LANGUAGE },
         },
       };
     } else {
+      if (!AGENT_ID) {
+        setError("ElevenLabs agent kimliği yapılandırılmamış.");
+        return;
+      }
       sessionConfig = {
         agentId: AGENT_ID,
-        connectionType: "websocket" as const,
+        connectionType: CONNECTION_TYPE,
         clientTools: buildClientTools(),
         dynamicVariables: {
           interviewId: newInterviewId,
@@ -622,6 +725,11 @@ export function useElevenLabs(
           techStack: cfg.techStack.join(", "),
           difficulty: cfg.difficulty,
           JSON_stringify_techStack_: JSON.stringify(cfg.techStack),
+          interviewSttVocabulary: cfg.techStack.join(", "),
+          interviewFieldLabel: cfg.field,
+        },
+        overrides: {
+          agent: { language: ELEVENLABS_AGENT_LANGUAGE },
         },
       };
     }
@@ -664,7 +772,6 @@ export function useElevenLabs(
 
   const endCall = useCallback(async () => {
     manualEndRef.current = true;
-    // Flush messages before disconnect so chat history is saved
     await flushMessageBuffer();
 
     const activeId = interviewIdRef.current;
@@ -673,6 +780,18 @@ export function useElevenLabs(
       await conversation.endSession();
     } catch {
       // session may already be ended
+    }
+    setIsCallActive(false);
+    setAgentStatus(null);
+    setPlaybackMicGate(false);
+    setUserMicMuted(false);
+    if (playbackGateTimerRef.current) {
+      clearTimeout(playbackGateTimerRef.current);
+      playbackGateTimerRef.current = null;
+    }
+    if (modeDebounceRef.current) {
+      clearTimeout(modeDebounceRef.current);
+      modeDebounceRef.current = null;
     }
 
     if (activeId && !scoreSetRef.current) {
@@ -744,13 +863,17 @@ export function useElevenLabs(
   );
 
   const toggleMic = useCallback(() => {
-    setMicMuted((prev) => !prev);
+    setUserMicMuted((prev) => !prev);
   }, []);
 
   useEffect(() => {
     return () => {
       if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
       if (modeDebounceRef.current) clearTimeout(modeDebounceRef.current);
+      if (playbackGateTimerRef.current) {
+        clearTimeout(playbackGateTimerRef.current);
+        playbackGateTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -758,7 +881,7 @@ export function useElevenLabs(
     isConnected: conversation.status === "connected",
     isCallActive,
     isSpeaking: conversation.isSpeaking,
-    micMuted,
+    micMuted: userMicMuted,
     toggleMic,
     agentStatus,
     currentQuestion,

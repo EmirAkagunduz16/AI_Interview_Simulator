@@ -28,13 +28,30 @@ export class GeminiService {
     techStack: string[];
     difficulty: string;
     answers: { question: string; answer: string; order: number }[];
+    /** Tam konuşma özeti — takip soruları ve netlik için (isteğe bağlı) */
+    conversationTranscript?: string;
   }): Promise<IInterviewEvaluation> {
     const answersText = params.answers
       .map(
         (a) =>
-          `### Soru ${a.order}:\n${a.question}\n\n### Adayın Cevabı:\n${a.answer}`,
+          `### Ana soru ${a.order} (banka sorusu):\n${a.question}\n\n### Kayıtlı cevap özeti / birleşik metin:\n${a.answer}`,
       )
       .join("\n\n---\n\n");
+
+    const transcriptSection =
+      params.conversationTranscript?.trim() &&
+      params.conversationTranscript.trim().length > 40
+        ? `
+
+# KONUŞMA TRANSKRİPTİ (tamamlayıcı bağlam)
+Aşağıdaki satırlar mülakatın gerçek diyaloğundan kısaltılmış bir özetidir. Kayıtlı cevap metinleriyle çelişki varsa, **transkript + birleşik cevabı birlikte** yorumla.
+Gerçek mülakat genelde her ana soru için takip (derinleştirici) sorular içerir; adayın teknik derinliğini hem ana hem takip turlarında nasıl gösterdiğine bak.
+
+"""
+${params.conversationTranscript.trim()}
+"""
+`
+        : "";
 
     const prompt = `Sen dünya standartlarında bir teknik mülakat değerlendirme uzmanısın. Gerçek bir FAANG/büyük teknoloji şirketinde mülakatçı gibi değerlendir.
 
@@ -43,7 +60,12 @@ export class GeminiService {
 - Teknolojiler: ${params.techStack.join(", ")}
 - Beklenen Seviye: ${params.difficulty}
 
-# ADAY CEVAPLARI
+# YAPI NOTU
+Bu oturumda **5 ana teknik soru** (bankadan) vardır. Adaya her ana soru için doğal **takip soruları** sorulmuş olabilir.
+- "Kayıtlı cevap / birleşik metin" alanında \`---\` ile ayrılmış parçalar: aynı ana soruya bağlı birden fazla kayıt (ör. takip sorularına verilen özeti kapsayan) olabilir.
+- **questionEvaluations** dizisinde tam olarak ${params.answers.length} öğe üret (her biri bir ana soru teması); takip turlarındaki performansı o temanın puanına yedir.
+${transcriptSection}
+# ADAY CEVAPLARI (kayıtlı)
 ${answersText}
 
 # DEĞERLENDİRME KRİTERLERİ
@@ -82,8 +104,8 @@ Her kriteri 0-100 arasında puanla. Gerçekçi ol — mükemmel cevap yoksa 90+ 
 - "${params.difficulty}" seviyesine göre beklentileri karşılıyor mu?
 
 # SORU BAZLI DEĞERLENDİRME
-Her soru için ayrı ayrı değerlendir:
-- score: 0-100 arası puan
+Her **ana soru teması** için (${params.answers.length} adet) ayrı değerlendirme üret:
+- score: 0-100 arası puan (takip diyaloğundaki netlik ve derinlik bu puana dâhil)
 - feedback: 2-4 cümle detaylı geri bildirim (Türkçe). Neyi iyi yaptı, neyi eksik bıraktı, ne söylemeliydi?
 - strengths: Güçlü yönler listesi (en az 1)
 - improvements: Gelişim alanları listesi (en az 1)

@@ -6,11 +6,13 @@ import {
   GRPC_QUESTION_SERVICE,
   IGrpcInterviewService,
   IGrpcQuestionService,
+  InterviewAnswerResponse,
+  InterviewMessageResponse,
   InterviewResponse,
 } from "@ai-coach/grpc";
 import { GeminiService } from "./ai.service";
 import { InterviewFlowService } from "./interview-flow.service";
-import { VapiFunctionCallParams } from "./types";
+import { CachedQuestion, VapiFunctionCallParams } from "./types";
 
 @Injectable()
 export class InterviewEvaluationService implements OnModuleInit {
@@ -71,12 +73,16 @@ export class InterviewEvaluationService implements OnModuleInit {
       const interviewDifficulty = interviewData?.difficulty || "";
 
       if (answersForEval.length > 0) {
+        const transcriptForEval = this.buildTranscriptForEvaluation(
+          interviewData?.messages,
+        );
         return this.evaluateAndSaveReport(
           interviewId || "",
           answersForEval,
           interviewField,
           interviewTechStack,
           interviewDifficulty,
+          transcriptForEval,
         );
       }
 
@@ -134,9 +140,10 @@ export class InterviewEvaluationService implements OnModuleInit {
     field: string,
     techStack: string[],
     difficulty: string,
+    conversationTranscript?: string,
   ): Promise<Record<string, unknown>> {
     this.logger.log(
-      `Gemini evaluation starting — ${answersForEval.length} answers, field: ${field}`,
+      `Gemini evaluation starting — ${answersForEval.length} answer groups, field: ${field}`,
     );
 
     const evaluation = await this.geminiService.evaluateInterview({
@@ -144,6 +151,7 @@ export class InterviewEvaluationService implements OnModuleInit {
       techStack,
       difficulty,
       answers: answersForEval,
+      conversationTranscript,
     });
 
     this.logger.log(
@@ -293,19 +301,18 @@ export class InterviewEvaluationService implements OnModuleInit {
       ? await this.flowService.getCachedQuestions(interviewData.id)
       : [];
 
-    // Layer 1: DB answers (from save_answer)
+    // Layer 1: DB answers — merge all save_answer rows per bank soru (aynı questionId)
     if (interviewData?.answers?.length) {
-      for (let i = 0; i < interviewData.answers.length; i++) {
-        const a = interviewData.answers[i];
-        const order = i + 1;
-        const cachedQ = cachedQuestions.find((q) => q.order === order);
-        byOrder.set(order, {
-          question: a.questionTitle || cachedQ?.question || `Soru ${order}`,
-          answer: a.answer || "",
-          order,
-        });
+      const merged = this.mergeDbAnswersByBankQuestion(
+        interviewData.answers,
+        cachedQuestions,
+      );
+      for (const m of merged) {
+        byOrder.set(m.order, m);
       }
-      this.logger.log(`Layer 1 (DB): ${byOrder.size} answers`);
+      this.logger.log(
+        `Layer 1 (DB): ${merged.length} merged themes from ${interviewData.answers.length} rows`,
+      );
     }
 
     // Layer 2: Function call params — fill missing orders only
@@ -375,6 +382,99 @@ export class InterviewEvaluationService implements OnModuleInit {
     }
     this.logger.log(
       `Saved ${answersForEval.length} questions to pool (field=${field})`,
+    );
+  }
+
+  /**
+   * Birden fazla save_answer satırı aynı banka sorusu (questionId) için birikmiş olabilir
+   * (takip diyaloğu veya tekrar kayıt). Değerlendirmede bunları tek ana tema altında birleştir.
+   */
+  private mergeDbAnswersByBankQuestion(
+    answers: InterviewAnswerResponse[],
+    cachedQuestions: CachedQuestion[],
+  ): { question: string; answer: string; order: number }[] {
+    type Bucket = { bodyParts: string[]; fallbackTitle: string };
+    const byQid = new Map<string, Bucket>();
+
+    for (const a of answers) {
+      const qid = (a.questionId || "").trim() || "_unknown";
+      if (!byQid.has(qid)) {
+        byQid.set(qid, { bodyParts: [], fallbackTitle: "" });
+      }
+      const b = byQid.get(qid)!;
+      const ans = (a.answer || "").trim();
+      if (ans) {
+        b.bodyParts.push(ans);
+      }
+      const t = (a.questionTitle || "").trim();
+      if (t.length > b.fallbackTitle.length) {
+        b.fallbackTitle = t;
+      }
+    }
+
+    const out: { question: string; answer: string; order: number }[] = [];
+
+    if (cachedQuestions.length > 0) {
+      const sortedCache = [...cachedQuestions].sort((x, y) => x.order - y.order);
+      const used = new Set<string>();
+      for (const cq of sortedCache) {
+        const b = byQid.get(cq.id);
+        if (!b || b.bodyParts.length === 0) continue;
+        used.add(cq.id);
+        out.push({
+          question: cq.question,
+          answer: b.bodyParts.join("\n\n---\n\n"),
+          order: cq.order,
+        });
+      }
+      let orphanOrder = sortedCache.length + 1;
+      for (const [qid, b] of byQid) {
+        if (used.has(qid)) continue;
+        if (b.bodyParts.length === 0) continue;
+        out.push({
+          question: b.fallbackTitle || `Ek kayıt (${qid})`,
+          answer: b.bodyParts.join("\n\n---\n\n"),
+          order: orphanOrder++,
+        });
+      }
+    } else {
+      const seenQids: string[] = [];
+      for (const a of answers) {
+        const qid = (a.questionId || "").trim() || "_unknown";
+        if (!seenQids.includes(qid)) seenQids.push(qid);
+      }
+      let ord = 1;
+      for (const qid of seenQids) {
+        const b = byQid.get(qid);
+        if (!b || b.bodyParts.length === 0) continue;
+        out.push({
+          question: b.fallbackTitle || `Soru ${ord}`,
+          answer: b.bodyParts.join("\n\n---\n\n"),
+          order: ord++,
+        });
+      }
+    }
+
+    return out.sort((a, b) => a.order - b.order);
+  }
+
+  /** Gemini bağlamı: kısaltılmış konuşma geçmişi (takip soruları akışı için). */
+  private buildTranscriptForEvaluation(
+    messages: InterviewMessageResponse[] | undefined,
+    maxChars = 14_000,
+  ): string | undefined {
+    if (!messages?.length) return undefined;
+    const lines: string[] = [];
+    for (const m of messages) {
+      const role = m.role === "user" ? "Aday" : "Mülakatçı";
+      const c = (m.content || "").trim().replace(/\s+/g, " ");
+      if (!c) continue;
+      lines.push(`${role}: ${c}`);
+    }
+    const full = lines.join("\n");
+    if (full.length <= maxChars) return full;
+    return (
+      "…(baş kısım kısaltıldı)…\n\n" + full.slice(full.length - maxChars)
     );
   }
 

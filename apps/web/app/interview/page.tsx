@@ -28,6 +28,13 @@ export default function InterviewPage() {
     }
   }, [el.overallScore]);
 
+  /** Bitiş ekranına geçildiğinde ses oturumu hâlâ açıksa kapat (agentın konuşmaya devam etmesini engelle). */
+  useEffect(() => {
+    if (step === "completed") {
+      void el.endCall();
+    }
+  }, [step, el.endCall]);
+
   useEffect(() => {
     if (step === "interview" && shouldStartRef.current) {
       shouldStartRef.current = false;
