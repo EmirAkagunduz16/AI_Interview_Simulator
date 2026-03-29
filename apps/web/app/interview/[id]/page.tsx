@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -10,7 +9,6 @@ import {
   LayoutDashboard,
   FileText,
   MessageSquare,
-  HelpCircle,
   Lightbulb,
   Loader2,
   AlertTriangle,
@@ -29,10 +27,6 @@ export default function ResultsPage() {
   const params = useParams();
   const id = params.id as string;
 
-  const [activeTab, setActiveTab] = useState<
-    "overview" | "questions" | "history"
-  >("overview");
-
   const {
     data,
     isLoading: loading,
@@ -49,12 +43,17 @@ export default function ResultsPage() {
       const result = query.state.data;
       if (!result) return false;
       const report = result.report;
-      // Stop polling once we have a real report with scores
-      if (report && (report.overallScore > 0 || report.summary !== "Değerlendirme hazırlanıyor...")) {
+      if (
+        report &&
+        (report.overallScore > 0 ||
+          report.summary !== "Değerlendirme hazırlanıyor...")
+      ) {
         return false;
       }
-      // Keep polling if status is completed but no report or placeholder report
-      if (result.status === "completed" && (!report || report.overallScore === 0)) {
+      if (
+        result.status === "completed" &&
+        (!report || report.overallScore === 0)
+      ) {
         return 5000;
       }
       return false;
@@ -92,32 +91,14 @@ export default function ResultsPage() {
   }
 
   const report = data.report;
-
-  const tabs = [
-    {
-      id: "overview" as const,
-      label: "Genel Bakış",
-      icon: <FileText size={15} />,
-    },
-    {
-      id: "history" as const,
-      label: "Sohbet Geçmişi",
-      icon: <MessageSquare size={15} />,
-    },
-    ...(report?.questionEvaluations?.length
-      ? [
-          {
-            id: "questions" as const,
-            label: "Soru Detayları",
-            icon: <HelpCircle size={15} />,
-          },
-        ]
-      : []),
-  ];
+  const isEvaluating =
+    report?.summary === "Değerlendirme hazırlanıyor..." ||
+    (!report && data.status === "completed");
 
   return (
     <div className="results-page">
       <div className="results-container">
+        {/* Header */}
         <div className="results-header">
           <Link href="/dashboard" className="back-link">
             <ArrowLeft size={16} />
@@ -130,38 +111,45 @@ export default function ResultsPage() {
           </p>
         </div>
 
-        {report && (
-          <>
-            <ScoreGauge score={report.overallScore} />
-            <CategoryScores report={report} />
-          </>
+        {/* Evaluating state */}
+        {isEvaluating && (
+          <div className="evaluating-banner">
+            <Loader2 size={18} className="loader-icon" />
+            <span>
+              Değerlendirmeniz yapılıyor, birkaç saniye içinde sonuçlar
+              burada görünecek...
+            </span>
+          </div>
         )}
 
-        <div className="tabs">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              className={`tab ${activeTab === tab.id ? "active" : ""}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.icon}
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        {/* Scores Section */}
+        {report && !isEvaluating && (
+          <>
+            {/* Hero Score */}
+            <ScoreGauge score={report.overallScore} />
 
-        {activeTab === "overview" ? (
-          report ? (
-            <>
-              <div className="summary-card">
-                <h3>
-                  <FileText size={16} />
-                  Özet
-                </h3>
-                <p>{report.summary}</p>
+            {/* Category Breakdown */}
+            <div className="section">
+              <h2 className="section-title">Kategori Puanları</h2>
+              <CategoryScores report={report} />
+            </div>
+
+            {/* Summary */}
+            {report.summary && (
+              <div className="section">
+                <div className="summary-card">
+                  <h3>
+                    <FileText size={16} />
+                    Özet
+                  </h3>
+                  <p>{report.summary}</p>
+                </div>
               </div>
+            )}
 
-              {report.recommendations?.length > 0 && (
+            {/* Recommendations */}
+            {report.recommendations?.length > 0 && (
+              <div className="section">
                 <div className="recommendations-card">
                   <h3>
                     <Lightbulb size={16} />
@@ -173,26 +161,32 @@ export default function ResultsPage() {
                     ))}
                   </ul>
                 </div>
-              )}
-            </>
-          ) : (
-            <div className="summary-card">
-              <h3>
-                <Loader2 size={16} className="loader-icon" />
-                Sonuçlar Hazırlanıyor
-              </h3>
-              <p>
-                Değerlendirme henüz tamamlanmadı. Lütfen birkaç dakika sonra
-                tekrar kontrol edin.
-              </p>
-            </div>
-          )
-        ) : activeTab === "history" ? (
-          <ChatHistory messages={data.messages || []} />
-        ) : report ? (
-          <QuestionDetails evaluations={report.questionEvaluations || []} />
-        ) : null}
+              </div>
+            )}
 
+            {/* Question Details */}
+            {report.questionEvaluations &&
+              report.questionEvaluations.length > 0 && (
+                <div className="section">
+                  <h2 className="section-title">Soru Bazlı Değerlendirme</h2>
+                  <QuestionDetails evaluations={report.questionEvaluations} />
+                </div>
+              )}
+          </>
+        )}
+
+        {/* Chat History — always available when messages exist */}
+        {data.messages && data.messages.length > 0 && (
+          <div className="section">
+            <h2 className="section-title">
+              <MessageSquare size={16} />
+              Sohbet Geçmişi
+            </h2>
+            <ChatHistory messages={data.messages} />
+          </div>
+        )}
+
+        {/* Actions */}
         <div className="results-actions">
           <Link href="/interview" className="retry-btn">
             <Mic size={16} />

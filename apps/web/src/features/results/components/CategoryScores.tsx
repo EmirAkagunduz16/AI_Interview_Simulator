@@ -7,26 +7,34 @@ const CATEGORY_CONFIG = [
   {
     key: "technicalScore" as const,
     label: "Teknik Bilgi",
+    desc: "Teknik kavram hakimiyeti ve doğruluğu",
     color: "#60a5fa",
-    icon: <Monitor size={16} />,
+    gradient: "linear-gradient(135deg, #60a5fa, #3b82f6)",
+    icon: <Monitor size={18} />,
   },
   {
     key: "communicationScore" as const,
     label: "İletişim",
+    desc: "Düşünceleri açık ve yapılandırılmış ifade etme",
     color: "#4ade80",
-    icon: <MessageCircle size={16} />,
+    gradient: "linear-gradient(135deg, #4ade80, #22c55e)",
+    icon: <MessageCircle size={18} />,
   },
   {
     key: "dictionScore" as const,
     label: "Diksiyon",
+    desc: "Kelime seçimi, akıcılık ve profesyonel dil",
     color: "#f472b6",
-    icon: <BookOpen size={16} />,
+    gradient: "linear-gradient(135deg, #f472b6, #ec4899)",
+    icon: <BookOpen size={18} />,
   },
   {
     key: "confidenceScore" as const,
     label: "Özgüven",
+    desc: "Kendine güven, net tutum ve kararlılık",
     color: "#facc15",
-    icon: <Shield size={16} />,
+    gradient: "linear-gradient(135deg, #facc15, #eab308)",
+    icon: <Shield size={18} />,
   },
 ];
 
@@ -39,26 +47,34 @@ export default function CategoryScores({ report }: CategoryScoresProps) {
     <div className="categories-grid">
       {CATEGORY_CONFIG.map((cat) => {
         const score = report[cat.key] ?? 0;
+        const level =
+          score >= 80 ? "Yüksek" : score >= 60 ? "İyi" : score >= 40 ? "Orta" : "Düşük";
         return (
           <div key={cat.key} className="category-card">
             <div className="cat-header">
               <span className="cat-icon" style={{ color: cat.color }}>
                 {cat.icon}
               </span>
-              <span className="cat-label">{cat.label}</span>
+              <div className="cat-meta">
+                <span className="cat-label">{cat.label}</span>
+                <span className="cat-desc">{cat.desc}</span>
+              </div>
             </div>
             <div className="cat-bar-wrapper">
               <div
                 className="cat-bar-fill"
                 style={{
                   width: `${score}%`,
-                  background: cat.color,
+                  background: cat.gradient,
                 }}
               />
             </div>
-            <span className="cat-score" style={{ color: cat.color }}>
-              {score}/100
-            </span>
+            <div className="cat-footer">
+              <span className="cat-score" style={{ color: cat.color }}>
+                {score}/100
+              </span>
+              <span className="cat-level">{level}</span>
+            </div>
           </div>
         );
       })}
