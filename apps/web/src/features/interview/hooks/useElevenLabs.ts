@@ -545,19 +545,24 @@ export function useElevenLabs(
 
       save_answer: async (parameters: Record<string, unknown>) => {
         console.debug("[ClientTool] save_answer called with:", parameters);
-        try {
-          accumulatedAnswers.current.push({
-            question:
-              (parameters.questionText as string) ||
-              `Soru ${parameters.questionOrder}`,
-            answer: (parameters.answer as string) || "",
-            order:
-              (parameters.questionOrder as number) ||
-              accumulatedAnswers.current.length + 1,
-            questionId: parameters.questionId as string | undefined,
-          });
 
-          const response = await api.post("/ai/vapi/webhook", {
+        // Accumulate answer locally (always succeeds, no network)
+        const accAnswer: AccumulatedAnswer = {
+          question:
+            (parameters.questionText as string) ||
+            `Soru ${parameters.questionOrder}`,
+          answer: (parameters.answer as string) || "",
+          order:
+            (parameters.questionOrder as number) ||
+            accumulatedAnswers.current.length + 1,
+          questionId: parameters.questionId as string | undefined,
+        };
+        accumulatedAnswers.current.push(accAnswer);
+
+        // Fire backend API call in background (don't await — return fast
+        // so ElevenLabs SDK doesn't hit response_timeout_secs)
+        api
+          .post("/ai/vapi/webhook", {
             message: {
               type: "function-call",
               functionCall: {
@@ -565,22 +570,27 @@ export function useElevenLabs(
                 parameters: mergeToolCallParameters(parameters),
               },
             },
+          })
+          .then(async (response) => {
+            const result = response.data.result || {};
+            console.debug("[ClientTool] save_answer bg result:", result);
+            if (result.nextQuestion) {
+              setCurrentQuestion(result.nextQuestion as string);
+              await persistCanonicalAgentText(result.nextQuestion as string);
+            }
+            if (result.finished) setCurrentQuestion("");
+          })
+          .catch((err: unknown) => {
+            console.warn("[ClientTool] save_answer bg save failed:", err);
           });
-          const result = response.data.result || {};
-          console.debug("[ClientTool] save_answer result:", result);
-          if (result.nextQuestion) {
-            setCurrentQuestion(result.nextQuestion as string);
-            await persistCanonicalAgentText(result.nextQuestion as string);
-          }
-          if (result.finished) setCurrentQuestion("");
-          return JSON.stringify(result);
-        } catch (err) {
-          console.error("save_answer error:", err);
-          return JSON.stringify({
-            error: true,
-            message: "Cevap kaydedilirken sorun oluştu.",
-          });
-        }
+
+        // Return immediately so ElevenLabs agent can proceed
+        // The nextQuestion text is already known from save_preferences
+        return JSON.stringify({
+          success: true,
+          message: "Cevap kaydedildi.",
+          questionOrder: accAnswer.order,
+        });
       },
 
       end_interview: async (parameters: Record<string, unknown>) => {
