@@ -139,11 +139,7 @@ Sadece aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
     try {
       const result = await this.model.generateContent(prompt);
       const text = result.response.text();
-      const cleaned = text
-        .replace(/```json\n?/g, "")
-        .replace(/```\n?/g, "")
-        .trim();
-      const evaluation: IInterviewEvaluation = JSON.parse(cleaned);
+      const evaluation = this.parseGeminiJsonResponse(text);
 
       evaluation.overallScore = Math.max(
         0,
@@ -172,9 +168,34 @@ Sadece aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
       );
       return evaluation;
     } catch (error) {
+      // If JSON parse error, retry once with a simpler prompt
+      if (error instanceof SyntaxError) {
+        this.logger.warn(
+          "Gemini returned malformed JSON, retrying with simpler prompt...",
+        );
+        try {
+          const retryResult = await this.model.generateContent(
+            prompt +
+              "\n\n⚠️ ÖNCEKİ YANITINDA JSON HATASI VARDI. LÜTFEN SADECE GEÇERLİ JSON DÖNDÜR, BAŞKA HİÇBİR ŞEY YAZMA. Yorum, açıklama, markdown formatı KULLANMA.",
+          );
+          const retryText = retryResult.response.text();
+          const evaluation = this.parseGeminiJsonResponse(retryText);
+          evaluation.overallScore = Math.max(0, Math.min(100, Math.round(evaluation.overallScore)));
+          evaluation.technicalScore = Math.max(0, Math.min(100, Math.round(evaluation.technicalScore)));
+          evaluation.communicationScore = Math.max(0, Math.min(100, Math.round(evaluation.communicationScore)));
+          evaluation.dictionScore = Math.max(0, Math.min(100, Math.round(evaluation.dictionScore)));
+          evaluation.confidenceScore = Math.max(0, Math.min(100, Math.round(evaluation.confidenceScore)));
+          this.logger.log(
+            `Retry succeeded — overall: ${evaluation.overallScore}`,
+          );
+          return evaluation;
+        } catch (retryError) {
+          this.logger.error("Retry also failed", retryError);
+        }
+      }
+
       this.logger.error("Interview evaluation failed", error);
       // Provide a basic fallback evaluation so user always sees results
-      const answerCount = params.answers.length;
       const hasContent = params.answers.some(
         (a) => (a.answer || "").trim().length > 10,
       );
@@ -203,5 +224,22 @@ Sadece aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
         })),
       };
     }
+  }
+
+  /** Extracts JSON from Gemini response, handling markdown fences and trailing text. */
+  private parseGeminiJsonResponse(text: string): IInterviewEvaluation {
+    let cleaned = text
+      .replace(/```json\n?/g, "")
+      .replace(/```\n?/g, "")
+      .trim();
+
+    // Try to extract JSON object if there's trailing text after it
+    const firstBrace = cleaned.indexOf("{");
+    const lastBrace = cleaned.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+    }
+
+    return JSON.parse(cleaned);
   }
 }

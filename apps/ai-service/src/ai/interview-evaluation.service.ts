@@ -67,29 +67,81 @@ export class InterviewEvaluationService implements OnModuleInit {
         };
       }
 
-      const answersForEval = await this.collectAnswers(interviewData, answers);
-      const interviewField = interviewData?.field || "";
-      const interviewTechStack = interviewData?.techStack || [];
-      const interviewDifficulty = interviewData?.difficulty || "";
-
-      if (answersForEval.length > 0) {
-        const transcriptForEval = this.buildTranscriptForEvaluation(
-          interviewData?.messages,
+      // Mark interview as completed immediately (prevents retries from
+      // starting parallel evaluations and avoids "Devam Ediyor" status)
+      try {
+        await firstValueFrom(
+          this.interviewService.completeWithReport({
+            interviewId: interviewId || "",
+            report: {
+              technicalScore: 0,
+              communicationScore: 0,
+              dictionScore: 0,
+              confidenceScore: 0,
+              overallScore: 0,
+              summary: "Değerlendirme hazırlanıyor...",
+              recommendations: [],
+              questionEvaluations: [],
+            },
+            overallFeedback: "Değerlendirme hazırlanıyor...",
+          }),
         );
-        return this.evaluateAndSaveReport(
-          interviewId || "",
-          answersForEval,
-          interviewField,
-          interviewTechStack,
-          interviewDifficulty,
-          transcriptForEval,
+        this.logger.log(
+          `Interview ${interviewId} marked as completed, starting async evaluation`,
         );
+      } catch (e) {
+        this.logger.warn("Failed to mark interview as completed early", e);
       }
 
-      return this.saveEmptyReport(interviewId || "", interviewData);
+      // Run Gemini evaluation asynchronously (fire-and-forget)
+      // This prevents the 30s client timeout from triggering retries
+      this.runAsyncEvaluation(
+        interviewId || "",
+        interviewData,
+        answers,
+      ).catch((e) =>
+        this.logger.error(`Async evaluation failed for ${interviewId}`, e),
+      );
+
+      // Return immediately — client will poll for results
+      return {
+        result: {
+          completed: true,
+          evaluating: true,
+          message: "Mülakat tamamlandı. Değerlendirme hazırlanıyor.",
+        },
+      };
     } catch (error) {
       this.logger.error("end_interview failed", error);
       return { result: { completed: true, message: "Mülakat tamamlandı." } };
+    }
+  }
+
+  /** Runs Gemini evaluation in the background after end_interview returns. */
+  private async runAsyncEvaluation(
+    interviewId: string,
+    interviewData: InterviewResponse | null,
+    paramAnswers?: VapiFunctionCallParams["answers"],
+  ): Promise<void> {
+    const answersForEval = await this.collectAnswers(interviewData, paramAnswers);
+    const interviewField = interviewData?.field || "";
+    const interviewTechStack = interviewData?.techStack || [];
+    const interviewDifficulty = interviewData?.difficulty || "";
+
+    if (answersForEval.length > 0) {
+      const transcriptForEval = this.buildTranscriptForEvaluation(
+        interviewData?.messages,
+      );
+      await this.evaluateAndSaveReport(
+        interviewId,
+        answersForEval,
+        interviewField,
+        interviewTechStack,
+        interviewDifficulty,
+        transcriptForEval,
+      );
+    } else {
+      await this.saveEmptyReport(interviewId, interviewData);
     }
   }
 

@@ -44,6 +44,21 @@ export default function ResultsPage() {
       return res.data;
     },
     enabled: !!id,
+    // Poll every 5s while evaluation is still in progress
+    refetchInterval: (query) => {
+      const result = query.state.data;
+      if (!result) return false;
+      const report = result.report;
+      // Stop polling once we have a real report with scores
+      if (report && (report.overallScore > 0 || report.summary !== "Değerlendirme hazırlanıyor...")) {
+        return false;
+      }
+      // Keep polling if status is completed but no report or placeholder report
+      if (result.status === "completed" && (!report || report.overallScore === 0)) {
+        return 5000;
+      }
+      return false;
+    },
   });
 
   const error = queryError
