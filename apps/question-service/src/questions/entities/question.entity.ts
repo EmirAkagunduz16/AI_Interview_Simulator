@@ -46,9 +46,16 @@ export class Question {
   @Prop({ type: [McqOptionSchema], default: [] }) mcqOptions: McqOption[];
   @Prop({ default: 0 }) usageCount: number;
   @Prop({ default: true }) isActive: boolean;
-  @Prop({ type: String, enum: ["seed", "ai-generated"], default: "seed" })
-  createdBy: "seed" | "ai-generated";
+  @Prop({ type: String, enum: ["seed", "ai-generated", "community"], default: "seed" })
+  createdBy: "seed" | "ai-generated" | "community";
   @Prop({ type: Date }) lastAskedAt?: Date;
+
+  // Community & company question fields
+  @Prop({ type: String, default: "" }) companyTag: string;
+  @Prop({ type: [String], default: [] }) upvotedBy: string[];
+  @Prop({ default: 0 }) upvoteCount: number;
+  @Prop({ type: String }) submittedBy?: string;
+  @Prop({ type: String }) submitterName?: string;
 
   createdAt: Date;
   updatedAt: Date;
@@ -63,3 +70,5 @@ export const QuestionSchema = SchemaFactory.createForClass(Question);
 QuestionSchema.index({ type: 1, difficulty: 1 });
 QuestionSchema.index({ category: 1, tags: 1 });
 QuestionSchema.index({ isActive: 1, usageCount: 1 });
+QuestionSchema.index({ createdBy: 1, upvoteCount: -1 });
+QuestionSchema.index({ companyTag: 1 });

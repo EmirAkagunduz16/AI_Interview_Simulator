@@ -181,6 +181,94 @@ export class QuestionsService {
     return this.questionRepository.getDistinctTags();
   }
 
+  /**
+   * Strips conversational AI prefixes from question text.
+   * e.g. "Peki, başlayalım. İlk sorum: X?" → "X?"
+   */
+  static parseQuestionText(raw: string): string {
+    if (!raw) return raw;
+    // Remove common AI conversational prefixes
+    const patterns = [
+      /^(?:peki|tamam|güzel|harika|evet)[,.]?\s*/i,
+      /^(?:başlayalım|devam edelim|bir sonraki soru)[,.]?\s*/i,
+      /^(?:ilk|ikinci|üçüncü|sonraki|bir sonraki|son)\s+soru(?:m|muz)?[:\s]*/i,
+      /^soru(?:m|muz)?\s*(?:\d+)?[:\s]*/i,
+    ];
+    let text = raw.trim();
+    for (const p of patterns) {
+      text = text.replace(p, "");
+    }
+    // If there's a colon early in the text, take everything after it
+    const colonIdx = text.indexOf(":");
+    if (colonIdx > 0 && colonIdx < 60) {
+      const afterColon = text.slice(colonIdx + 1).trim();
+      if (afterColon.length > 20) text = afterColon;
+    }
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  async findPopular(
+    limit: number,
+    filter: { category?: string; difficulty?: string },
+  ): Promise<QuestionDocument[]> {
+    return this.questionRepository.findPopular(limit, filter);
+  }
+
+  async findCommunityQuestions(options: {
+    page?: number;
+    limit?: number;
+    category?: string;
+    difficulty?: string;
+    companyTag?: string;
+    sortBy?: string;
+  }): Promise<{
+    questions: QuestionDocument[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }> {
+    const { page = 1, limit = 12 } = options;
+    const result =
+      await this.questionRepository.findCommunityQuestions(options);
+    const totalPages = Math.ceil(result.total / limit);
+    return { ...result, page, totalPages };
+  }
+
+  async submitCommunityQuestion(dto: {
+    title: string;
+    content: string;
+    type: string;
+    difficulty: string;
+    category: string;
+    companyTag: string;
+    tags: string[];
+    submittedBy: string;
+    submitterName: string;
+    hints?: string;
+    sampleAnswer?: string;
+  }): Promise<QuestionDocument> {
+    const question = await this.questionRepository.create({
+      ...dto,
+      createdBy: "community",
+      mcqOptions: [],
+      upvoteCount: 0,
+      upvotedBy: [],
+    } as any);
+    this.logger.log(`Community question submitted: ${question._id}`);
+    return question;
+  }
+
+  async toggleUpvote(
+    questionId: string,
+    userId: string,
+  ): Promise<{ upvoteCount: number; upvoted: boolean }> {
+    return this.questionRepository.toggleUpvote(questionId, userId);
+  }
+
+  async getCompanyTags(): Promise<string[]> {
+    return this.questionRepository.getDistinctCompanyTags();
+  }
+
   async generateAndSave(
     dto: GenerateQuestionsDto,
   ): Promise<QuestionDocument[]> {

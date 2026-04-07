@@ -83,6 +83,9 @@ const Navbar = () => {
             <Link href="/interview" onClick={() => setMobileMenuOpen(false)}>
               Mülakat
             </Link>
+            <Link href="/questions" onClick={() => setMobileMenuOpen(false)}>
+              Sorular
+            </Link>
           </>
         )}
       </div>
@@ -149,6 +152,9 @@ const Navbar = () => {
               </Link>
               <Link href="/interview" onClick={() => setMobileMenuOpen(false)}>
                 Mülakat
+              </Link>
+              <Link href="/questions" onClick={() => setMobileMenuOpen(false)}>
+                Sorular
               </Link>
               <button
                 className="navbar__btn navbar__btn--logout navbar__btn--mobile"

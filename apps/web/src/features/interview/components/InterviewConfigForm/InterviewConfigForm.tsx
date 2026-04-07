@@ -50,6 +50,9 @@ export default function InterviewConfigForm({
           <ArrowLeft size={18} />
           <span>Dashboard&apos;a Dön</span>
         </Link>
+        <Link href="/questions" className="back-link" style={{ marginLeft: "1rem" }}>
+          <span>Soru Bankası</span>
+        </Link>
       </div>
 
       <div className="config-header">

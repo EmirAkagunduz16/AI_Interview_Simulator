@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Clock,
   Target,
+  MessageSquare,
 } from "lucide-react";
 import { AuthGuard } from "@/features/auth/components";
 import { useAuth } from "@/features/auth/hooks/useAuth";
@@ -90,6 +91,10 @@ function DashboardContent() {
           <Link href="/interview" className="nav-link">
             <Mic size={16} />
             <span>Yeni Mülakat</span>
+          </Link>
+          <Link href="/questions" className="nav-link">
+            <MessageSquare size={16} />
+            <span>Sorular</span>
           </Link>
         </nav>
 

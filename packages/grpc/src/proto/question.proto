@@ -12,6 +12,10 @@ service QuestionService {
   rpc GenerateQuestions(GenerateQuestionsRequest) returns (QuestionListResponse);
   rpc UpdateQuestion(UpdateQuestionRequest) returns (QuestionResponse);
   rpc DeleteQuestion(DeleteQuestionRequest) returns (EmptyResponse);
+  rpc GetPopularQuestions(GetPopularQuestionsRequest) returns (QuestionListResponse);
+  rpc GetCommunityQuestions(GetCommunityQuestionsRequest) returns (PaginatedQuestionResponse);
+  rpc SubmitCommunityQuestion(SubmitCommunityQuestionRequest) returns (QuestionResponse);
+  rpc UpvoteQuestion(UpvoteQuestionRequest) returns (UpvoteQuestionResponse);
 }
 
 message EmptyRequest {}
@@ -72,6 +76,46 @@ message DeleteQuestionRequest {
   string question_id = 1;
 }
 
+message GetPopularQuestionsRequest {
+  int32 limit = 1;
+  optional string category = 2;
+  optional string difficulty = 3;
+}
+
+message GetCommunityQuestionsRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  optional string category = 3;
+  optional string difficulty = 4;
+  optional string company_tag = 5;
+  optional string sort_by = 6;
+}
+
+message SubmitCommunityQuestionRequest {
+  string title = 1;
+  string content = 2;
+  string type = 3;
+  string difficulty = 4;
+  string category = 5;
+  string company_tag = 6;
+  repeated string tags = 7;
+  string submitted_by = 8;
+  string submitter_name = 9;
+  optional string hints = 10;
+  optional string sample_answer = 11;
+}
+
+message UpvoteQuestionRequest {
+  string question_id = 1;
+  string user_id = 2;
+}
+
+message UpvoteQuestionResponse {
+  string question_id = 1;
+  int32 upvote_count = 2;
+  bool upvoted = 3;
+}
+
 message QuestionResponse {
   string id = 1;
   string title = 2;
@@ -83,6 +127,12 @@ message QuestionResponse {
   string category = 8;
   repeated string tags = 9;
   repeated McqOptionResponse mcq_options = 10;
+  int32 usage_count = 11;
+  string company_tag = 12;
+  int32 upvote_count = 13;
+  string created_by = 14;
+  string submitter_name = 15;
+  string created_at = 16;
 }
 
 message McqOptionResponse {

@@ -10,6 +10,11 @@ import type {
   GenerateQuestionsRequest,
   UpdateQuestionRequest,
   DeleteQuestionRequest,
+  GetPopularQuestionsRequest,
+  GetCommunityQuestionsRequest,
+  SubmitCommunityQuestionRequest,
+  UpvoteQuestionRequest,
+  UpvoteQuestionResponse,
   QuestionResponse,
   QuestionsListResponse,
   StringListResponse,
@@ -150,13 +155,98 @@ export class GrpcQuestionsController {
     return {};
   }
 
+  @GrpcMethod("QuestionService", "GetPopularQuestions")
+  async getPopularQuestions(
+    data: GetPopularQuestionsRequest,
+  ): Promise<{ questions: QuestionResponse[] }> {
+    this.logger.debug(`gRPC GetPopularQuestions limit=${data.limit}`);
+    const difficulty = data.difficulty
+      ? mapInterviewDifficultyToQuestionDifficulty(data.difficulty)
+      : undefined;
+    const questions = await this.questionsService.findPopular(
+      data.limit || 20,
+      { category: data.category, difficulty },
+    );
+    return {
+      questions: questions.map((q) => this.toGrpcResponse(q as MongoDocument)),
+    };
+  }
+
+  @GrpcMethod("QuestionService", "GetCommunityQuestions")
+  async getCommunityQuestions(
+    data: GetCommunityQuestionsRequest,
+  ): Promise<QuestionsListResponse> {
+    this.logger.debug(`gRPC GetCommunityQuestions page=${data.page}`);
+    const difficulty = data.difficulty
+      ? mapInterviewDifficultyToQuestionDifficulty(data.difficulty)
+      : undefined;
+    const result = await this.questionsService.findCommunityQuestions({
+      page: data.page || 1,
+      limit: data.limit || 12,
+      category: data.category,
+      difficulty,
+      companyTag: data.companyTag,
+      sortBy: data.sortBy,
+    });
+    return {
+      questions: result.questions.map((q) =>
+        this.toGrpcResponse(q as MongoDocument),
+      ),
+      total: result.total,
+      page: result.page,
+      totalPages: result.totalPages,
+    };
+  }
+
+  @GrpcMethod("QuestionService", "SubmitCommunityQuestion")
+  async submitCommunityQuestion(
+    data: SubmitCommunityQuestionRequest,
+  ): Promise<QuestionResponse> {
+    this.logger.debug("gRPC SubmitCommunityQuestion");
+    const difficulty = mapInterviewDifficultyToQuestionDifficulty(
+      data.difficulty || "",
+    );
+    const question = await this.questionsService.submitCommunityQuestion({
+      title: data.title,
+      content: data.content,
+      type: data.type || "technical",
+      difficulty: difficulty || "medium",
+      category: data.category,
+      companyTag: data.companyTag || "",
+      tags: data.tags || [],
+      submittedBy: data.submittedBy,
+      submitterName: data.submitterName,
+      hints: data.hints,
+      sampleAnswer: data.sampleAnswer,
+    });
+    return this.toGrpcResponse(question as MongoDocument);
+  }
+
+  @GrpcMethod("QuestionService", "UpvoteQuestion")
+  async upvoteQuestion(
+    data: UpvoteQuestionRequest,
+  ): Promise<UpvoteQuestionResponse> {
+    this.logger.debug(`gRPC UpvoteQuestion: ${data.questionId}`);
+    const result = await this.questionsService.toggleUpvote(
+      data.questionId,
+      data.userId,
+    );
+    return {
+      questionId: data.questionId,
+      upvoteCount: result.upvoteCount,
+      upvoted: result.upvoted,
+    };
+  }
+
   private toGrpcResponse(item: MongoDocument): QuestionResponse {
     const json = item.toJSON ? item.toJSON() : item;
+
+    const parsedContent = QuestionsService.parseQuestionText(json.content || "");
 
     return {
       id: json._id?.toString() || json.id || "",
       title: json.title || "",
-      content: json.content || "",
+      content: parsedContent,
       hints: json.hints || "",
       sampleAnswer: json.sampleAnswer || "",
       type: json.type || "",
@@ -167,6 +257,14 @@ export class GrpcQuestionsController {
         text: o.text || "",
         isCorrect: o.isCorrect || false,
       })),
+      usageCount: json.usageCount || 0,
+      companyTag: json.companyTag || "",
+      upvoteCount: json.upvoteCount || 0,
+      createdBy: json.createdBy || "seed",
+      submitterName: json.submitterName || "",
+      createdAt: json.createdAt
+        ? new Date(json.createdAt).toISOString()
+        : "",
     };
   }
 }

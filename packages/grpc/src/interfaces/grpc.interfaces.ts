@@ -355,6 +355,46 @@ export interface IGrpcInterviewService {
 // Question Service
 // ===========================
 
+export interface GetPopularQuestionsRequest {
+  limit: number;
+  category?: string;
+  difficulty?: string;
+}
+
+export interface GetCommunityQuestionsRequest {
+  page: number;
+  limit: number;
+  category?: string;
+  difficulty?: string;
+  companyTag?: string;
+  sortBy?: string;
+}
+
+export interface SubmitCommunityQuestionRequest {
+  title: string;
+  content: string;
+  type: string;
+  difficulty: string;
+  category: string;
+  companyTag: string;
+  tags: string[];
+  submittedBy: string;
+  submitterName: string;
+  hints?: string;
+  sampleAnswer?: string;
+}
+
+export interface UpvoteQuestionRequest {
+  questionId: string;
+  userId: string;
+}
+
+export interface UpvoteQuestionResponse {
+  questionId: string;
+  upvoteCount: number;
+  upvoted: boolean;
+}
+
 export interface GetQuestionRequest {
   questionId: string;
 }
@@ -426,6 +466,12 @@ export interface QuestionResponse {
   category: string;
   tags: string[];
   mcqOptions: McqOptionResponse[];
+  usageCount: number;
+  companyTag: string;
+  upvoteCount: number;
+  createdBy: string;
+  submitterName: string;
+  createdAt: string;
 }
 
 export interface QuestionsListResponse {
@@ -455,6 +501,18 @@ export interface IGrpcQuestionService {
   deleteQuestion(
     data: DeleteQuestionRequest,
   ): Observable<Record<string, never>>;
+  getPopularQuestions(
+    data: GetPopularQuestionsRequest,
+  ): Observable<{ questions: QuestionResponse[] }>;
+  getCommunityQuestions(
+    data: GetCommunityQuestionsRequest,
+  ): Observable<QuestionsListResponse>;
+  submitCommunityQuestion(
+    data: SubmitCommunityQuestionRequest,
+  ): Observable<QuestionResponse>;
+  upvoteQuestion(
+    data: UpvoteQuestionRequest,
+  ): Observable<UpvoteQuestionResponse>;
 }
 
 // ===========================

@@ -108,6 +108,110 @@ export class QuestionRepository extends BaseRepository<QuestionDocument> {
     return super.count(query);
   }
 
+  /**
+   * Returns questions with highest usageCount (frequently asked).
+   * Uses adaptive threshold: picks top N questions sorted by usageCount desc.
+   */
+  async findPopular(
+    limit = 20,
+    filter: { category?: string; difficulty?: string } = {},
+  ): Promise<QuestionDocument[]> {
+    const query: FilterQuery<Question> = { isActive: true };
+    if (filter.category) query.category = filter.category;
+    if (filter.difficulty) query.difficulty = filter.difficulty;
+
+    return this.questionModel
+      .find(query)
+      .sort({ usageCount: -1 })
+      .limit(limit)
+      .exec();
+  }
+
+  /**
+   * Returns community-submitted questions with pagination.
+   */
+  async findCommunityQuestions(
+    options: {
+      page?: number;
+      limit?: number;
+      category?: string;
+      difficulty?: string;
+      companyTag?: string;
+      sortBy?: string;
+    } = {},
+  ): Promise<{ questions: QuestionDocument[]; total: number }> {
+    const { page = 1, limit = 12, sortBy = "newest" } = options;
+    const query: FilterQuery<Question> = {
+      createdBy: "community",
+      isActive: true,
+    };
+    if (options.category) query.category = options.category;
+    if (options.difficulty) query.difficulty = options.difficulty;
+    if (options.companyTag) query.companyTag = options.companyTag;
+
+    const sortMap: Record<string, Record<string, 1 | -1>> = {
+      newest: { createdAt: -1 },
+      popular: { upvoteCount: -1 },
+      oldest: { createdAt: 1 },
+    };
+    const sort = sortMap[sortBy] || sortMap.newest;
+
+    const [questions, total] = await Promise.all([
+      this.questionModel
+        .find(query)
+        .sort(sort)
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .exec(),
+      this.questionModel.countDocuments(query).exec(),
+    ]);
+
+    return { questions, total };
+  }
+
+  /**
+   * Toggle upvote for a question. Returns updated count and whether user upvoted.
+   */
+  async toggleUpvote(
+    questionId: string,
+    userId: string,
+  ): Promise<{ upvoteCount: number; upvoted: boolean }> {
+    const question = await this.questionModel.findById(questionId).exec();
+    if (!question) throw new Error("Question not found");
+
+    const alreadyUpvoted = question.upvotedBy?.includes(userId);
+
+    if (alreadyUpvoted) {
+      await this.questionModel
+        .findByIdAndUpdate(questionId, {
+          $pull: { upvotedBy: userId },
+          $inc: { upvoteCount: -1 },
+        })
+        .exec();
+      return {
+        upvoteCount: Math.max(0, (question.upvoteCount || 0) - 1),
+        upvoted: false,
+      };
+    } else {
+      await this.questionModel
+        .findByIdAndUpdate(questionId, {
+          $addToSet: { upvotedBy: userId },
+          $inc: { upvoteCount: 1 },
+        })
+        .exec();
+      return {
+        upvoteCount: (question.upvoteCount || 0) + 1,
+        upvoted: true,
+      };
+    }
+  }
+
+  async getDistinctCompanyTags(): Promise<string[]> {
+    return this.questionModel
+      .distinct("companyTag", { isActive: true, companyTag: { $ne: "" } })
+      .exec();
+  }
+
   private buildFilterQuery(filter: QuestionFilter): FilterQuery<Question> {
     const query: FilterQuery<Question> = {};
 
