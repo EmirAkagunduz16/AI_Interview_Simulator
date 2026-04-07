@@ -274,11 +274,50 @@ export class InterviewFlowService implements OnModuleInit {
 
   // ── Save question to pool (during interview) ───────────────────────
 
+  /**
+   * Only save actual interview questions to the pool.
+   * Skip greetings, conversational text, and AI responses.
+   */
   private async saveQuestionToPool(
     questionText: string,
     interviewId: string,
   ): Promise<void> {
-    if (!questionText || questionText.trim().length < 15) return;
+    if (!questionText || questionText.trim().length < 30) return;
+
+    const text = questionText.trim();
+
+    // Must contain a question mark — real questions always do
+    if (!text.includes("?")) return;
+
+    // Skip conversational / greeting / AI response patterns
+    const skipPatterns = [
+      /^merhaba/i,
+      /^merhabalar/i,
+      /^hos\s*geldin/i,
+      /^hoş\s*geldin/i,
+      /^selam/i,
+      /^güzel\s+cevap/i,
+      /^harika\s+cevap/i,
+      /^doğru[,.\s]/i,
+      /^evet[,.\s]/i,
+      /^tam\s+olarak/i,
+      /^kesinlikle/i,
+      /^aynen/i,
+      /^çok\s+iyi/i,
+      /^çok\s+güzel/i,
+      /^teşekkür/i,
+      /^tebrik/i,
+      /^bravo/i,
+      /^mülakatınız/i,
+      /^mülakat\s+deneyimi/i,
+      /^bir\s+mülakat\s+deneyimi/i,
+    ];
+
+    if (skipPatterns.some((p) => p.test(text))) return;
+
+    // Extract the actual question: find the last sentence with '?'
+    const cleaned = InterviewFlowService.extractQuestion(text);
+    if (!cleaned || cleaned.length < 20) return;
 
     let interview: InterviewResponse | null = null;
     try {
@@ -299,18 +338,57 @@ export class InterviewFlowService implements OnModuleInit {
     try {
       await firstValueFrom(
         this.questionService.createQuestion({
-          title: questionText.slice(0, 200),
-          content: questionText,
+          title: cleaned.slice(0, 200),
+          content: cleaned,
           type: "technical",
           difficulty,
           category: field || "fullstack",
           tags: techStack || [],
         }),
       );
-      this.logger.debug(`Question saved to pool: ${questionText.slice(0, 50)}...`);
+      this.logger.debug(`Question saved to pool: ${cleaned.slice(0, 50)}...`);
     } catch {
       // Duplicate or validation error — skip silently
     }
+  }
+
+  /**
+   * Extracts the actual question from AI text that may contain
+   * conversational prefixes like "Doğru, tam da bu yüzden... Peki X?"
+   */
+  private static extractQuestion(text: string): string {
+    // Split by sentence boundaries and find sentences with '?'
+    const sentences = text.split(/(?<=[.!?])\s+/);
+    const questionSentences = sentences.filter((s) => s.includes("?"));
+
+    if (questionSentences.length === 0) return "";
+
+    // Take the first question sentence onward
+    const firstQIdx = sentences.findIndex((s) => s.includes("?"));
+    // Include context: take from 1 sentence before the question if it exists
+    const startIdx = Math.max(0, firstQIdx - 1);
+    let result = sentences.slice(startIdx).join(" ").trim();
+
+    // Strip common AI prefixes
+    const prefixes = [
+      /^(?:peki|tamam|güzel|harika|evet|doğru|aynen|kesinlikle)[,.\s]+/i,
+      /^(?:başlayalım|devam edelim|bir sonraki soru)[,.\s]+/i,
+      /^(?:ilk|ikinci|üçüncü|sonraki|bir sonraki|son)\s+soru(?:m|muz)?[:\s]*/i,
+      /^soru(?:m|muz)?\s*(?:\d+)?[:\s]*/i,
+      /^(?:tam da bu yüzden)[,.\s]+/i,
+      /^(?:çok iyi|çok güzel|güzel cevap|harika cevap)[,.\s]+/i,
+    ];
+
+    for (const p of prefixes) {
+      result = result.replace(p, "");
+    }
+
+    result = result.trim();
+    if (result.length > 0) {
+      result = result.charAt(0).toUpperCase() + result.slice(1);
+    }
+
+    return result;
   }
 
   // ── get_next_question ──────────────────────────────────────────────

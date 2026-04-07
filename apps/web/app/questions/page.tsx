@@ -109,6 +109,7 @@ function QuestionsContent() {
 
   const [activeTab, setActiveTab] = useState<TabKey>("popular");
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [selectedQuestion, setSelectedQuestion] = useState<QuestionItem | null>(null);
   const [filterCategory, setFilterCategory] = useState("");
   const [filterDifficulty, setFilterDifficulty] = useState("");
   const [filterCompany, setFilterCompany] = useState("");
@@ -455,6 +456,7 @@ function QuestionsContent() {
                   question={q}
                   variant="popular"
                   onUpvote={() => upvoteMutation.mutate(q.id)}
+                  onClick={() => setSelectedQuestion(q)}
                 />
               ))
             )}
@@ -482,6 +484,7 @@ function QuestionsContent() {
                     question={q}
                     variant="community"
                     onUpvote={() => upvoteMutation.mutate(q.id)}
+                    onClick={() => setSelectedQuestion(q)}
                   />
                 ))
               )}
@@ -504,6 +507,17 @@ function QuestionsContent() {
           </>
         )}
       </div>
+
+      {/* Question Detail Modal */}
+      {selectedQuestion && (
+        <QuestionDetailModal
+          question={selectedQuestion}
+          onClose={() => setSelectedQuestion(null)}
+          onUpvote={() => {
+            upvoteMutation.mutate(selectedQuestion.id);
+          }}
+        />
+      )}
 
       {/* Submit Modal */}
       {showSubmitModal && (
@@ -626,10 +640,12 @@ function QuestionCard({
   question,
   variant,
   onUpvote,
+  onClick,
 }: {
   question: QuestionItem;
   variant: "popular" | "community";
   onUpvote: () => void;
+  onClick: () => void;
 }) {
   const fieldInfo = FIELD_LABELS[question.category] || {
     label: question.category,
@@ -639,7 +655,7 @@ function QuestionCard({
   const diffLabel = DIFFICULTY_LABELS[question.difficulty] || question.difficulty;
 
   return (
-    <div className={`question-card ${variant}`}>
+    <div className={`question-card ${variant}`} onClick={onClick} role="button" tabIndex={0}>
       {/* Card top accent line */}
       <div className="card-accent" />
 
@@ -701,14 +717,112 @@ function QuestionCard({
         {variant === "popular" && (
           <span className="popular-badge">
             <Zap size={13} />
-            Sık Sorulan
+            Sik Sorulan
           </span>
         )}
 
-        <button className="upvote-btn" onClick={onUpvote}>
+        <button
+          className="upvote-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            onUpvote();
+          }}
+        >
           <ChevronUp size={16} />
           <span>{question.upvoteCount || 0}</span>
         </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Question Detail Modal ─── */
+function QuestionDetailModal({
+  question,
+  onClose,
+  onUpvote,
+}: {
+  question: QuestionItem;
+  onClose: () => void;
+  onUpvote: () => void;
+}) {
+  const fieldInfo = FIELD_LABELS[question.category] || {
+    label: question.category,
+    icon: "📋",
+  };
+  const diffColor = DIFFICULTY_COLORS[question.difficulty] || "#94a3b8";
+  const diffLabel = DIFFICULTY_LABELS[question.difficulty] || question.difficulty;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content question-detail-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <div className="detail-badges">
+            <span className="badge-field">
+              <span className="badge-emoji">{fieldInfo.icon}</span>
+              {fieldInfo.label}
+            </span>
+            <span
+              className="badge-difficulty"
+              style={{ color: diffColor, borderColor: `${diffColor}40` }}
+            >
+              {diffLabel}
+            </span>
+            {question.companyTag && (
+              <span className="badge-company">
+                <Building2 size={12} />
+                {question.companyTag}
+              </span>
+            )}
+            {question.usageCount > 0 && (
+              <span className="detail-usage">
+                <TrendingUp size={13} />
+                {question.usageCount}x soruldu
+              </span>
+            )}
+          </div>
+          <button className="modal-close" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="detail-body">
+          <p className="detail-question-text">{question.content}</p>
+
+          {question.tags && question.tags.length > 0 && (
+            <div className="detail-tags">
+              {question.tags.map((tag) => (
+                <span key={tag} className="tag">
+                  <Hash size={11} />
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="detail-footer">
+          <div className="detail-meta">
+            {question.submitterName && (
+              <span className="submitter">
+                <Award size={13} />
+                {question.submitterName}
+              </span>
+            )}
+            {question.createdAt && (
+              <span className="detail-date">
+                {new Date(question.createdAt).toLocaleDateString("tr-TR")}
+              </span>
+            )}
+          </div>
+          <button
+            className="upvote-btn"
+            onClick={onUpvote}
+          >
+            <ChevronUp size={16} />
+            <span>{question.upvoteCount || 0}</span>
+          </button>
+        </div>
       </div>
     </div>
   );

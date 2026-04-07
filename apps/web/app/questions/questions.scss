@@ -436,6 +436,7 @@
   gap: 0.65rem;
   transition: all 0.25s;
   overflow: hidden;
+  cursor: pointer;
 
   .card-accent {
     position: absolute;
@@ -797,6 +798,144 @@
     &:disabled {
       opacity: 0.6;
       cursor: not-allowed;
+    }
+  }
+}
+
+/* ─── Question Detail Modal ──────────────────────────── */
+.question-detail-modal {
+  max-width: 600px;
+
+  .modal-header {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .detail-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+
+    .badge-field,
+    .badge-difficulty,
+    .badge-company {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .badge-field {
+      background: rgba(139, 92, 246, 0.1);
+      color: #c4b5fd;
+
+      .badge-emoji {
+        font-size: 0.85rem;
+      }
+    }
+
+    .badge-difficulty {
+      border: 1px solid;
+    }
+
+    .badge-company {
+      background: rgba(59, 130, 246, 0.1);
+      color: #60a5fa;
+    }
+
+    .detail-usage {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.75rem;
+      color: #f59e0b;
+      font-weight: 500;
+    }
+  }
+
+  .detail-body {
+    padding: 1.5rem;
+
+    .detail-question-text {
+      font-size: 0.95rem;
+      line-height: 1.7;
+      color: #e2e8f0;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .detail-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 1.25rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+
+      .tag {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.2rem 0.55rem;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 6px;
+        font-size: 0.75rem;
+        color: #94a3b8;
+        font-weight: 500;
+      }
+    }
+  }
+
+  .detail-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+
+    .detail-meta {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+
+      .submitter {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 0.78rem;
+        color: #64748b;
+      }
+
+      .detail-date {
+        font-size: 0.75rem;
+        color: #475569;
+      }
+    }
+
+    .upvote-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.15rem;
+      padding: 0.4rem 0.65rem;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      color: #94a3b8;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+
+      &:hover {
+        background: rgba(139, 92, 246, 0.1);
+        border-color: rgba(139, 92, 246, 0.2);
+        color: #c4b5fd;
+      }
     }
   }
 }

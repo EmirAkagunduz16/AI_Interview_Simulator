@@ -30,6 +30,21 @@ export class QuestionsService {
   ) {}
 
   async create(dto: CreateQuestionDto): Promise<QuestionDocument> {
+    // Deduplication: check if a similar question already exists
+    if (dto.content && dto.category) {
+      const existing = await this.questionRepository.findSimilar(
+        dto.content,
+        dto.category,
+      );
+      if (existing) {
+        this.logger.debug(
+          `Duplicate question detected, incrementing usage: ${existing._id}`,
+        );
+        await this.questionRepository.incrementUsage(existing._id.toString());
+        return existing;
+      }
+    }
+
     const question = await this.questionRepository.create({
       ...dto,
       tags: dto.tags || [],
@@ -182,28 +197,59 @@ export class QuestionsService {
   }
 
   /**
-   * Strips conversational AI prefixes from question text.
-   * e.g. "Peki, başlayalım. İlk sorum: X?" → "X?"
+   * Strips conversational AI prefixes from question text and extracts the actual question.
+   * e.g. "Doğru, tam da bu yüzden NestJS'te... Peki bu yapıyı X?" → "Bu yapıyı X?"
    */
   static parseQuestionText(raw: string): string {
     if (!raw) return raw;
-    // Remove common AI conversational prefixes
+
+    let text = raw.trim();
+
+    // If text contains '?', try to extract just the question part
+    if (text.includes("?")) {
+      const sentences = text.split(/(?<=[.!?])\s+/);
+      const questionSentences = sentences.filter((s) => s.includes("?"));
+      if (questionSentences.length > 0) {
+        const firstQIdx = sentences.findIndex((s) => s.includes("?"));
+        // Include 1 sentence of context before the question
+        const startIdx = Math.max(0, firstQIdx - 1);
+        text = sentences.slice(startIdx).join(" ").trim();
+      }
+    }
+
+    // Remove common AI conversational prefixes (expanded list)
     const patterns = [
-      /^(?:peki|tamam|güzel|harika|evet)[,.]?\s*/i,
-      /^(?:başlayalım|devam edelim|bir sonraki soru)[,.]?\s*/i,
+      /^(?:peki|tamam|güzel|harika|evet|doğru|aynen|kesinlikle)[,.\s]+/i,
+      /^(?:tam da bu yüzden|tam olarak|çok iyi|çok güzel)[,.\s]+/i,
+      /^(?:güzel cevap|harika cevap|iyi cevap)[,.\s]+/i,
+      /^(?:başlayalım|devam edelim|bir sonraki soru|şimdi)[,.\s]+/i,
       /^(?:ilk|ikinci|üçüncü|sonraki|bir sonraki|son)\s+soru(?:m|muz)?[:\s]*/i,
       /^soru(?:m|muz)?\s*(?:\d+)?[:\s]*/i,
+      /^(?:merhaba|merhabalar|selam|hoş\s*geldin)[,.\s]+/i,
+      /^(?:teşekkür|tebrik|bravo)[,.\s]+/i,
     ];
-    let text = raw.trim();
-    for (const p of patterns) {
-      text = text.replace(p, "");
+
+    // Apply patterns iteratively (some text may have multiple prefixes)
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const p of patterns) {
+        const before = text;
+        text = text.replace(p, "");
+        if (text !== before) changed = true;
+      }
     }
+
+    text = text.trim();
+
     // If there's a colon early in the text, take everything after it
     const colonIdx = text.indexOf(":");
     if (colonIdx > 0 && colonIdx < 60) {
       const afterColon = text.slice(colonIdx + 1).trim();
       if (afterColon.length > 20) text = afterColon;
     }
+
+    if (!text) return raw.trim();
     return text.charAt(0).toUpperCase() + text.slice(1);
   }
 

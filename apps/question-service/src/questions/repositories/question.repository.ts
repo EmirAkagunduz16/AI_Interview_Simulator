@@ -206,6 +206,27 @@ export class QuestionRepository extends BaseRepository<QuestionDocument> {
     }
   }
 
+  /**
+   * Find an existing question with similar content (first 100 chars match).
+   */
+  async findSimilar(
+    content: string,
+    category: string,
+  ): Promise<QuestionDocument | null> {
+    if (!content || content.length < 20) return null;
+    // Normalize: take first 100 chars, escape regex specials
+    const prefix = content
+      .slice(0, 100)
+      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return this.questionModel
+      .findOne({
+        isActive: true,
+        category,
+        content: { $regex: `^${prefix}`, $options: "i" },
+      })
+      .exec();
+  }
+
   async getDistinctCompanyTags(): Promise<string[]> {
     return this.questionModel
       .distinct("companyTag", { isActive: true, companyTag: { $ne: "" } })

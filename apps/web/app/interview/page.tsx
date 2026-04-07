@@ -128,9 +128,15 @@ export default function InterviewPage() {
 
   return (
     <AuthGuard>
-      <div className={`interview-page ${step === "interview" ? "el-active" : ""}`}>
-        {renderContent()}
-      </div>
+      {step === "config" ? (
+        <div className="interview-config-page">
+          {renderContent()}
+        </div>
+      ) : (
+        <div className={`interview-page ${step === "interview" ? "el-active" : ""}`}>
+          {renderContent()}
+        </div>
+      )}
     </AuthGuard>
   );
 }
