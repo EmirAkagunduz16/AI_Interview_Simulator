@@ -717,7 +717,7 @@ function QuestionCard({
         {variant === "popular" && (
           <span className="popular-badge">
             <Zap size={13} />
-            Sik Sorulan
+            Sık Sorulan
           </span>
         )}
 
