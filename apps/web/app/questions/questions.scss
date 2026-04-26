@@ -721,6 +721,29 @@
   flex-direction: column;
   gap: 1rem;
 
+  .ai-classify-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    padding: 0.65rem 0.85rem;
+    background: linear-gradient(
+      135deg,
+      rgba(124, 58, 237, 0.12),
+      rgba(99, 102, 241, 0.08)
+    );
+    border: 1px solid rgba(139, 92, 246, 0.25);
+    border-radius: 8px;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    color: #c4b5fd;
+
+    svg {
+      flex-shrink: 0;
+      margin-top: 2px;
+      color: #a78bfa;
+    }
+  }
+
   .form-group {
     display: flex;
     flex-direction: column;

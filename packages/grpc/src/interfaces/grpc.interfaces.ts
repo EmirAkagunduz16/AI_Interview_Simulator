@@ -371,11 +371,15 @@ export interface GetCommunityQuestionsRequest {
 }
 
 export interface SubmitCommunityQuestionRequest {
-  title: string;
+  /** Optional — when empty, the AI classifier in question-service generates one */
+  title?: string;
   content: string;
-  type: string;
-  difficulty: string;
-  category: string;
+  /** Optional — defaults to "technical" */
+  type?: string;
+  /** Optional — when empty, the AI classifier determines difficulty */
+  difficulty?: string;
+  /** Optional — when empty, the AI classifier determines the field */
+  category?: string;
   companyTag: string;
   tags: string[];
   submittedBy: string;

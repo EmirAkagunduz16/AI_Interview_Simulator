@@ -203,14 +203,18 @@ export class GrpcQuestionsController {
     data: SubmitCommunityQuestionRequest,
   ): Promise<QuestionResponse> {
     this.logger.debug("gRPC SubmitCommunityQuestion");
-    const difficulty = mapInterviewDifficultyToQuestionDifficulty(
-      data.difficulty || "",
-    );
+    // difficulty/category/title are optional now — when missing, the
+    // service will auto-classify the question via Gemini.
+    const rawDifficulty = (data.difficulty || "").trim();
+    const difficulty = rawDifficulty
+      ? mapInterviewDifficultyToQuestionDifficulty(rawDifficulty) || rawDifficulty
+      : "";
+
     const question = await this.questionsService.submitCommunityQuestion({
       title: data.title,
       content: data.content,
       type: data.type || "technical",
-      difficulty: difficulty || "medium",
+      difficulty,
       category: data.category,
       companyTag: data.companyTag || "",
       tags: data.tags || [],

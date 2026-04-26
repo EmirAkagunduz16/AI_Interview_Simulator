@@ -25,6 +25,7 @@ import {
   Zap,
   Award,
   Hash,
+  Wand2,
 } from "lucide-react";
 import { AuthGuard } from "@/features/auth/components";
 import { useAuth } from "@/features/auth/hooks/useAuth";
@@ -117,11 +118,10 @@ function QuestionsContent() {
   const [communityPage, setCommunityPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Submit form state
-  const [formTitle, setFormTitle] = useState("");
+  // Submit form state — field/level are determined by the AI classifier
+  // server-side, so the user only provides the question content (and optional
+  // company tag / technology hints).
   const [formContent, setFormContent] = useState("");
-  const [formCategory, setFormCategory] = useState("backend");
-  const [formDifficulty, setFormDifficulty] = useState("intermediate");
   const [formCompany, setFormCompany] = useState("");
   const [formTags, setFormTags] = useState("");
 
@@ -169,13 +169,11 @@ function QuestionsContent() {
     },
   });
 
-  // Submit mutation
+  // Submit mutation — only content is mandatory; the backend classifies the
+  // question via Gemini to fill in field/level/title/tags as needed.
   const submitMutation = useMutation({
     mutationFn: async (data: {
-      title: string;
       content: string;
-      category: string;
-      difficulty: string;
       companyTag: string;
       tags: string[];
     }) => {
@@ -201,22 +199,16 @@ function QuestionsContent() {
   });
 
   function resetForm() {
-    setFormTitle("");
     setFormContent("");
-    setFormCategory("backend");
-    setFormDifficulty("intermediate");
     setFormCompany("");
     setFormTags("");
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!formTitle.trim() || !formContent.trim()) return;
+    if (!formContent.trim()) return;
     submitMutation.mutate({
-      title: formTitle.trim(),
       content: formContent.trim(),
-      category: formCategory,
-      difficulty: formDifficulty,
       companyTag: formCompany,
       tags: formTags
         .split(",")
@@ -536,53 +528,23 @@ function QuestionsContent() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="submit-form">
-              <div className="form-group">
-                <label>Soru Başlığı</label>
-                <input
-                  type="text"
-                  placeholder="Kısa ve açıklayıcı bir başlık"
-                  value={formTitle}
-                  onChange={(e) => setFormTitle(e.target.value)}
-                  required
-                />
+              <div className="ai-classify-hint">
+                <Wand2 size={14} />
+                <span>
+                  Alan ve seviye, soru gönderildiğinde AI tarafından otomatik
+                  belirlenir. Sen sadece soruyu yaz.
+                </span>
               </div>
               <div className="form-group">
-                <label>Soru İçeriği</label>
+                <label>Soru</label>
                 <textarea
-                  placeholder="Sorunun tam metnini yazın..."
+                  placeholder="Sormak istediğin mülakat sorusunun tam metnini yaz..."
                   value={formContent}
                   onChange={(e) => setFormContent(e.target.value)}
-                  rows={4}
+                  rows={5}
                   required
+                  minLength={20}
                 />
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Alan</label>
-                  <select
-                    value={formCategory}
-                    onChange={(e) => setFormCategory(e.target.value)}
-                  >
-                    {CATEGORY_OPTIONS.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Seviye</label>
-                  <select
-                    value={formDifficulty}
-                    onChange={(e) => setFormDifficulty(e.target.value)}
-                  >
-                    {DIFFICULTY_OPTIONS.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
               </div>
               <div className="form-group">
                 <label>
@@ -604,11 +566,11 @@ function QuestionsContent() {
               <div className="form-group">
                 <label>
                   <Tag size={14} />
-                  Teknoloji Etiketleri (virgülle ayırın)
+                  Teknoloji Etiketleri (Opsiyonel)
                 </label>
                 <input
                   type="text"
-                  placeholder="React, Node.js, System Design"
+                  placeholder="örn. React, Node.js, TypeScript"
                   value={formTags}
                   onChange={(e) => setFormTags(e.target.value)}
                 />
@@ -616,10 +578,10 @@ function QuestionsContent() {
               <button
                 type="submit"
                 className="form-submit-btn"
-                disabled={submitMutation.isPending}
+                disabled={submitMutation.isPending || formContent.trim().length < 20}
               >
                 {submitMutation.isPending ? (
-                  "Gönderiliyor..."
+                  "AI sınıflandırıyor..."
                 ) : (
                   <>
                     <Send size={16} />

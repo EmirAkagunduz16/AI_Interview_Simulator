@@ -18,6 +18,7 @@ import {
 import { QuestionNotFoundException } from "../common/exceptions";
 import { GeminiService } from "./gemini.service";
 import { RedisService } from "../common/redis/redis.service";
+import { mapInterviewDifficultyToQuestionDifficulty } from "@ai-coach/shared-types";
 
 @Injectable()
 export class QuestionsService {
@@ -281,11 +282,11 @@ export class QuestionsService {
   }
 
   async submitCommunityQuestion(dto: {
-    title: string;
+    title?: string;
     content: string;
-    type: string;
-    difficulty: string;
-    category: string;
+    type?: string;
+    difficulty?: string;
+    category?: string;
     companyTag: string;
     tags: string[];
     submittedBy: string;
@@ -293,8 +294,50 @@ export class QuestionsService {
     hints?: string;
     sampleAnswer?: string;
   }): Promise<QuestionDocument> {
+    // Auto-classify with Gemini to determine category, difficulty, and title.
+    // Tags are always supplied by the user; AI never overwrites them.
+    const needsClassification =
+      !dto.title?.trim() || !dto.category?.trim() || !dto.difficulty?.trim();
+
+    let title = dto.title?.trim() || "";
+    let category = dto.category?.trim() || "";
+    let difficulty = dto.difficulty?.trim() || "";
+    const tags = Array.isArray(dto.tags) ? dto.tags.filter(Boolean) : [];
+
+    if (needsClassification) {
+      try {
+        const classification = await this.geminiService.classifyQuestion(
+          dto.content,
+        );
+        if (!title) title = classification.title;
+        if (!category) category = classification.category;
+        if (!difficulty) difficulty = classification.difficulty;
+      } catch (e) {
+        this.logger.warn(
+          `Auto-classification failed, using fallbacks: ${(e as Error).message}`,
+        );
+        if (!title) title = dto.content.slice(0, 80).trim() || "Topluluk sorusu";
+        if (!category) category = "fullstack";
+        if (!difficulty) difficulty = "intermediate";
+      }
+    }
+
+    // Normalize difficulty to the stored enum (easy / medium / hard).
+    // Gemini may return junior/intermediate/senior or the storage values directly.
+    difficulty = mapInterviewDifficultyToQuestionDifficulty(difficulty);
+
     const question = await this.questionRepository.create({
-      ...dto,
+      title,
+      content: dto.content,
+      type: dto.type || "technical",
+      difficulty,
+      category,
+      companyTag: dto.companyTag,
+      tags,
+      submittedBy: dto.submittedBy,
+      submitterName: dto.submitterName,
+      hints: dto.hints,
+      sampleAnswer: dto.sampleAnswer,
       createdBy: "community",
       mcqOptions: [],
       upvoteCount: 0,

@@ -42,29 +42,94 @@ export class QuestionRepository extends BaseRepository<QuestionDocument> {
     count = 5,
     excludeIds: string[] = [],
   ): Promise<QuestionDocument[]> {
-    const query = this.buildFilterQuery({ ...filter, isActive: true });
+    const baseQuery = this.buildFilterQuery({ ...filter, isActive: true });
 
-    if (excludeIds.length > 0) {
-      const { Types } = require("mongoose");
-      const objectIds = excludeIds
-        .filter((id) => Types.ObjectId.isValid(id))
-        .map((id) => new Types.ObjectId(id));
-      if (objectIds.length > 0) {
-        query._id = { $nin: objectIds };
-      }
+    const { Types } = require("mongoose");
+    const excludeObjectIds = excludeIds
+      .filter((id) => Types.ObjectId.isValid(id))
+      .map((id: string) => new Types.ObjectId(id));
+
+    if (excludeObjectIds.length > 0) {
+      baseQuery._id = { $nin: excludeObjectIds };
     }
 
-    // Pick 3x candidates sorted by usageCount (least-asked first),
-    // then randomly sample from that subset for variety.
-    const poolSize = count * 3;
-    return this.questionModel
-      .aggregate([
-        { $match: query },
-        { $sort: { usageCount: 1 } },
-        { $limit: poolSize },
-        { $sample: { size: count } },
-      ])
-      .exec() as unknown as QuestionDocument[];
+    // Decide how many community questions to mix in. We only consider a
+    // question "community-matched" if it matches field, difficulty AND has
+    // tag overlap — i.e. it would actually be relevant to the interview.
+    const hasMatchCriteria =
+      !!filter.category && !!filter.difficulty && (filter.tags?.length ?? 0) > 0;
+
+    let communityResults: QuestionDocument[] = [];
+    if (hasMatchCriteria) {
+      // Target ~40% of slots from community pool when matches exist.
+      const communityTarget = Math.max(1, Math.round(count * 0.4));
+
+      const communityQuery: Record<string, unknown> = {
+        ...baseQuery,
+        createdBy: "community",
+      };
+
+      const communityPoolSize = communityTarget * 3;
+      communityResults = (await this.questionModel
+        .aggregate([
+          { $match: communityQuery },
+          // Prefer most upvoted community questions, then least-asked
+          { $sort: { upvoteCount: -1, usageCount: 1 } },
+          { $limit: communityPoolSize },
+          { $sample: { size: communityTarget } },
+        ])
+        .exec()) as unknown as QuestionDocument[];
+
+      this.logger.debug(
+        `Community pool returned ${communityResults.length}/${communityTarget} matching ` +
+          `category=${filter.category}, difficulty=${filter.difficulty}, tags=[${filter.tags?.join(",")}]`,
+      );
+    }
+
+    const remaining = count - communityResults.length;
+    let generalResults: QuestionDocument[] = [];
+
+    if (remaining > 0) {
+      const generalQuery: Record<string, unknown> = { ...baseQuery };
+      // Avoid pulling the same community items twice
+      const alreadyPickedIds = communityResults
+        .map((q) => (q as { _id?: { toString(): string } })._id)
+        .filter(Boolean) as Array<{ toString(): string }>;
+
+      if (alreadyPickedIds.length > 0) {
+        const existingNin = (generalQuery._id as { $nin?: unknown[] })?.$nin;
+        const merged = [
+          ...((existingNin as unknown[]) || []),
+          ...alreadyPickedIds,
+        ];
+        generalQuery._id = { $nin: merged };
+      }
+
+      // Pick 3x candidates sorted by usageCount (least-asked first),
+      // then randomly sample from that subset for variety.
+      const poolSize = remaining * 3;
+      generalResults = (await this.questionModel
+        .aggregate([
+          { $match: generalQuery },
+          { $sort: { usageCount: 1 } },
+          { $limit: poolSize },
+          { $sample: { size: remaining } },
+        ])
+        .exec()) as unknown as QuestionDocument[];
+    }
+
+    // Interleave so the user doesn't get all community questions first.
+    return this.interleave(communityResults, generalResults).slice(0, count);
+  }
+
+  private interleave<T>(a: T[], b: T[]): T[] {
+    const out: T[] = [];
+    const max = Math.max(a.length, b.length);
+    for (let i = 0; i < max; i++) {
+      if (i < a.length) out.push(a[i]);
+      if (i < b.length) out.push(b[i]);
+    }
+    return out;
   }
 
   async incrementUsage(id: string): Promise<void> {
