@@ -275,8 +275,86 @@ export class InterviewFlowService implements OnModuleInit {
   // ── Save question to pool (during interview) ───────────────────────
 
   /**
+   * Patterns that indicate the text is conversational filler / agent
+   * narration rather than a clean main question. If ANY of these match the
+   * START of the text we drop the save outright — these are how previous
+   * interviews polluted the bank with entries like "Bir sonraki soru:..."
+   * or "Anladım. Modüllerinizi..." that the agent later treats as real
+   * questions.
+   */
+  private static readonly POOL_SAVE_SKIP_PREFIX_PATTERNS: RegExp[] = [
+    /^merhaba/i,
+    /^merhabalar/i,
+    /^hos\s*geldin/i,
+    /^hoş\s*geldin/i,
+    /^selam/i,
+    /^güzel\s+cevap/i,
+    /^harika\s+cevap/i,
+    /^iyi\s+cevap/i,
+    /^doğru[,.\s]/i,
+    /^evet[,.\s]/i,
+    /^tam\s+olarak/i,
+    /^kesinlikle/i,
+    /^aynen/i,
+    /^çok\s+iyi/i,
+    /^çok\s+güzel/i,
+    /^teşekkür/i,
+    /^tebrik/i,
+    /^bravo/i,
+    /^mülakatınız/i,
+    /^mülakat\s+deneyimi/i,
+    /^bir\s+mülakat\s+deneyimi/i,
+    // Agent narrative / transition phrases — these are NOT questions
+    /^anladım[,.\s]/i,
+    /^anlıyorum[,.\s]/i,
+    /^elbette[,.\s]/i,
+    /^tabii(?:\s*ki)?[,.\s]/i,
+    /^peki[,.\s]/i,
+    /^şimdi[,.\s]/i,
+    /^tamam[,.\s]/i,
+    /^devam\s+edelim/i,
+    /^başlayalım/i,
+    /^bir\s+sonraki\s+soru/i,
+    /^son\s+soru/i,
+    /^ilk\s+soru/i,
+    /^ikinci\s+soru/i,
+    /^üçüncü\s+soru/i,
+    /^dördüncü\s+soru/i,
+    /^beşinci\s+soru/i,
+    /^sonraki\s+soru/i,
+    /^soru\s*\d+/i,
+    /^lütfen/i,
+    /^hadi/i,
+  ];
+
+  /**
+   * Substrings that, if found anywhere in the text, indicate an agent
+   * meta-utterance combining narration with a question (e.g. "Anladım. ...
+   * Peki X?"). These should not become bank entries — when the agent later
+   * recycles them as a "main question" it confuses the candidate.
+   */
+  private static readonly POOL_SAVE_REJECT_SUBSTRINGS: RegExp[] = [
+    /\banladım\b[,.\s]/i,
+    /\bdevam\s+edelim\b/i,
+    /\bbir\s+sonraki\s+soru\b/i,
+    /\bson\s+soru\b/i,
+    /\bilk\s+soru\b/i,
+  ];
+
+  /**
    * Only save actual interview questions to the pool.
    * Skip greetings, conversational text, and AI responses.
+   *
+   * Quality gates (in order):
+   *   1. Text must be non-trivial (≥ 30 chars) and contain at least one '?'
+   *   2. First chunk must not match any conversational prefix pattern
+   *   3. Text must not contain narrative substrings ("Anladım", "Devam edelim", …)
+   *   4. Text must contain exactly ONE '?' — multi-question utterances are
+   *      always agent improvisation (combining a main + follow-up) and would
+   *      pollute the bank if persisted as a single entry
+   *   5. Cleaned, single-sentence question must be ≥ 20 chars after extraction
+   *   6. Persisted with `createdBy: "ai-generated"` so it never masquerades
+   *      as a curated seed/community question
    */
   private async saveQuestionToPool(
     questionText: string,
@@ -286,38 +364,45 @@ export class InterviewFlowService implements OnModuleInit {
 
     const text = questionText.trim();
 
-    // Must contain a question mark — real questions always do
     if (!text.includes("?")) return;
 
-    // Skip conversational / greeting / AI response patterns
-    const skipPatterns = [
-      /^merhaba/i,
-      /^merhabalar/i,
-      /^hos\s*geldin/i,
-      /^hoş\s*geldin/i,
-      /^selam/i,
-      /^güzel\s+cevap/i,
-      /^harika\s+cevap/i,
-      /^doğru[,.\s]/i,
-      /^evet[,.\s]/i,
-      /^tam\s+olarak/i,
-      /^kesinlikle/i,
-      /^aynen/i,
-      /^çok\s+iyi/i,
-      /^çok\s+güzel/i,
-      /^teşekkür/i,
-      /^tebrik/i,
-      /^bravo/i,
-      /^mülakatınız/i,
-      /^mülakat\s+deneyimi/i,
-      /^bir\s+mülakat\s+deneyimi/i,
-    ];
+    if (
+      InterviewFlowService.POOL_SAVE_SKIP_PREFIX_PATTERNS.some((p) =>
+        p.test(text),
+      )
+    ) {
+      return;
+    }
 
-    if (skipPatterns.some((p) => p.test(text))) return;
+    if (
+      InterviewFlowService.POOL_SAVE_REJECT_SUBSTRINGS.some((p) => p.test(text))
+    ) {
+      return;
+    }
 
-    // Extract the actual question: find the last sentence with '?'
+    // Reject combined-question utterances (e.g. "X nedir? Peki Y?"). Bank
+    // entries should be a single clean question, otherwise the agent later
+    // reads them as Frankenstein prompts.
+    const questionMarkCount = (text.match(/\?/g) || []).length;
+    if (questionMarkCount > 1) {
+      this.logger.debug(
+        `saveQuestionToPool skipped (multi-question): ${text.slice(0, 80)}…`,
+      );
+      return;
+    }
+
     const cleaned = InterviewFlowService.extractQuestion(text);
     if (!cleaned || cleaned.length < 20) return;
+
+    // Final paranoid check — the extracted form might still contain a
+    // mid-sentence narrative artifact even if the prefix was clean.
+    if (
+      InterviewFlowService.POOL_SAVE_REJECT_SUBSTRINGS.some((p) =>
+        p.test(cleaned),
+      )
+    ) {
+      return;
+    }
 
     let interview: InterviewResponse | null = null;
     try {
@@ -344,6 +429,10 @@ export class InterviewFlowService implements OnModuleInit {
           difficulty,
           category: field || "fullstack",
           tags: techStack || [],
+          // Mark explicitly so curated seed/community pools don't get
+          // contaminated with agent recordings — also lets us audit and
+          // selectively expire ai-generated entries later.
+          createdBy: "ai-generated",
         }),
       );
       this.logger.debug(`Question saved to pool: ${cleaned.slice(0, 50)}...`);
@@ -355,21 +444,19 @@ export class InterviewFlowService implements OnModuleInit {
   /**
    * Extracts the actual question from AI text that may contain
    * conversational prefixes like "Doğru, tam da bu yüzden... Peki X?"
+   *
+   * Only the LAST '?' sentence is kept. Earlier '?' sentences are almost
+   * always contextual setup or a partially-rephrased opener; persisting the
+   * concatenation muddles the bank entry.
    */
   private static extractQuestion(text: string): string {
-    // Split by sentence boundaries and find sentences with '?'
     const sentences = text.split(/(?<=[.!?])\s+/);
     const questionSentences = sentences.filter((s) => s.includes("?"));
 
     if (questionSentences.length === 0) return "";
 
-    // Take the first question sentence onward
-    const firstQIdx = sentences.findIndex((s) => s.includes("?"));
-    // Include context: take from 1 sentence before the question if it exists
-    const startIdx = Math.max(0, firstQIdx - 1);
-    let result = sentences.slice(startIdx).join(" ").trim();
+    let result = questionSentences[questionSentences.length - 1].trim();
 
-    // Strip common AI prefixes
     const prefixes = [
       /^(?:peki|tamam|güzel|harika|evet|doğru|aynen|kesinlikle)[,.\s]+/i,
       /^(?:başlayalım|devam edelim|bir sonraki soru)[,.\s]+/i,
@@ -377,10 +464,17 @@ export class InterviewFlowService implements OnModuleInit {
       /^soru(?:m|muz)?\s*(?:\d+)?[:\s]*/i,
       /^(?:tam da bu yüzden)[,.\s]+/i,
       /^(?:çok iyi|çok güzel|güzel cevap|harika cevap)[,.\s]+/i,
+      /^(?:anladım|anlıyorum|şimdi|elbette|tabii(?:\s*ki)?)[,.\s]+/i,
     ];
 
-    for (const p of prefixes) {
-      result = result.replace(p, "");
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const p of prefixes) {
+        const before = result;
+        result = result.replace(p, "");
+        if (result !== before) changed = true;
+      }
     }
 
     result = result.trim();
@@ -450,6 +544,14 @@ export class InterviewFlowService implements OnModuleInit {
 
   // ── Internal helpers ───────────────────────────────────────────────
 
+  /**
+   * Number of most-recent interviews whose questions are excluded from the
+   * next pick. Kept small so we don't drain the question bank — once a user
+   * has 50+ past interviews, every matching DB question gets blacklisted and
+   * the agent ends up hallucinating fresh ones every time.
+   */
+  private static readonly RECENT_EXCLUSION_INTERVIEW_COUNT = 5;
+
   private async getPreviousQuestionIds(userId: string): Promise<string[]> {
     if (!userId || userId === "anonymous") return [];
     try {
@@ -457,14 +559,16 @@ export class InterviewFlowService implements OnModuleInit {
         this.interviewService.getUserInterviews({
           userId,
           page: 1,
-          limit: 50,
+          limit: InterviewFlowService.RECENT_EXCLUSION_INTERVIEW_COUNT,
         }),
       );
       const ids = prev.interviews
         .flatMap((i) => i.questionIds || [])
         .filter(Boolean);
       if (ids.length > 0) {
-        this.logger.log(`Excluding ${ids.length} previously seen questions`);
+        this.logger.log(
+          `Excluding ${ids.length} questions from last ${InterviewFlowService.RECENT_EXCLUSION_INTERVIEW_COUNT} interviews`,
+        );
       }
       return ids;
     } catch (e) {

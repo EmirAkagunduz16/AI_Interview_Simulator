@@ -50,7 +50,11 @@ export class QuestionsService {
       ...dto,
       tags: dto.tags || [],
       mcqOptions: dto.mcqOptions || [],
-    });
+      // Preserve caller-supplied origin (e.g. "ai-generated" from the AI
+      // service when auto-saving agent utterances). Falls back to the schema
+      // default ("seed") only when the caller omitted it entirely.
+      ...(dto.createdBy ? { createdBy: dto.createdBy } : {}),
+    } as Parameters<typeof this.questionRepository.create>[0]);
     this.logger.log(`Question created: ${question._id}`);
 
     // Cache the new question & invalidate category caches

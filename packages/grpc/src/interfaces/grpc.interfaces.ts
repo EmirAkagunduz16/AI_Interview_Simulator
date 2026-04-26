@@ -429,6 +429,7 @@ export interface CreateQuestionRequest {
   hints?: string;
   sampleAnswer?: string;
   tags?: string[];
+  createdBy?: string;
 }
 
 export interface GenerateQuestionsRequest {

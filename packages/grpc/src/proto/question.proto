@@ -51,6 +51,7 @@ message CreateQuestionRequest {
   optional string hints = 6;
   optional string sample_answer = 7;
   repeated string tags = 8;
+  optional string created_by = 9;
 }
 
 message GenerateQuestionsRequest {

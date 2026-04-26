@@ -1,19 +1,67 @@
 /**
- * Monkey-patch for @elevenlabs/client SDK bug:
- * handleErrorEvent crashes with "Cannot read properties of undefined (reading 'error_type')"
- * when the server sends a { type: "error" } message without the expected error_event property.
+ * Monkey-patches for @elevenlabs/client SDK quirks:
  *
- * This patches VoiceConversation (and its parent BaseConversation) to guard against
- * undefined error_event before accessing its fields.
+ * 1. handleErrorEvent crashes with "Cannot read properties of undefined
+ *    (reading 'error_type')" when the server sends a { type: "error" } event
+ *    without the expected error_event property.
+ *
+ * 2. The SDK tries to publishData(...) the result of a client tool back to
+ *    the agent through livekit-client _after_ we (or the agent itself) have
+ *    closed the WebRTC peer connection — surfacing
+ *    "UnexpectedConnectionState: PC manager is closed" as an unhandled
+ *    rejection. The interview is already ending, so we silently drop this
+ *    specific noise instead of letting it pollute the console / error UI.
  */
 
 import { VoiceConversation, Conversation } from "@elevenlabs/client";
 
 let patched = false;
 
+const isClosedPcManagerError = (reason: unknown): boolean => {
+  if (!reason) return false;
+  const msg =
+    reason instanceof Error
+      ? `${reason.name}: ${reason.message}`
+      : typeof reason === "string"
+        ? reason
+        : "";
+  return /PC manager is closed/i.test(msg) || /UnexpectedConnectionState/i.test(msg);
+};
+
+const installClosedPcSuppressor = () => {
+  if (typeof window === "undefined") return;
+
+  const handle = (event: PromiseRejectionEvent) => {
+    if (isClosedPcManagerError(event.reason)) {
+      // Interview is ending; livekit just couldn't deliver the trailing tool
+      // response. Swallow it so the user doesn't see a misleading red error.
+      event.preventDefault();
+      console.debug(
+        "[ElevenLabs patch] Suppressed harmless PC-closed rejection:",
+        event.reason,
+      );
+    }
+  };
+
+  const errorHandler = (event: ErrorEvent) => {
+    if (isClosedPcManagerError(event.error || event.message)) {
+      event.preventDefault();
+      console.debug(
+        "[ElevenLabs patch] Suppressed harmless PC-closed error event:",
+        event.message,
+      );
+    }
+  };
+
+  window.addEventListener("unhandledrejection", handle);
+  window.addEventListener("error", errorHandler);
+};
+
 export function patchElevenLabsErrorHandler() {
   if (patched) return;
   patched = true;
+
+  installClosedPcSuppressor();
 
   const targets = [VoiceConversation, Conversation].filter(Boolean);
 

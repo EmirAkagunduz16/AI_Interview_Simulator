@@ -20,6 +20,7 @@ import {
   ChatHistory,
 } from "@/features/results/components";
 import type { InterviewResult } from "@/features/results/types";
+import { getDifficultyDisplay } from "@/features/dashboard/data/difficultyLabels";
 import api from "@/lib/axios";
 import "./results.scss";
 
@@ -94,6 +95,7 @@ export default function ResultsPage() {
   const isEvaluating =
     report?.summary === "Değerlendirme hazırlanıyor..." ||
     (!report && data.status === "completed");
+  const difficultyInfo = getDifficultyDisplay(data.difficulty);
 
   return (
     <div className="results-page">
@@ -106,7 +108,22 @@ export default function ResultsPage() {
           </Link>
           <h1>Mülakat Sonuçları</h1>
           <p className="result-meta">
-            {data.field} • {data.techStack?.join(", ") || "—"} •{" "}
+            {data.field} • {data.techStack?.join(", ") || "—"}
+            {difficultyInfo && (
+              <>
+                {" • "}
+                <span
+                  className="result-difficulty"
+                  style={{
+                    color: difficultyInfo.color,
+                    background: difficultyInfo.bg,
+                  }}
+                >
+                  {difficultyInfo.label}
+                </span>
+              </>
+            )}
+            {" • "}
             {new Date(data.createdAt).toLocaleDateString("tr-TR")}
           </p>
         </div>

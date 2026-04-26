@@ -58,4 +58,15 @@ export class CreateQuestionDto {
   @Type(() => McqOptionDto)
   @IsOptional()
   mcqOptions?: McqOptionDto[];
+
+  /**
+   * Origin of the question. Optional for callers; defaults to "seed" at the
+   * schema level. The AI service uses "ai-generated" when capturing agent
+   * utterances during a live interview so they're easy to distinguish from
+   * curated seed and community questions.
+   */
+  @IsString()
+  @IsOptional()
+  @IsEnum(["seed", "ai-generated", "community"])
+  createdBy?: "seed" | "ai-generated" | "community";
 }

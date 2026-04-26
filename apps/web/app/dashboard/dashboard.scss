@@ -311,10 +311,25 @@
       flex-direction: column;
       gap: 0.1rem;
 
+      .card-title-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
       .card-field {
         font-weight: 600;
         font-size: 0.9rem;
         color: #e2e8f0;
+      }
+
+      .card-difficulty {
+        font-size: 0.68rem;
+        font-weight: 600;
+        padding: 0.12rem 0.5rem;
+        border-radius: 999px;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
       }
 
       .card-tech {

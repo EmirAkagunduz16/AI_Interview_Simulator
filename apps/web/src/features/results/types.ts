@@ -18,6 +18,7 @@ export interface InterviewResult {
   id: string;
   field: string;
   techStack: string[];
+  difficulty?: string;
   status: string;
   report?: InterviewReport;
   createdAt: string;

@@ -7,7 +7,7 @@ import {
   normalizeTranscript,
   sanitizeAgentTranscript,
   isPlaceholderMessage,
-  containsErroneousContent,
+  stripErroneousSentences,
 } from "../config/transcript-normalizer";
 import { applySessionLexicon } from "../config/dynamic-interview-lexicon";
 import { patchElevenLabsErrorHandler } from "../config/elevenlabs-patch";
@@ -297,11 +297,40 @@ export function useElevenLabs(
       if (!message.message) return;
       // Skip placeholder messages (e.g. "..." from speech recognition when user hasn't spoken)
       if (isPlaceholderMessage(message.message)) return;
-      // Skip erroneous/hallucinated content (e.g. from misconfigured agent)
-      if (containsErroneousContent(message.message)) return;
 
       const source = message.source === "ai" ? "ai" : "user";
-      const raw = message.message.trim();
+      // Strip hallucinated sentences ("cumhurbaşkanlığı...", "geçiş yapılıyor...",
+      // off-topic political/election content) ONLY for the agent — never
+      // silently mutate the user's transcript.
+      const originalAgentText =
+        source === "ai" ? message.message.trim() : "";
+      const raw =
+        source === "ai"
+          ? stripErroneousSentences(originalAgentText)
+          : message.message.trim();
+
+      // Whole agent turn was hallucinated off-topic → drop it from UI and
+      // nudge the agent back to the current interview question. Without this
+      // the user only hears the irrelevant audio (e.g. an election paragraph)
+      // and the agent has no signal that the topic drifted.
+      if (source === "ai" && originalAgentText && !raw) {
+        const cfg = configRef.current;
+        const hint =
+          `[SYSTEM REFOCUS] Konu dışı bir cümle algılandı ve atlandı. ` +
+          `Mülakat: ${cfg.field} / ${cfg.techStack.join(", ") || "genel"} / ${cfg.difficulty}. ` +
+          `Lütfen şu anki teknik soruya geri dön; siyaset, seçim, gündem gibi konulara değinme.`;
+        try {
+          conversationApiRef.current?.sendContextualUpdate(hint);
+        } catch {
+          /* noop */
+        }
+        console.warn(
+          "[ElevenLabs] Off-topic agent turn stripped, sent refocus hint:",
+          originalAgentText.slice(0, 120),
+        );
+        return;
+      }
+      if (!raw) return;
       const content =
         source === "ai"
           ? normalizeTranscript(sanitizeAgentTranscript(raw))
@@ -595,6 +624,14 @@ export function useElevenLabs(
 
       end_interview: async (parameters: Record<string, unknown>) => {
         console.debug("[ClientTool] end_interview called with:", parameters);
+        // Disconnect AFTER returning, otherwise the ElevenLabs SDK tries to
+        // send our return value back through a closed WebRTC peer connection
+        // and surfaces "UnexpectedConnectionState: PC manager is closed".
+        const scheduleDisconnect = () => {
+          setTimeout(() => {
+            void disconnectVoiceAndResetUi();
+          }, 250);
+        };
         try {
           const response = await api.post("/ai/vapi/webhook", {
             message: {
@@ -615,12 +652,12 @@ export function useElevenLabs(
           scoreSetRef.current = true;
           setOverallScore(score != null ? score : 0);
           accumulatedAnswers.current = [];
-          await disconnectVoiceAndResetUi();
+          scheduleDisconnect();
           return JSON.stringify(result);
         } catch (err) {
           console.error("end_interview error:", err);
           setOverallScore(0);
-          await disconnectVoiceAndResetUi();
+          scheduleDisconnect();
           return JSON.stringify({ error: true });
         }
       },

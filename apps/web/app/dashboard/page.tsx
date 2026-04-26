@@ -23,6 +23,7 @@ import type {
   InterviewListItem,
 } from "@/features/dashboard/types";
 import { FIELD_LABELS } from "@/features/dashboard/data/fieldLabels";
+import { getDifficultyDisplay } from "@/features/dashboard/data/difficultyLabels";
 import api from "@/lib/axios";
 import "./dashboard.scss";
 
@@ -203,6 +204,7 @@ function DashboardContent() {
                   icon: "📋",
                 };
                 const statusInfo = getStatusInfo(interview.status);
+                const difficultyInfo = getDifficultyDisplay(interview.difficulty);
 
                 return (
                   <Link
@@ -213,7 +215,20 @@ function DashboardContent() {
                     <div className="card-left">
                       <span className="card-icon">{fieldInfo.icon}</span>
                       <div className="card-info">
-                        <span className="card-field">{fieldInfo.label}</span>
+                        <div className="card-title-row">
+                          <span className="card-field">{fieldInfo.label}</span>
+                          {difficultyInfo && (
+                            <span
+                              className="card-difficulty"
+                              style={{
+                                color: difficultyInfo.color,
+                                background: difficultyInfo.bg,
+                              }}
+                            >
+                              {difficultyInfo.label}
+                            </span>
+                          )}
+                        </div>
                         <span className="card-tech">
                           {interview.techStack?.join(", ") || "—"}
                         </span>

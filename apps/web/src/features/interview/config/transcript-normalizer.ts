@@ -20,11 +20,32 @@ export function isPlaceholderMessage(text: string): boolean {
   return PLACEHOLDER_PATTERNS.some((re) => re.test(t));
 }
 
-/** Erroneous/hallucinated phrases that should not be shown (e.g. from misconfigured agent) */
+/**
+ * Phrases the agent should never speak (TTS/ASR artifacts, hallucinated system
+ * messages, off-topic political/news content). Sentences containing these get
+ * stripped from the transcript, but the rest of the agent's turn is preserved —
+ * dropping the whole message hid legitimate questions and broke the visible
+ * chat history.
+ *
+ * The political/election-related entries are defensive: the agent occasionally
+ * hallucinates a paragraph about Turkish elections / presidency / public
+ * opinion when the conversation context drifts (long user turns, overlapping
+ * speech). Those bursts are always off-topic in a technical interview, so we
+ * remove them rather than render them.
+ */
 const ERRONEOUS_PHRASES = [
   /cumhurba[sş]kanl[iı]ğ[iı]/i,
   /cumhurbaskanligi/i,
   /geçiş yapılıyor.*lütfen bekleyin/i,
+  // Politics / elections / civic process — hallucination cluster
+  /\bse[çc]menler(in|i|in[ ]|e|den)?\b/i,
+  /\boy verme s[üu]re[çc]leri\b/i,
+  /\boylar[ıi]n say[ıi]m[ıi]\b/i,
+  /\byasal [çc]er[çc]eve(de|den)?\b/i,
+  /\bse[çc]im (sonu[çc]lar[ıi]|komisyonu|kurulu)\b/i,
+  /\bkamuoyu (taraf[ıi]ndan|ve medya)\b/i,
+  /\bmilletvekili|ba[şs]bakan|cumhuriyet\b/i,
+  /\bsiyasi (parti|s[üu]re[çc]|geli[şs]me)\b/i,
 ];
 
 /**
@@ -46,6 +67,10 @@ export function sanitizeAgentTranscript(text: string): string {
     /(Anladım[, ]+h[âa]l[âa]\s+d[üu]ş[üu]n[üu]yorsunuz\.?\s*){2,}/gi;
   t = t.replace(fillerShort, "Anladım, hâlâ düşünüyorsunuz. ");
 
+  // Drop sentences that contain erroneous/hallucinated phrases while keeping
+  // the rest of the message (e.g. "Cumhurbaşkanlığı... Peki X nedir?" → "Peki X nedir?").
+  t = stripErroneousSentences(t);
+
   const sentences = t.split(/(?<=[.!?…])\s+/);
   const out: string[] = [];
   for (const s of sentences) {
@@ -57,6 +82,27 @@ export function sanitizeAgentTranscript(text: string): string {
   return out.join(" ").replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Removes sentences containing erroneous/hallucinated phrases. Returns the
+ * cleaned text. If every sentence is erroneous, returns an empty string so the
+ * caller can decide to skip rendering.
+ */
+export function stripErroneousSentences(text: string): string {
+  const t = text?.trim() || "";
+  if (!t) return "";
+  if (!ERRONEOUS_PHRASES.some((re) => re.test(t))) return t;
+
+  const sentences = t.split(/(?<=[.!?…])\s+/);
+  const kept = sentences.filter(
+    (s) => s.trim() && !ERRONEOUS_PHRASES.some((re) => re.test(s)),
+  );
+  return kept.join(" ").trim();
+}
+
+/**
+ * @deprecated Prefer `stripErroneousSentences` — it preserves valid content
+ * around bad phrases instead of dropping the whole agent turn.
+ */
 export function containsErroneousContent(text: string): boolean {
   const t = text?.trim() || "";
   if (!t) return false;

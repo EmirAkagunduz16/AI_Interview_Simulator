@@ -45,6 +45,20 @@
   .result-meta {
     font-size: 0.85rem;
     color: #7777aa;
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.15rem;
+    align-items: center;
+
+    .result-difficulty {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.15rem 0.55rem;
+      border-radius: 999px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
   }
 }
 

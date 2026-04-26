@@ -10,10 +10,12 @@ import {
   Clock,
 } from "lucide-react";
 import type { TranscriptMessage } from "../../hooks/useElevenLabs";
+import { getDifficultyDisplay } from "@/features/dashboard/data/difficultyLabels";
 
 interface VoiceInterviewPanelProps {
   field: string;
   techStack: string[];
+  difficulty?: string;
   isConnected: boolean;
   isCallActive: boolean;
   isSpeaking: boolean;
@@ -78,6 +80,7 @@ function renderMessageContent(text: string) {
 export default function VoiceInterviewPanel({
   field,
   techStack,
+  difficulty,
   isConnected,
   isCallActive,
   isSpeaking,
@@ -93,6 +96,7 @@ export default function VoiceInterviewPanel({
   onToggleMic,
   onBack,
 }: VoiceInterviewPanelProps) {
+  const difficultyInfo = getDifficultyDisplay(difficulty);
   const [textInput, setTextInput] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
@@ -141,6 +145,17 @@ export default function VoiceInterviewPanel({
           <span className="el-topbar-sub">
             {field} &middot; {techStack.join(", ") || "General"}
           </span>
+          {difficultyInfo && (
+            <span
+              className="el-topbar-difficulty"
+              style={{
+                color: difficultyInfo.color,
+                background: difficultyInfo.bg,
+              }}
+            >
+              {difficultyInfo.label}
+            </span>
+          )}
           <span className="el-topbar-sep">|</span>
           <span className={`el-topbar-live ${isConnected ? "active" : ""}`}>
             <span className="el-live-dot" />

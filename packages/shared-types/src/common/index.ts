@@ -32,6 +32,7 @@ export interface IInterviewListItem {
   id: string;
   field: string;
   techStack: string[];
+  difficulty?: string;
   status: string;
   score?: number;
   createdAt: string;

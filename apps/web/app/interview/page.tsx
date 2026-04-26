@@ -107,6 +107,7 @@ export default function InterviewPage() {
       <VoiceInterviewPanel
         field={field}
         techStack={techStack}
+        difficulty={difficulty}
         isConnected={el.isConnected}
         isCallActive={el.isCallActive}
         isSpeaking={el.isSpeaking}
