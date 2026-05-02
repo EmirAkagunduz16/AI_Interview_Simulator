@@ -30,7 +30,7 @@ export const McqOptionSchema = SchemaFactory.createForClass(McqOption);
 export class Question {
   _id: Types.ObjectId;
 
-  @Prop({ required: true, index: true }) title: string;
+  @Prop({ default: "", index: true }) title: string;
   @Prop({ required: true }) content: string;
   @Prop() hints?: string;
   @Prop() sampleAnswer?: string;

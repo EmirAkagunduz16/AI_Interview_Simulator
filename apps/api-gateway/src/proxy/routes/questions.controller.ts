@@ -56,6 +56,7 @@ export class QuestionsController implements OnModuleInit {
     @Query("difficulty") difficulty?: string,
     @Query("companyTag") companyTag?: string,
     @Query("sortBy") sortBy?: string,
+    @Query("tag") tag?: string,
   ) {
     return firstValueFrom(
       this.questionService.getCommunityQuestions({
@@ -65,8 +66,15 @@ export class QuestionsController implements OnModuleInit {
         difficulty,
         companyTag,
         sortBy,
+        tag,
       }),
     );
+  }
+
+  @Get("community/tags")
+  @Public()
+  async getCommunityTags() {
+    return firstValueFrom(this.questionService.getCommunityTags({}));
   }
 
   @Post("community")
@@ -74,10 +82,8 @@ export class QuestionsController implements OnModuleInit {
     @Req() req: AuthenticatedRequest,
     @Body()
     body: {
-      title: string;
       content: string;
       type?: string;
-      difficulty: string;
       category: string;
       companyTag?: string;
       tags?: string[];
@@ -87,10 +93,8 @@ export class QuestionsController implements OnModuleInit {
   ) {
     return firstValueFrom(
       this.questionService.submitCommunityQuestion({
-        title: body.title,
         content: body.content,
         type: body.type || "technical",
-        difficulty: body.difficulty,
         category: body.category,
         companyTag: body.companyTag || "",
         tags: body.tags || [],

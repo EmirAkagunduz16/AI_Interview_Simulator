@@ -77,10 +77,10 @@ export class InterviewFlowService implements OnModuleInit {
               result: {
                 interviewId: interview.id,
                 firstQuestion: firstQ,
+                firstQuestionId: cached[0]?.id || "",
+                firstQuestionOrder: cached[0]?.order || 1,
                 totalQuestions: cached.length,
-                questions: cached,
-                message: `${cached.length} soru (devam eden oturum).`,
-                activeQuestionForRepeat: firstQ,
+                questions: cached.map((q) => ({ id: q.id, order: q.order })),
               },
             };
           }
@@ -150,15 +150,28 @@ export class InterviewFlowService implements OnModuleInit {
       );
 
       const firstQ = formattedQuestions[0]?.question || "";
+
+      // IMPORTANT — Keep the agent-facing tool result as MINIMAL as possible.
+      // Each extra field tempts the model to read it aloud or improvise on it
+      // (e.g. when we used to send `message`/`activeQuestionForRepeat`, the
+      // agent narrated "5 soru hazırlandı, ilk soru ile başlıyoruz." and
+      // sometimes even generated a sample answer to its own question).
+      //
+      // Only `firstQuestion`, the question id/order map, and the count are
+      // truly needed. We INTENTIONALLY do NOT send the full question texts in
+      // the `questions` array — only ids+orders — so the model cannot pre-read
+      // upcoming questions or invent answers for them.
       return {
         result: {
           interviewId: interview.id,
           firstQuestion: firstQ,
+          firstQuestionId: formattedQuestions[0]?.sourceId || "",
+          firstQuestionOrder: formattedQuestions[0]?.order || 1,
           totalQuestions: formattedQuestions.length,
-          questions: cachedQuestions,
-          message: `${formattedQuestions.length} soru hazırlandı. İlk soru ile başlıyoruz.`,
-          /** "Tekrar sor" için: yalnızca bu metni kullan (ilk ana soru) */
-          activeQuestionForRepeat: firstQ,
+          questions: formattedQuestions.map((q) => ({
+            id: q.sourceId,
+            order: q.order,
+          })),
         },
       };
     } catch (error) {
@@ -186,10 +199,24 @@ export class InterviewFlowService implements OnModuleInit {
       answer,
     } = params;
 
+    const answerLength = answer?.length || 0;
     this.logger.log(
       `save_answer — interview: ${interviewId}, order: ${questionOrder}, ` +
-        `questionId: ${paramQuestionId || "(none)"}, answer length: ${answer?.length || 0}`,
+        `questionId: ${paramQuestionId || "(none)"}, answer length: ${answerLength}`,
     );
+
+    // An empty/missing answer almost always means the agent's tool call
+    // payload didn't include the `answer` field (e.g. due to a wrapped
+    // schema). Warn loudly so the issue is visible in logs — without an
+    // answer, the evaluation pipeline has nothing to score.
+    if (!answer || answerLength < 5) {
+      this.logger.warn(
+        `save_answer received EMPTY/TOO-SHORT answer for question ${questionOrder} ` +
+          `(interview: ${interviewId}). Raw params keys: [${Object.keys(params).join(", ")}]. ` +
+          `If you see this for every question, the agent tool schema is likely sending ` +
+          `parameters wrapped (e.g. { parameters: { answer: "..." } }) instead of flat.`,
+      );
+    }
 
     const cachedQuestions = interviewId
       ? await this.getCachedQuestions(interviewId)
@@ -232,6 +259,12 @@ export class InterviewFlowService implements OnModuleInit {
     const currentOrder = questionOrder || 0;
     const nextQ = cachedQuestions.find((q) => q.order === currentOrder + 1);
 
+    // Tool responses are kept minimal so the agent doesn't verbalize
+    // metadata. We deliberately omit `message`, `progress`,
+    // `bankQuestionAnswered`, and `activeQuestionForRepeat` because the model
+    // would otherwise read them aloud or use them as a springboard to
+    // hallucinate a sample answer.
+
     if (nextQ) {
       return {
         result: {
@@ -239,14 +272,6 @@ export class InterviewFlowService implements OnModuleInit {
           nextQuestion: nextQ.question,
           nextQuestionId: nextQ.id,
           nextQuestionOrder: nextQ.order,
-          progress: `Soru ${nextQ.order} / ${cachedQuestions.length || 5}`,
-          /** Bankadan gelen az önce cevaplanan ana soru (takip soruları değil) */
-          bankQuestionAnswered: resolvedQuestionText,
-          /**
-           * Kullanıcı "tekrar sor" dediğinde seslendirilecek metin: yeni ana soru.
-           * Alt soruları veya bir önceki turun son alt sorusunu tekrarlama.
-           */
-          activeQuestionForRepeat: nextQ.question,
         },
       };
     }
@@ -256,9 +281,6 @@ export class InterviewFlowService implements OnModuleInit {
         result: {
           saved: saveSuccess,
           finished: true,
-          message:
-            "Tüm sorular tamamlandı. Mülakatı bitirmek için end_interview çağır.",
-          bankQuestionAnswered: resolvedQuestionText,
         },
       };
     }
@@ -266,8 +288,6 @@ export class InterviewFlowService implements OnModuleInit {
     return {
       result: {
         saved: saveSuccess,
-        bankQuestionAnswered: resolvedQuestionText,
-        activeQuestionForRepeat: resolvedQuestionText,
       },
     };
   }
@@ -490,7 +510,54 @@ export class InterviewFlowService implements OnModuleInit {
       question?: string;
     }[]
   > {
-    let questions: {
+    const MAX_COMMUNITY = 2;
+
+    // ── Step 1: Fetch matching community questions ─────────────────────────
+    const communityQuestions: {
+      id?: string;
+      content?: string;
+      title?: string;
+      question?: string;
+    }[] = [];
+
+    try {
+      const communityResult = await firstValueFrom(
+        this.questionService.getCommunityQuestions({
+          page: 1,
+          limit: 20,
+          category: field,
+          difficulty,
+        }),
+      );
+
+      const matching = communityResult.questions || [];
+      if (matching.length > 0) {
+        // Shuffle and pick min(available, MAX_COMMUNITY) questions
+        const shuffled = [...matching].sort(() => Math.random() - 0.5);
+        const pickCount = Math.min(matching.length, MAX_COMMUNITY);
+        communityQuestions.push(
+          ...shuffled.slice(0, pickCount).map((q) => ({
+            id: q.id,
+            content: q.content,
+            title: q.title,
+          })),
+        );
+        this.logger.log(
+          `Community question(s) picked for interview: ${communityQuestions.length} / ${matching.length} matched`,
+        );
+      }
+    } catch (e) {
+      this.logger.warn("Community questions could not be fetched", e);
+    }
+
+    // ── Step 2: Fetch remaining regular (non-community) questions ──────────
+    const remaining = count - communityQuestions.length;
+    const allExcludeIds = [
+      ...excludeIds,
+      ...communityQuestions.map((q) => q.id || "").filter(Boolean),
+    ];
+
+    let regularQuestions: {
       id?: string;
       content?: string;
       title?: string;
@@ -500,14 +567,15 @@ export class InterviewFlowService implements OnModuleInit {
     try {
       const result = await firstValueFrom(
         this.questionService.getRandomQuestions({
-          count,
+          count: remaining,
           category: field,
           difficulty,
           tags: (techStack || []).join(","),
-          excludeIds,
+          excludeIds: allExcludeIds,
+          excludeCommunity: true,
         }),
       );
-      questions = result.questions || [];
+      regularQuestions = result.questions || [];
     } catch (e) {
       this.logger.warn(
         "question-service'ten soru çekilemedi, generate ediliyor...",
@@ -515,9 +583,9 @@ export class InterviewFlowService implements OnModuleInit {
       );
     }
 
-    if (questions.length < count) {
+    if (regularQuestions.length < remaining) {
       this.logger.log(
-        `Only ${questions.length}/${count} unique questions found, generating more...`,
+        `Only ${regularQuestions.length}/${remaining} regular questions found, generating more...`,
       );
       try {
         await firstValueFrom(
@@ -525,24 +593,25 @@ export class InterviewFlowService implements OnModuleInit {
             field: field || "",
             techStack: techStack || [],
             difficulty: difficulty || "",
-            count: count * 2,
+            count: remaining * 2,
           }),
         );
         const retryResult = await firstValueFrom(
           this.questionService.getRandomQuestions({
-            count,
+            count: remaining,
             category: field,
             difficulty,
             tags: (techStack || []).join(","),
-            excludeIds,
+            excludeIds: allExcludeIds,
+            excludeCommunity: true,
           }),
         );
-        questions = retryResult.questions || questions;
+        regularQuestions = retryResult.questions || regularQuestions;
       } catch (e) {
         this.logger.error("question-service soru üretemedi", e);
       }
     }
 
-    return questions;
+    return [...communityQuestions, ...regularQuestions];
   }
 }

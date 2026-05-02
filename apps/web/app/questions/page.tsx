@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -25,16 +25,18 @@ import {
   Zap,
   Award,
   Hash,
+  Cpu,
 } from "lucide-react";
 import { AuthGuard } from "@/features/auth/components";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { FIELD_LABELS } from "@/features/dashboard/data/fieldLabels";
+import { TECH_OPTIONS } from "@/features/interview/data/interviewConfig";
 import api from "@/lib/axios";
 import "./questions.scss";
 
 interface QuestionItem {
   id: string;
-  title: string;
+  title?: string;
   content: string;
   type: string;
   difficulty: string;
@@ -113,15 +115,16 @@ function QuestionsContent() {
   const [filterCategory, setFilterCategory] = useState("");
   const [filterDifficulty, setFilterDifficulty] = useState("");
   const [filterCompany, setFilterCompany] = useState("");
+  const [filterTag, setFilterTag] = useState("");
   const [communitySortBy, setCommunitySortBy] = useState("newest");
   const [communityPage, setCommunityPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Submit form state
-  const [formTitle, setFormTitle] = useState("");
+  // Submit form state — title and difficulty are no longer collected
+  // from the user; the title is derived from content and difficulty is
+  // classified by Gemini server-side.
   const [formContent, setFormContent] = useState("");
   const [formCategory, setFormCategory] = useState("backend");
-  const [formDifficulty, setFormDifficulty] = useState("intermediate");
   const [formCompany, setFormCompany] = useState("");
   const [formTags, setFormTags] = useState("");
 
@@ -154,6 +157,7 @@ function QuestionsContent() {
       filterCategory,
       filterDifficulty,
       filterCompany,
+      filterTag,
       communitySortBy,
     ],
     queryFn: async () => {
@@ -164,18 +168,45 @@ function QuestionsContent() {
       if (filterCategory) params.set("category", filterCategory);
       if (filterDifficulty) params.set("difficulty", filterDifficulty);
       if (filterCompany) params.set("companyTag", filterCompany);
+      if (filterTag) params.set("tag", filterTag);
       const res = await api.get(`/questions/community?${params}`);
       return res.data;
     },
   });
 
+  // Available technology tags from community submissions
+  const { data: communityTagsData } = useQuery<{ items: string[] }>({
+    queryKey: ["questions", "community-tags"],
+    queryFn: async () => {
+      const res = await api.get("/questions/community/tags");
+      return res.data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Build the technology dropdown options. We merge the technology pool from
+  // the interview config (so the user always sees a complete tech list per
+  // category) with the dynamic tags coming back from server.
+  const techDropdownOptions = useMemo(() => {
+    const fromConfig = filterCategory
+      ? TECH_OPTIONS[filterCategory] || []
+      : Object.values(TECH_OPTIONS).flat();
+    const fromServer = communityTagsData?.items || [];
+    const set = new Map<string, string>();
+    [...fromConfig, ...fromServer].forEach((t) => {
+      const trimmed = (t || "").trim();
+      if (!trimmed) return;
+      const key = trimmed.toLowerCase();
+      if (!set.has(key)) set.set(key, trimmed);
+    });
+    return Array.from(set.values()).sort((a, b) => a.localeCompare(b));
+  }, [filterCategory, communityTagsData]);
+
   // Submit mutation
   const submitMutation = useMutation({
     mutationFn: async (data: {
-      title: string;
       content: string;
       category: string;
-      difficulty: string;
       companyTag: string;
       tags: string[];
     }) => {
@@ -184,6 +215,7 @@ function QuestionsContent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["questions", "community"] });
+      queryClient.invalidateQueries({ queryKey: ["questions", "community-tags"] });
       setShowSubmitModal(false);
       resetForm();
     },
@@ -201,22 +233,18 @@ function QuestionsContent() {
   });
 
   function resetForm() {
-    setFormTitle("");
     setFormContent("");
     setFormCategory("backend");
-    setFormDifficulty("intermediate");
     setFormCompany("");
     setFormTags("");
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!formTitle.trim() || !formContent.trim()) return;
+    if (!formContent.trim()) return;
     submitMutation.mutate({
-      title: formTitle.trim(),
       content: formContent.trim(),
       category: formCategory,
-      difficulty: formDifficulty,
       companyTag: formCompany,
       tags: formTags
         .split(",")
@@ -229,10 +257,12 @@ function QuestionsContent() {
     setFilterCategory("");
     setFilterDifficulty("");
     setFilterCompany("");
+    setFilterTag("");
     setSearchQuery("");
   }
 
-  const hasFilters = filterCategory || filterDifficulty || filterCompany;
+  const hasFilters =
+    filterCategory || filterDifficulty || filterCompany || filterTag;
 
   const popularQuestions = popularData?.questions || [];
   const communityQuestions = communityData?.questions || [];
@@ -241,8 +271,7 @@ function QuestionsContent() {
   const filteredPopular = searchQuery
     ? popularQuestions.filter(
         (q) =>
-          q.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (q.content || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
           q.tags.some((t) =>
             t.toLowerCase().includes(searchQuery.toLowerCase()),
           ),
@@ -252,8 +281,7 @@ function QuestionsContent() {
   const filteredCommunity = searchQuery
     ? communityQuestions.filter(
         (q) =>
-          q.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (q.content || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
           q.tags.some((t) =>
             t.toLowerCase().includes(searchQuery.toLowerCase()),
           ),
@@ -411,21 +439,38 @@ function QuestionsContent() {
             ))}
           </select>
           {activeTab === "community" && (
-            <select
-              value={filterCompany}
-              onChange={(e) => {
-                setFilterCompany(e.target.value);
-                setCommunityPage(1);
-              }}
-              className="filter-select"
-            >
-              <option value="">Tüm Şirketler</option>
-              {COMPANY_OPTIONS.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            <>
+              <select
+                value={filterTag}
+                onChange={(e) => {
+                  setFilterTag(e.target.value);
+                  setCommunityPage(1);
+                }}
+                className="filter-select"
+              >
+                <option value="">Tüm Teknolojiler</option>
+                {techDropdownOptions.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filterCompany}
+                onChange={(e) => {
+                  setFilterCompany(e.target.value);
+                  setCommunityPage(1);
+                }}
+                className="filter-select"
+              >
+                <option value="">Tüm Şirketler</option>
+                {COMPANY_OPTIONS.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </>
           )}
           {hasFilters && (
             <button className="clear-filters-btn" onClick={clearFilters}>
@@ -537,52 +582,27 @@ function QuestionsContent() {
             </div>
             <form onSubmit={handleSubmit} className="submit-form">
               <div className="form-group">
-                <label>Soru Başlığı</label>
-                <input
-                  type="text"
-                  placeholder="Kısa ve açıklayıcı bir başlık"
-                  value={formTitle}
-                  onChange={(e) => setFormTitle(e.target.value)}
+                <label>Soru</label>
+                <textarea
+                  placeholder="Mülakatta sorulan soruyu olabildiğince net ve eksiksiz yazın..."
+                  value={formContent}
+                  onChange={(e) => setFormContent(e.target.value)}
+                  rows={5}
                   required
                 />
               </div>
               <div className="form-group">
-                <label>Soru İçeriği</label>
-                <textarea
-                  placeholder="Sorunun tam metnini yazın..."
-                  value={formContent}
-                  onChange={(e) => setFormContent(e.target.value)}
-                  rows={4}
-                  required
-                />
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Alan</label>
-                  <select
-                    value={formCategory}
-                    onChange={(e) => setFormCategory(e.target.value)}
-                  >
-                    {CATEGORY_OPTIONS.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Seviye</label>
-                  <select
-                    value={formDifficulty}
-                    onChange={(e) => setFormDifficulty(e.target.value)}
-                  >
-                    {DIFFICULTY_OPTIONS.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <label>Alan</label>
+                <select
+                  value={formCategory}
+                  onChange={(e) => setFormCategory(e.target.value)}
+                >
+                  {CATEGORY_OPTIONS.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="form-group">
                 <label>
@@ -612,6 +632,13 @@ function QuestionsContent() {
                   value={formTags}
                   onChange={(e) => setFormTags(e.target.value)}
                 />
+              </div>
+              <div className="ai-notice">
+                <Cpu size={14} />
+                <span>
+                  Sorunun zorluk seviyesi (Junior / Mid / Senior) otomatik
+                  olarak yapay zeka tarafından belirlenip etiketlenecek.
+                </span>
               </div>
               <button
                 type="submit"

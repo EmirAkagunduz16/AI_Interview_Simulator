@@ -47,6 +47,7 @@ export class QuestionsService {
 
     const question = await this.questionRepository.create({
       ...dto,
+      title: dto.title?.trim() || this.deriveTitleFromContent(dto.content),
       tags: dto.tags || [],
       mcqOptions: dto.mcqOptions || [],
     });
@@ -124,6 +125,7 @@ export class QuestionsService {
         tags: query.tags
           ? query.tags.split(",").map((t) => t.trim())
           : undefined,
+        excludeCommunity: query.excludeCommunity,
       },
       query.count || 5,
       query.excludeIds || [],
@@ -267,6 +269,7 @@ export class QuestionsService {
     difficulty?: string;
     companyTag?: string;
     sortBy?: string;
+    tag?: string;
   }): Promise<{
     questions: QuestionDocument[];
     total: number;
@@ -280,11 +283,16 @@ export class QuestionsService {
     return { ...result, page, totalPages };
   }
 
+  /**
+   * Submits a community-authored question. The difficulty is decided by
+   * Gemini based on the question content (not by the user).
+   * Title is auto-derived from content if missing.
+   */
   async submitCommunityQuestion(dto: {
-    title: string;
+    title?: string;
     content: string;
     type: string;
-    difficulty: string;
+    difficulty?: string;
     category: string;
     companyTag: string;
     tags: string[];
@@ -293,15 +301,42 @@ export class QuestionsService {
     hints?: string;
     sampleAnswer?: string;
   }): Promise<QuestionDocument> {
+    const aiDifficulty = await this.geminiService.classifyDifficulty({
+      content: dto.content,
+      field: dto.category,
+      tags: dto.tags,
+    });
+
+    const derivedTitle =
+      dto.title?.trim() || this.deriveTitleFromContent(dto.content);
+
     const question = await this.questionRepository.create({
       ...dto,
+      title: derivedTitle,
+      difficulty: aiDifficulty,
       createdBy: "community",
       mcqOptions: [],
       upvoteCount: 0,
       upvotedBy: [],
     } as any);
-    this.logger.log(`Community question submitted: ${question._id}`);
+    this.logger.log(
+      `Community question submitted: ${question._id} (AI difficulty=${aiDifficulty})`,
+    );
     return question;
+  }
+
+  async getCommunityTags(): Promise<string[]> {
+    return this.questionRepository.getDistinctCommunityTags();
+  }
+
+  /**
+   * Generates a short title (max ~80 chars) from the question content.
+   * Used when a community submission has no explicit title.
+   */
+  private deriveTitleFromContent(content: string): string {
+    const cleaned = (content || "").trim().replace(/\s+/g, " ");
+    if (cleaned.length <= 80) return cleaned;
+    return cleaned.slice(0, 77).trimEnd() + "...";
   }
 
   async toggleUpvote(

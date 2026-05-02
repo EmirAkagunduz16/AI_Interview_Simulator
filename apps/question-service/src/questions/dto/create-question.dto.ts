@@ -22,9 +22,9 @@ export class McqOptionDto {
 
 export class CreateQuestionDto {
   @IsString()
-  @MinLength(5)
+  @IsOptional()
   @MaxLength(500)
-  title: string;
+  title?: string;
 
   @IsString()
   @MinLength(10)

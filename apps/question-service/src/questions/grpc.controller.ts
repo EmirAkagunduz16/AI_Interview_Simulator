@@ -79,6 +79,7 @@ export class GrpcQuestionsController {
       category: data.category,
       tags: data.tags,
       excludeIds: data.excludeIds,
+      excludeCommunity: data.excludeCommunity,
     } as Parameters<typeof this.questionsService.findRandom>[0]);
     return {
       questions: questions.map((q) => {
@@ -187,6 +188,7 @@ export class GrpcQuestionsController {
       difficulty,
       companyTag: data.companyTag,
       sortBy: data.sortBy,
+      tag: data.tag,
     });
     return {
       questions: result.questions.map((q) =>
@@ -198,19 +200,23 @@ export class GrpcQuestionsController {
     };
   }
 
+  @GrpcMethod("QuestionService", "GetCommunityTags")
+  async getCommunityTags(): Promise<StringListResponse> {
+    this.logger.debug("gRPC GetCommunityTags");
+    const tags = await this.questionsService.getCommunityTags();
+    return { items: tags };
+  }
+
   @GrpcMethod("QuestionService", "SubmitCommunityQuestion")
   async submitCommunityQuestion(
     data: SubmitCommunityQuestionRequest,
   ): Promise<QuestionResponse> {
     this.logger.debug("gRPC SubmitCommunityQuestion");
-    const difficulty = mapInterviewDifficultyToQuestionDifficulty(
-      data.difficulty || "",
-    );
     const question = await this.questionsService.submitCommunityQuestion({
       title: data.title,
       content: data.content,
       type: data.type || "technical",
-      difficulty: difficulty || "medium",
+      // No client-side difficulty: questions.service uses Gemini to classify
       category: data.category,
       companyTag: data.companyTag || "",
       tags: data.tags || [],

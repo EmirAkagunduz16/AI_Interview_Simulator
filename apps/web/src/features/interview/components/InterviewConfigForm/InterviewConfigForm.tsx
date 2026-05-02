@@ -105,7 +105,7 @@ export default function InterviewConfigForm({
         <div className="topnav-actions">
           <button className="logout-btn" onClick={() => logout()}>
             <LogOut size={16} />
-            <span>Cikis</span>
+            <span>Logout</span>
           </button>
         </div>
       </header>

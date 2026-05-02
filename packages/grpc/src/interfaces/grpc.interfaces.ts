@@ -368,13 +368,14 @@ export interface GetCommunityQuestionsRequest {
   difficulty?: string;
   companyTag?: string;
   sortBy?: string;
+  tag?: string;
 }
 
 export interface SubmitCommunityQuestionRequest {
-  title: string;
+  title?: string;
   content: string;
   type: string;
-  difficulty: string;
+  difficulty?: string;
   category: string;
   companyTag: string;
   tags: string[];
@@ -414,6 +415,7 @@ export interface GetRandomQuestionsRequest {
   category?: string;
   tags?: string;
   excludeIds?: string[];
+  excludeCommunity?: boolean;
 }
 
 export interface CreateQuestionRequest {
@@ -507,6 +509,7 @@ export interface IGrpcQuestionService {
   getCommunityQuestions(
     data: GetCommunityQuestionsRequest,
   ): Observable<QuestionsListResponse>;
+  getCommunityTags(data: Record<string, never>): Observable<StringListResponse>;
   submitCommunityQuestion(
     data: SubmitCommunityQuestionRequest,
   ): Observable<QuestionResponse>;

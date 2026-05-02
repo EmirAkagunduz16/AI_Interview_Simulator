@@ -14,6 +14,7 @@ import type { TranscriptMessage } from "../../hooks/useElevenLabs";
 interface VoiceInterviewPanelProps {
   field: string;
   techStack: string[];
+  difficulty: string;
   isConnected: boolean;
   isCallActive: boolean;
   isSpeaking: boolean;
@@ -27,9 +28,23 @@ interface VoiceInterviewPanelProps {
   onStartCall: () => void;
   onEndCall: () => void;
   onSendMessage: (text: string) => void;
+  /** Called whenever the user types into the text box. Pauses agent TTS so a typed answer doesn't get overlapped by speech from a previous turn. */
+  onUserTyping?: () => void;
   onToggleMic: () => void;
   onBack: () => void;
 }
+
+const DIFFICULTY_LABELS: Record<string, string> = {
+  junior: "Junior",
+  intermediate: "Mid-Level",
+  senior: "Senior",
+};
+
+const DIFFICULTY_COLORS: Record<string, string> = {
+  junior: "#4ade80",
+  intermediate: "#facc15",
+  senior: "#f87171",
+};
 
 const EMOTION_REGEX = /\[([^\]]+)\]/g;
 const EMOTION_COLORS: Record<string, { bg: string; text: string }> = {
@@ -78,6 +93,7 @@ function renderMessageContent(text: string) {
 export default function VoiceInterviewPanel({
   field,
   techStack,
+  difficulty,
   isConnected,
   isCallActive,
   isSpeaking,
@@ -90,9 +106,12 @@ export default function VoiceInterviewPanel({
   onStartCall,
   onEndCall,
   onSendMessage,
+  onUserTyping,
   onToggleMic,
   onBack,
 }: VoiceInterviewPanelProps) {
+  const difficultyLabel = DIFFICULTY_LABELS[difficulty] || difficulty;
+  const difficultyColor = DIFFICULTY_COLORS[difficulty] || "#94a3b8";
   const [textInput, setTextInput] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
@@ -140,6 +159,13 @@ export default function VoiceInterviewPanel({
           <span className="el-topbar-sep">|</span>
           <span className="el-topbar-sub">
             {field} &middot; {techStack.join(", ") || "General"}
+          </span>
+          <span className="el-topbar-sep">|</span>
+          <span
+            className="el-topbar-difficulty"
+            style={{ color: difficultyColor }}
+          >
+            {difficultyLabel}
           </span>
           <span className="el-topbar-sep">|</span>
           <span className={`el-topbar-live ${isConnected ? "active" : ""}`}>
@@ -252,7 +278,17 @@ export default function VoiceInterviewPanel({
               type="text"
               placeholder="Mesaj yazın..."
               value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                const wasEmpty = textInput.length === 0;
+                setTextInput(next);
+                // Only signal once when the user STARTS typing into an empty
+                // box. Calling this on every keystroke caused the agent's TTS
+                // to be cut repeatedly, producing choppy audio.
+                if (wasEmpty && next.length > 0) {
+                  onUserTyping?.();
+                }
+              }}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
               disabled={!isCallActive}
             />

@@ -14,6 +14,7 @@ service QuestionService {
   rpc DeleteQuestion(DeleteQuestionRequest) returns (EmptyResponse);
   rpc GetPopularQuestions(GetPopularQuestionsRequest) returns (QuestionListResponse);
   rpc GetCommunityQuestions(GetCommunityQuestionsRequest) returns (PaginatedQuestionResponse);
+  rpc GetCommunityTags(EmptyRequest) returns (StringListResponse);
   rpc SubmitCommunityQuestion(SubmitCommunityQuestionRequest) returns (QuestionResponse);
   rpc UpvoteQuestion(UpvoteQuestionRequest) returns (UpvoteQuestionResponse);
 }
@@ -40,6 +41,7 @@ message GetRandomQuestionsRequest {
   optional string category = 4;
   optional string tags = 5;
   repeated string exclude_ids = 6;
+  bool exclude_community = 7;
 }
 
 message CreateQuestionRequest {
@@ -89,13 +91,14 @@ message GetCommunityQuestionsRequest {
   optional string difficulty = 4;
   optional string company_tag = 5;
   optional string sort_by = 6;
+  optional string tag = 7;
 }
 
 message SubmitCommunityQuestionRequest {
-  string title = 1;
+  optional string title = 1;
   string content = 2;
   string type = 3;
-  string difficulty = 4;
+  optional string difficulty = 4;
   string category = 5;
   string company_tag = 6;
   repeated string tags = 7;

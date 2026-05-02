@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsOptional, IsNumber, Min } from "class-validator";
+import { IsString, IsEnum, IsOptional, IsNumber, IsBoolean, Min } from "class-validator";
 import { Type } from "class-transformer";
 import { QuestionType, Difficulty } from "../entities/question.entity";
 
@@ -58,4 +58,8 @@ export class RandomQuestionsDto {
   @IsString({ each: true })
   @IsOptional()
   excludeIds?: string[];
+
+  @IsBoolean()
+  @IsOptional()
+  excludeCommunity?: boolean;
 }

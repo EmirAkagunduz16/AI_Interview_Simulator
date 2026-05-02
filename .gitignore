@@ -45,4 +45,4 @@ ai_mock_interviews/*
 
 .vscode
 prompt.md
-stabil-prompt.md
+tools/*

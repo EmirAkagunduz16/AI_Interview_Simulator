@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
+import { Difficulty } from "@ai-coach/shared-types";
 
 interface GeneratedQuestion {
   title: string;
@@ -76,6 +77,65 @@ Sadece JSON dizisi döndür, başka hiçbir şey yazma.`;
     } catch (error) {
       this.logger.error("Gemini question generation failed", error);
       throw error;
+    }
+  }
+
+  /**
+   * Classifies the difficulty of a community-submitted question using Gemini.
+   * Returns one of: easy | medium | hard. Falls back to "medium" on failure.
+   */
+  async classifyDifficulty(params: {
+    content: string;
+    field?: string;
+    tags?: string[];
+  }): Promise<Difficulty> {
+    const { content, field, tags } = params;
+
+    if (!content || content.trim().length < 10) {
+      return Difficulty.MEDIUM;
+    }
+
+    const prompt = `Sen, deneyimli bir teknik mülakat uzmanısın. Sana verilen mülakat sorusunu okuyup zorluk seviyesini belirle.
+
+Soru: """${content}"""
+${field ? `Alan: ${field}` : ""}
+${tags && tags.length ? `Teknolojiler: ${tags.join(", ")}` : ""}
+
+Zorluk kriterleri (kim cevaplayabilir bakış açısıyla):
+- "easy": Junior (0-2 yıl) seviyede; temel kavramlar, tanımlar, sözdizimi soruları.
+- "medium": Mid-level (2-5 yıl) seviyede; kavramların derinlemesine kullanımı, mimari kararlar, pratik problemler.
+- "hard": Senior (5+ yıl) seviyede; ileri düzey mimari, performans, edge case'ler, tradeoff analizleri, system design.
+
+SADECE şu JSON'u döndür, başka hiçbir şey yazma:
+{"difficulty": "easy" | "medium" | "hard"}`;
+
+    try {
+      const result = await this.model.generateContent(prompt);
+      const text = result.response.text();
+      const cleaned = text
+        .replace(/```json\n?/g, "")
+        .replace(/```\n?/g, "")
+        .trim();
+      const firstBrace = cleaned.indexOf("{");
+      const lastBrace = cleaned.lastIndexOf("}");
+      const jsonStr =
+        firstBrace !== -1 && lastBrace > firstBrace
+          ? cleaned.slice(firstBrace, lastBrace + 1)
+          : cleaned;
+      const parsed = JSON.parse(jsonStr) as { difficulty?: string };
+      const raw = (parsed.difficulty || "").toLowerCase().trim();
+
+      if (raw === "easy") return Difficulty.EASY;
+      if (raw === "hard") return Difficulty.HARD;
+      if (raw === "medium") return Difficulty.MEDIUM;
+
+      this.logger.warn(`Gemini returned unknown difficulty: "${raw}"`);
+      return Difficulty.MEDIUM;
+    } catch (error) {
+      this.logger.warn(
+        `Gemini classifyDifficulty failed, defaulting to medium: ${(error as Error)?.message}`,
+      );
+      return Difficulty.MEDIUM;
     }
   }
 }

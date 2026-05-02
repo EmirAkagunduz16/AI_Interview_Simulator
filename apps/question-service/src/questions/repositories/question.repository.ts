@@ -15,6 +15,7 @@ export interface QuestionFilter {
   category?: string;
   tags?: string[];
   isActive?: boolean;
+  excludeCommunity?: boolean;
 }
 
 @Injectable()
@@ -138,6 +139,7 @@ export class QuestionRepository extends BaseRepository<QuestionDocument> {
       difficulty?: string;
       companyTag?: string;
       sortBy?: string;
+      tag?: string;
     } = {},
   ): Promise<{ questions: QuestionDocument[]; total: number }> {
     const { page = 1, limit = 12, sortBy = "newest" } = options;
@@ -148,6 +150,9 @@ export class QuestionRepository extends BaseRepository<QuestionDocument> {
     if (options.category) query.category = options.category;
     if (options.difficulty) query.difficulty = options.difficulty;
     if (options.companyTag) query.companyTag = options.companyTag;
+    if (options.tag) {
+      query.tags = { $regex: `^${options.tag}$`, $options: "i" };
+    }
 
     const sortMap: Record<string, Record<string, 1 | -1>> = {
       newest: { createdAt: -1 },
@@ -233,6 +238,17 @@ export class QuestionRepository extends BaseRepository<QuestionDocument> {
       .exec();
   }
 
+  /**
+   * Returns the unique technology tags present on community-submitted questions.
+   * Used to populate the technology filter on the community page.
+   */
+  async getDistinctCommunityTags(): Promise<string[]> {
+    const tags = await this.questionModel
+      .distinct("tags", { isActive: true, createdBy: "community" })
+      .exec();
+    return (tags || []).filter((t): t is string => !!t && t.trim().length > 0);
+  }
+
   private buildFilterQuery(filter: QuestionFilter): FilterQuery<Question> {
     const query: FilterQuery<Question> = {};
 
@@ -241,6 +257,7 @@ export class QuestionRepository extends BaseRepository<QuestionDocument> {
     if (filter.category) query.category = filter.category;
     if (filter.tags?.length) query.tags = { $in: filter.tags };
     if (filter.isActive !== undefined) query.isActive = filter.isActive;
+    if (filter.excludeCommunity) query.createdBy = { $ne: "community" };
 
     return query;
   }

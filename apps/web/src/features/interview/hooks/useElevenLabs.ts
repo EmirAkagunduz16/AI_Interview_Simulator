@@ -51,6 +51,13 @@ interface UseElevenLabsReturn {
   startCall: () => Promise<void>;
   endCall: () => Promise<void>;
   sendTextMessage: (text: string) => void;
+  /**
+   * Signals the agent that the user is actively typing. Calling this while
+   * the agent is speaking interrupts its TTS playback so a typed answer
+   * doesn't get drowned by an audio response from a previous turn.
+   * Safe to call repeatedly (e.g., on every keystroke, throttled).
+   */
+  notifyUserTyping: () => void;
   inputVolume: number;
   outputVolume: number;
 }
@@ -74,10 +81,16 @@ const POST_AGENT_SPEECH_MS = (() => {
   return Number.isFinite(n) && n >= 0 ? n : 280;
 })();
 
+/**
+ * Connection type. WebRTC is much more resilient on flaky networks
+ * (handles jitter, packet loss, NAT changes, brief disconnects) so we use
+ * it by default. Set `NEXT_PUBLIC_ELEVENLABS_USE_WEBRTC=false` to force the
+ * legacy WebSocket transport.
+ */
 const CONNECTION_TYPE =
-  process.env.NEXT_PUBLIC_ELEVENLABS_USE_WEBRTC === "true"
-    ? ("webrtc" as const)
-    : ("websocket" as const);
+  process.env.NEXT_PUBLIC_ELEVENLABS_USE_WEBRTC === "false"
+    ? ("websocket" as const)
+    : ("webrtc" as const);
 
 /** Biases ASR + voice pipeline toward Turkish (code-switch with English stack names). */
 const ELEVENLABS_AGENT_LANGUAGE = (
@@ -181,49 +194,6 @@ export function useElevenLabs(
       .then(() => undefined);
   }, []);
 
-  /**
-   * Persists official bank soru metnini backend transcript buffer’a yazar.
-   * UI’da **ayrı balon eklemez** — aksi halde TTS’in söylemediği “hayalet” satırlar oluşuyordu
-   * (SDK metin ile ses farklı seçebilir). Görünen metin yalnızca `onMessage`.
-   */
-  const persistCanonicalAgentText = useCallback(
-    async (raw: string) => {
-      const text = normalizeTranscript(sanitizeAgentTranscript(raw?.trim() || ""));
-      if (text.length < 8) return;
-
-      const currentId = interviewIdRef.current;
-      if (!currentId) return;
-
-      const normalized = text;
-      const now = Date.now();
-      if (messageBufferRef.current && messageBufferRef.current.role !== "agent") {
-        await flushMessageBuffer();
-      }
-      if (!messageBufferRef.current) {
-        messageBufferRef.current = {
-          role: "agent",
-          chunks: [],
-          lastTimestamp: now,
-        };
-      }
-      const buf = messageBufferRef.current;
-      const lastChunk = buf.chunks[buf.chunks.length - 1];
-      if (
-        lastChunk &&
-        (normalized.startsWith(lastChunk) || lastChunk.startsWith(normalized))
-      ) {
-        buf.chunks[buf.chunks.length - 1] =
-          normalized.length >= lastChunk.length ? normalized : lastChunk;
-      } else {
-        buf.chunks.push(normalized);
-      }
-      buf.lastTimestamp = now;
-      if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
-      flushTimerRef.current = setTimeout(flushMessageBuffer, 3000);
-    },
-    [flushMessageBuffer],
-  );
-
   const conversation = useConversation({
     micMuted: micMutedForSdk,
     preferHeadphonesForIosDevices: true,
@@ -313,7 +283,6 @@ export function useElevenLabs(
       const role = source === "ai" ? "agent" : "user";
 
       const dedupRef = { skip: false, replace: false, finalContent: content };
-      let msg: TranscriptMessage;
 
       setTranscript((prev) => {
         const last = prev[prev.length - 1];
@@ -362,7 +331,7 @@ export function useElevenLabs(
         ];
       });
       if (dedupRef.skip) return;
-      msg = {
+      const msg: TranscriptMessage = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         source,
         message: dedupRef.replace ? dedupRef.finalContent : content,
@@ -528,9 +497,14 @@ export function useElevenLabs(
             setInterviewId(result.interviewId);
             interviewIdRef.current = result.interviewId;
           }
+          // NOTE: We intentionally do NOT persist the canonical bank question
+          // text into the transcript here. Only what the agent actually
+          // *speaks* (via onMessage) is recorded. Persisting the bank text
+          // produced "phantom" questions in the transcript history that the
+          // user never actually heard (the agent often paraphrases, or the
+          // session ends before that question is even asked).
           if (result.firstQuestion) {
             setCurrentQuestion(result.firstQuestion as string);
-            await persistCanonicalAgentText(result.firstQuestion as string);
           }
           accumulatedAnswers.current = [];
           return JSON.stringify(result);
@@ -546,7 +520,8 @@ export function useElevenLabs(
       save_answer: async (parameters: Record<string, unknown>) => {
         console.debug("[ClientTool] save_answer called with:", parameters);
 
-        // Accumulate answer locally (always succeeds, no network)
+        // Always accumulate locally as a backup — even if the webhook fails,
+        // end_interview can still recover the answer from this list.
         const accAnswer: AccumulatedAnswer = {
           question:
             (parameters.questionText as string) ||
@@ -559,10 +534,14 @@ export function useElevenLabs(
         };
         accumulatedAnswers.current.push(accAnswer);
 
-        // Fire backend API call in background (don't await — return fast
-        // so ElevenLabs SDK doesn't hit response_timeout_secs)
-        api
-          .post("/ai/vapi/webhook", {
+        // We MUST await the webhook here. The agent's flow depends on the
+        // returned `{ nextQuestion, nextQuestionId, finished }` to know
+        // what to ask next or when to end. Returning fire-and-forget broke
+        // the conversation: the agent had no `nextQuestion` and either
+        // hallucinated one or sat silent, and `end_interview` never
+        // received the proper answers (so evaluation produced empty reports).
+        try {
+          const response = await api.post("/ai/vapi/webhook", {
             message: {
               type: "function-call",
               functionCall: {
@@ -570,27 +549,25 @@ export function useElevenLabs(
                 parameters: mergeToolCallParameters(parameters),
               },
             },
-          })
-          .then(async (response) => {
-            const result = response.data.result || {};
-            console.debug("[ClientTool] save_answer bg result:", result);
-            if (result.nextQuestion) {
-              setCurrentQuestion(result.nextQuestion as string);
-              await persistCanonicalAgentText(result.nextQuestion as string);
-            }
-            if (result.finished) setCurrentQuestion("");
-          })
-          .catch((err: unknown) => {
-            console.warn("[ClientTool] save_answer bg save failed:", err);
           });
-
-        // Return immediately so ElevenLabs agent can proceed
-        // The nextQuestion text is already known from save_preferences
-        return JSON.stringify({
-          success: true,
-          message: "Cevap kaydedildi.",
-          questionOrder: accAnswer.order,
-        });
+          const result = response.data.result || {};
+          console.debug("[ClientTool] save_answer result:", result);
+          if (result.nextQuestion) {
+            setCurrentQuestion(result.nextQuestion as string);
+          }
+          if (result.finished) setCurrentQuestion("");
+          return JSON.stringify(result);
+        } catch (err) {
+          console.error("[ClientTool] save_answer failed:", err);
+          // Local accumulation still happened above, so end_interview can
+          // recover. We return a minimal error so the agent moves on rather
+          // than retrying indefinitely.
+          return JSON.stringify({
+            saved: false,
+            error: true,
+            message: "Cevap geçici olarak kaydedilemedi, mülakata devam edin.",
+          });
+        }
       },
 
       end_interview: async (parameters: Record<string, unknown>) => {
@@ -625,7 +602,7 @@ export function useElevenLabs(
         }
       },
     };
-  }, [persistCanonicalAgentText, mergeToolCallParameters, disconnectVoiceAndResetUi]);
+  }, [mergeToolCallParameters, disconnectVoiceAndResetUi]);
 
   const startCall = useCallback(async () => {
     const cfg = configRef.current;
@@ -820,6 +797,10 @@ export function useElevenLabs(
         });
         const data = response.data;
         const score = data.result?.overallScore ?? data.result?.score;
+        // The webhook returns immediately with `evaluating: true` (no score
+        // yet) so `score` is usually undefined. We set 0 here ONLY to trigger
+        // the transition to the completed step — the CompletedScreen then
+        // polls the interview to display the real score once Gemini is done.
         setOverallScore(score != null ? score : 0);
       } catch {
         setOverallScore(0);
@@ -834,6 +815,16 @@ export function useElevenLabs(
   const sendTextMessage = useCallback(
     (text: string) => {
       if (conversation.status === "connected" && text.trim()) {
+        // Interrupt any ongoing agent TTS so the new typed answer doesn't
+        // overlap with audio from a previous turn. `sendUserActivity` is
+        // ElevenLabs' canonical way to do this — it tells the agent that
+        // the user is active right now and any pending speech should yield.
+        try {
+          conversation.sendUserActivity?.();
+        } catch {
+          /* SDK not connected yet — safe to ignore */
+        }
+
         const userMsg: TranscriptMessage = {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           source: "user",
@@ -872,6 +863,34 @@ export function useElevenLabs(
     [conversation, flushMessageBuffer],
   );
 
+  /**
+   * Signal that the user is currently typing.
+   *
+   * This calls `sendUserActivity()` which makes the agent yield/interrupt its
+   * TTS. We use it sparingly — calling it too often (on every keystroke) was
+   * causing **choppy / stuttering audio** because each call cuts the agent's
+   * speech mid-utterance.
+   *
+   * Strategy:
+   *  - Only signal once per "typing burst" — i.e., when the user starts
+   *    typing after a pause. Subsequent keystrokes within the same burst do
+   *    nothing (the agent is already paused).
+   *  - 1500ms cool-down. After the user stops typing, the next keystroke
+   *    counts as a new burst and is allowed to signal again.
+   */
+  const lastUserActivityRef = useRef(0);
+  const notifyUserTyping = useCallback(() => {
+    if (conversation.status !== "connected") return;
+    const now = Date.now();
+    if (now - lastUserActivityRef.current < 1500) return;
+    lastUserActivityRef.current = now;
+    try {
+      conversation.sendUserActivity?.();
+    } catch {
+      /* not connected */
+    }
+  }, [conversation]);
+
   const toggleMic = useCallback(() => {
     setUserMicMuted((prev) => !prev);
   }, []);
@@ -902,6 +921,7 @@ export function useElevenLabs(
     startCall,
     endCall,
     sendTextMessage,
+    notifyUserTyping,
     inputVolume,
     outputVolume,
   };
