@@ -19,6 +19,7 @@
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "@ai-coach/shared-types": ["../../packages/shared-types/dist"]
-    }
+    },
+    "strictPropertyInitialization": false
   }
 }
