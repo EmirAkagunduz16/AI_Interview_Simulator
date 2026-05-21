@@ -46,3 +46,5 @@ ai_mock_interviews/*
 .vscode
 prompt.md
 tools/*
+
+bitirme/*
