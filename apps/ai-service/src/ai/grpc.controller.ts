@@ -30,7 +30,7 @@ export class GrpcAiController {
       return { jsonResponse: JSON.stringify({ received: true }) };
     }
 
-    const userId = data.userId;
+    const userId = data?.userId;
     const message = body.message as Record<string, unknown> | undefined;
     if (!message) {
       return { jsonResponse: JSON.stringify({ received: true }) };
